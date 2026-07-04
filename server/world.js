@@ -3,7 +3,7 @@
 // Il mare dell'Internet: un mondo condiviso dove ogni dominio diventa un'isola
 // posizionata in modo deterministico (stesso dominio -> stessa posizione per tutti).
 
-const blocklist = require('./blocklist');
+const blocklist = require('./blocklist-core');
 
 const WORLD = { W: 6000, H: 6000 };
 const PORT = { x: WORLD.W / 2, y: WORLD.H / 2 };
@@ -72,7 +72,7 @@ function parseCourse(q) {
 }
 
 // Knob per i test end-to-end: fortezze di cartapesta (WEAK_FORTS=1).
-const HPX = process.env.WEAK_FORTS ? 0.05 : 1;
+const HPX = (typeof process !== 'undefined' ? process.env.WEAK_FORTS : undefined) ? 0.05 : 1;
 
 function makeDefense(kind, x, y, hp) {
   hp = Math.max(10, Math.round(hp * HPX));

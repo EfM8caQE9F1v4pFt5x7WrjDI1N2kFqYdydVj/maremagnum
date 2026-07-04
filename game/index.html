@@ -125,6 +125,26 @@
     <label class="setRow"><input type="checkbox" id="setSfx" checked> 🔊 Effetti sonori</label>
     <label class="setRow"><input type="checkbox" id="setGuard" checked> 🛡 Ciurma di Guardia — respinge spie e pubblicità</label>
     <label class="setRow vol">🔉 Volume <input type="range" id="setVol" min="0" max="100" value="80"></label>
+    <div id="ancoraSez">
+      <h3 class="shopSection">⚓ Ancoraggio del profilo</h3>
+      <p class="sub" id="ancoraStato">Il tuo bottino vive solo su questa nave. Getta l'ancora per salvarlo in mare aperto.</p>
+      <div id="ancoraForm">
+        <input id="ancoraHandle" placeholder="nome o mail — non la verifichiamo" autocomplete="off">
+        <div class="row">
+          <button id="ancoraCrea">⚓ Getta l'ancora</button>
+          <button id="ancoraEntraBtn" class="linkish">Ho già un ancoraggio</button>
+        </div>
+      </div>
+      <div id="ancoraQr" class="hidden">
+        <canvas id="ancoraQrCanvas" width="168" height="168"></canvas>
+        <p class="sub">Inquadra con la tua app di autenticazione,<br>o inserisci la chiave a mano: <code id="ancoraSegreto"></code></p>
+      </div>
+      <form id="ancoraCodiceForm" class="hidden">
+        <input id="ancoraCodice" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="off">
+        <button type="submit">Conferma</button>
+      </form>
+      <p class="ruoli">Niente password, niente email di conferma. Se perdi il generatore perdi il forziere;<br>dopo 30 giorni senza entrare, il mare si riprende tutto.</p>
+    </div>
     <button id="settingsClose" class="linkish">Chiudi</button>
   </div>
 </div>

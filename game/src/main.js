@@ -9,6 +9,7 @@ import { Net, serverUrl } from './net.js';
 import { sfx } from './audio.js';
 import { music } from './music.js';
 import { lerp, anglerp, pirateName } from './util.js';
+import QRCode from 'qrcode';
 
 const INTERP_DELAY = 120; // ms nel passato: si naviga fra due snapshot certi
 const GROUPS = ['left', 'right', 'bow', 'stern'];
@@ -95,6 +96,7 @@ async function boot() {
     volume: state.profile.volume ?? 0.8,
   };
   applySettings(prefs, true);
+  wireAncora();
 
   wireNet();
   net.connect();
@@ -124,6 +126,75 @@ async function boot() {
 
 function setCourse(q) { net.send({ t: 'course', q }); }
 function undock() { net.send({ t: 'undock' }); }
+
+// --- Ancoraggio del profilo (nome + TOTP, vive sul Maremagnum online) ---
+
+const $id = (x) => document.getElementById(x);
+let ancoraModo = null; // 'crea' | 'entra'
+
+function ancoraAggiornaStato() {
+  const a = state.profile.ancora;
+  if (a && a.token) {
+    $id('ancoraStato').innerHTML = `Ancorato come <b>${a.uid}</b>. Il bottino è al sicuro in mare aperto.`;
+    $id('ancoraForm').classList.add('hidden');
+    $id('ancoraQr').classList.add('hidden');
+    $id('ancoraCodiceForm').classList.add('hidden');
+  }
+}
+
+async function ancoraChiama(rotta, corpo) {
+  const res = await fetch('/ancora/' + rotta, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(corpo),
+  });
+  return res.json();
+}
+
+function wireAncora() {
+  ancoraAggiornaStato();
+  $id('ancoraCrea').addEventListener('click', async () => {
+    const handle = $id('ancoraHandle').value.trim();
+    if (!handle) return;
+    try {
+      const r = await ancoraChiama('nuovo', { handle });
+      if (r.errore) { ui.toast('⚓ ' + r.errore); return; }
+      ancoraModo = 'crea';
+      state._ancoraHandle = r.uid;
+      QRCode.toCanvas($id('ancoraQrCanvas'), r.otpauth, { width: 168, margin: 1 });
+      $id('ancoraSegreto').textContent = r.segreto;
+      $id('ancoraQr').classList.remove('hidden');
+      $id('ancoraCodiceForm').classList.remove('hidden');
+      $id('ancoraCodice').focus();
+    } catch {
+      ui.toast("⚓ L'Ancoraggio vive sul Maremagnum online, non su questo server locale.");
+    }
+  });
+  $id('ancoraEntraBtn').addEventListener('click', () => {
+    const handle = $id('ancoraHandle').value.trim();
+    if (!handle) { ui.toast('Scrivi il nome del tuo ancoraggio, poi il codice.'); return; }
+    ancoraModo = 'entra';
+    state._ancoraHandle = handle;
+    $id('ancoraQr').classList.add('hidden');
+    $id('ancoraCodiceForm').classList.remove('hidden');
+    $id('ancoraCodice').focus();
+  });
+  $id('ancoraCodiceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const codice = $id('ancoraCodice').value.trim();
+    try {
+      const r = await ancoraChiama(ancoraModo === 'crea' ? 'conferma' : 'entra',
+        { handle: state._ancoraHandle, codice });
+      if (r.errore) { ui.toast('⚓ ' + r.errore); return; }
+      state.profile.ancora = { token: r.token, uid: r.uid };
+      saveProfile();
+      ui.toast("⚓ Ancora gettata! Si rientra in mare col profilo al sicuro…", 4000);
+      setTimeout(() => location.reload(), 1600);
+    } catch {
+      ui.toast("⚓ L'Ancoraggio vive sul Maremagnum online, non su questo server locale.");
+    }
+  });
+}
 
 function applySettings({ music: m, sfx: s, guard: g, volume: v }, skipSave) {
   state.profile.musicOn = m;
@@ -172,7 +243,10 @@ function applyYou(you) {
 }
 
 function wireNet() {
-  net.on('_open', () => net.send({ t: 'join', name: state.profile.name, profile: state.profile }));
+  net.on('_open', () => net.send({
+    t: 'join', name: state.profile.name, profile: state.profile,
+    token: state.profile.ancora ? state.profile.ancora.token : undefined,
+  }));
   net.on('_close', () => ui.toast('⚠ Il mare si è chiuso: connessione perduta. Ricarica per salpare di nuovo.', 60000));
 
   net.on('welcome', (m) => {

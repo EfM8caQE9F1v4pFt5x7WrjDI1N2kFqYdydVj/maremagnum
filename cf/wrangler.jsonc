@@ -1,0 +1,25 @@
+{
+  // Il Maremagnum su Cloudflare — SOLO piano gratuito:
+  // Durable Objects SQLite-backed (obbligatori sul free), niente smart placement,
+  // R2 usato solo per la cache della blocklist (entro i 10GB gratuiti).
+  "name": "maremagnum",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-06-01",
+  "assets": {
+    "directory": "../game",
+    "binding": "ASSETS"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "MARE", "class_name": "MareDO" },
+      { "name": "CONTI", "class_name": "ContiDO" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["MareDO", "ContiDO"] }
+  ],
+  "r2_buckets": [
+    { "binding": "DEPOSITO", "bucket_name": "maremagnum" }
+  ],
+  "observability": { "enabled": true }
+}

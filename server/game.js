@@ -10,7 +10,7 @@ const START_GOLD = 200;
 const RESPAWN_S = 6;
 const DISCOVERY_GOLD = 25;
 const MAX_SHIP_LVL = 4;       // scafo e vele
-const WEAK_FORTS = !!process.env.WEAK_FORTS; // knob per i test: difese di cartapesta
+const WEAK_FORTS = !!(typeof process !== 'undefined' ? process.env.WEAK_FORTS : undefined); // knob per i test: difese di cartapesta
 
 const GROUP_DIR = { left: -Math.PI / 2, right: Math.PI / 2, bow: 0, stern: Math.PI };
 
@@ -39,8 +39,9 @@ class Game {
     this.fxQueue = [];
     for (let i = 0; i < NPCS.merc; i++) this.spawnNpc('merc');
     for (let i = 0; i < NPCS.ghost; i++) this.spawnNpc('ghost');
-    this.timer = setInterval(() => this.tick(), TICK * 1000);
-    this.boardTimer = setInterval(() => this.sendBoard(), 3000);
+    this.timer = null;
+    this.boardTimer = null;
+    this.riprendi();
   }
 
   stop() { clearInterval(this.timer); clearInterval(this.boardTimer); }
@@ -66,6 +67,22 @@ class Game {
       visited: new Set(), conquered: new Set(),
       mission: null, wp: null, fleeUntil: 0,
     };
+  }
+
+  // Il mare dorme quando non c'è nessuno: nei Durable Objects il tempo attivo
+  // si paga, e un'onda che nessuno guarda non ha bisogno di esistere.
+  pausa() {
+    clearInterval(this.timer);
+    clearInterval(this.boardTimer);
+    this.timer = null;
+    this.boardTimer = null;
+  }
+
+  riprendi() {
+    if (this.timer) return;
+    this.now = Date.now() / 1000; // niente salti di simulazione al risveglio
+    this.timer = setInterval(() => this.tick(), TICK * 1000);
+    this.boardTimer = setInterval(() => this.sendBoard(), 3000);
   }
 
   spawnNpc(kind) {

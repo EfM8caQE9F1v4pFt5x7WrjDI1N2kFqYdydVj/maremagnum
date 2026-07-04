@@ -211,3 +211,12 @@ body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killf
 
 /* ruoli dell'assedio, spiegati in una riga */
 .ruoli { font-size: 12.5px; font-style: italic; opacity: .78; margin-bottom: 10px; }
+
+/* ---- ancoraggio del profilo ---- */
+#ancoraSez { border-top: 1px solid rgba(109,76,34,.35); margin-top: 14px; padding-top: 2px; }
+#ancoraSez .shopSection { border: none; margin-bottom: 4px; }
+#ancoraHandle { width: 100%; max-width: 320px; }
+#ancoraQrCanvas { background: #fff8e4; border: 2px solid #6d4c22; border-radius: 8px; margin-top: 8px; }
+#ancoraSegreto { font-size: 12px; word-break: break-all; }
+#ancoraCodice { width: 170px; text-align: center; letter-spacing: 4px; }
+#ancoraStato b { color: #2e5d2e; }

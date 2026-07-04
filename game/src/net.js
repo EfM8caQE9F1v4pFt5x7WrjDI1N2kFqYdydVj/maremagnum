@@ -29,5 +29,7 @@ export class Net {
 export function serverUrl() {
   if (window.navigareShell && window.navigareShell.serverWs) return window.navigareShell.serverWs;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${location.host}`;
+  // /mare: sui Workers gli asset statici hanno la precedenza sul Worker,
+  // quindi il WebSocket vive su un percorso che non è mai un file.
+  return `${proto}//${location.host}/mare`;
 }

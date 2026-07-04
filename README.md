@@ -13,6 +13,20 @@ Le scelte tecnologiche e le loro motivazioni (con fonti) sono in
 gioco in **PixiJS v8**, server autoritativo **Node + ws**. Tutto il gioco è
 tecnologia web: il guscio è sostituibile (CEF / fork Chromium in Fase 2).
 
+## Gioca subito (senza scaricare nulla)
+
+**https://maremagnum.maremagnum.workers.dev** — il Maremagnum online: stesso mare
+per tutti (multiplayer vero), gira su Cloudflare Workers + Durable Objects nei
+limiti del piano gratuito. In questa versione web i siti si aprono in una nuova
+scheda; per il "vero browser" (siti dentro il gioco + Ciurma di Guardia) scarica
+l'app qui sotto.
+
+**Ancoraggio del profilo**: giochi subito con un nome a caso; da ⚙ Impostazioni
+puoi "gettare l'ancora" — nome a scelta (o mail: non la verifichiamo) + codice
+TOTP dalla tua app di autenticazione. Niente password, niente email di conferma.
+Il profilo (monete, nave, conquiste) vive sul server; 30 giorni senza entrare e
+il mare se lo riprende.
+
 ## Scarica e gioca (release)
 
 Dalla [pagina delle release](../../releases) scarica il pacchetto per il tuo sistema:
