@@ -1,0 +1,831 @@
+// Rendering del Mare dell'Internet con PixiJS v8. Tutto è disegnato in modo
+// procedurale (niente asset): la forma di ogni isola nasce dal suo seed, che il
+// server distribuisce a tutti — così il mondo è identico per ogni giocatore.
+
+import { Application, Container, Graphics, Text, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { mulberry32, clamp } from './util.js';
+import { Water } from './water.js';
+import { CanvasWater } from './water-canvas.js';
+import { lightNow } from './daycycle.js';
+
+// Miscela lineare fra due colori esadecimali (k: 0=a, 1=b).
+function mixHex(a, b, k) {
+  const r = Math.round((a >> 16 & 255) + ((b >> 16 & 255) - (a >> 16 & 255)) * k);
+  const g = Math.round((a >> 8 & 255) + ((b >> 8 & 255) - (a >> 8 & 255)) * k);
+  const bl = Math.round((a & 255) + ((b & 255) - (a & 255)) * k);
+  return (r << 16) | (g << 8) | bl;
+}
+
+// Palette smorzata (lezione DREDGE/Sunless Sea): la tela è desaturata, i
+// colori accesi restano SOLO dove parlano al gameplay (oro, rotta, HP, fuoco).
+const COL = {
+  sea: 0x0e2536,
+  shallow: 0x3e8ca5,
+  sand: 0xc9b184, sandEdge: 0xa08a5e,
+  land: 0x6d8a5b, landDark: 0x50663f,
+  landFort: 0x7d7d70, landFortDark: 0x5a5a4e,
+  palm: 0x40603a, trunk: 0x5f4530,
+  hull: 0x5d4229, hullDark: 0x3f2d1b, hullLine: 0x33230f, deck: 0x8a6d4a, plank: 0x74583a,
+  sail: 0xe9ddc0, sailGhost: 0x93a7b1, sailMerc: 0xcfc9ba,
+  stone: 0x7d7d74, stoneDark: 0x4a4a42, banner: 0x96301f,
+  gold: 0xe8c268, route: 0xf2d387, mirror: 0xf2dc94,
+  hpOk: 0x54c05a, hpBad: 0xd8552e, hpBg: 0x1a1a1a,
+};
+
+export class Renderer {
+  async init(mount) {
+    this.app = new Application();
+    await this.app.init({ resizeTo: window, background: COL.sea, antialias: false, autoDensity: true });
+    mount.appendChild(this.app.canvas);
+
+    // Qualità adattiva: su renderer software (SwiftShader/llvmpipe) lo shader
+    // a schermo pieno mangia la CPU → mezza risoluzione, shader magro, 30 fps.
+    const gl = this.app.renderer.gl;
+    const dbgInfo = gl && gl.getExtension('WEBGL_debug_renderer_info');
+    const glName = gl
+      ? String(gl.getParameter(dbgInfo ? dbgInfo.UNMASKED_RENDERER_WEBGL : gl.RENDERER))
+      : 'canvas';
+    console.log('Renderer GL:', glName);
+    const forced = new URLSearchParams(location.search).get('qualita');
+    this.lowSpec = forced ? forced === 'bassa'
+      : (!gl || /swiftshader|llvmpipe|softpipe|software/i.test(glName));
+    if (this.lowSpec) {
+      // Il metodo Monkey Island: niente calcolo per-pixel a runtime.
+      // L'acqua viene "cotta" in una tile pittorica e solo piastrellata.
+      this.app.ticker.maxFPS = 30;
+      console.log(`Vele da CPU (${glName}): acqua cotta in tile, 30 fps`);
+    }
+
+    this.water = this.lowSpec ? new CanvasWater() : new Water(false);
+    this.noWater = new URLSearchParams(location.search).get('acqua') === 'off';
+    if (!this.noWater) this.app.stage.addChild(this.water.mesh);
+    this.light = null; // impostato dal ciclo giorno/notte
+
+    this.world = new Container();
+    this.app.stage.addChild(this.world);
+
+    this.shallowLayer = new Container();
+    this.routeGfx = new Graphics();
+    this.wakeGfx = new Graphics();
+    this.islandLayer = new Container();
+    this.foamGfx = [];
+    this.fortLayer = new Container();
+    this.shotGfx = new Graphics();
+    this.shipLayer = new Container();
+    this.fxGfx = new Graphics();
+    this.beamGfx = new Graphics();
+    this.labelLayer = new Container();
+    this.world.addChild(this.shallowLayer, this.routeGfx, this.wakeGfx, this.islandLayer,
+      this.fortLayer, this.shotGfx, this.shipLayer, this.fxGfx, this.beamGfx, this.labelLayer);
+
+    // strato meteo e luce, sopra il mondo: ombre di nuvole, nebbia notturna
+    // centrata sul giocatore (alla DREDGE), lanterna di bordo, vignetta.
+    this.cloudShadows = new TilingSprite({ texture: this.makeCloudTexture(), width: innerWidth, height: innerHeight });
+    this.cloudShadows.blendMode = 'multiply';
+    this.cloudShadows.tileScale.set(1.7);
+    this.cloudShadows.alpha = 0.22;
+    this.cloudShadows.visible = !this.lowSpec; // un multiply a schermo pieno costa troppo su CPU
+    this.app.stage.addChild(this.cloudShadows);
+
+    this.fog = new Sprite(this.makeFogTexture());
+    this.fog.anchor.set(0.5);
+    this.fog.alpha = 0;
+    this.app.stage.addChild(this.fog);
+
+    this.glowTex = this.makeGlowTexture();
+    this.shallowTex = this.makeShallowTexture();
+    this.lantern = new Sprite(this.glowTex);
+    this.lantern.anchor.set(0.5);
+    this.lantern.blendMode = 'add';
+    this.lantern.tint = 0xffc878;
+    this.lantern.alpha = 0;
+    this.app.stage.addChild(this.lantern);
+
+    // Sul CanvasRenderer il tint dei container è inaffidabile (silhouette):
+    // il grading giorno/notte passa da un overlay in moltiplicazione.
+    if (this.lowSpec) {
+      this.tintCanvas = document.createElement('canvas');
+      this.tintCanvas.width = this.tintCanvas.height = 8;
+      this.tintTexture = Texture.from(this.tintCanvas);
+      this.tintOverlay = new Sprite(this.tintTexture);
+      this.tintOverlay.blendMode = 'multiply';
+      this._tintHex = -1;
+      this.app.stage.addChild(this.tintOverlay);
+    }
+
+    this.vignette = new Sprite(this.makeVignette());
+    this.app.stage.addChild(this.vignette);
+    this.lightNow = lightNow();
+
+    this.ships = new Map();
+    this.forts = new Map();     // islandId -> Graphics
+    this.islands = new Map();
+    this.labels = new Map();    // islandId -> Text
+    this.shots = [];
+    this.particles = [];
+    this.rings = [];
+    this.beams = [];
+    this.debris = [];
+    this.wakes = [];
+    this.lightBeams = [];
+    this.dest = null;
+    this.shake = 0;
+    this.t = 0;
+  }
+
+  makeVignette() {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 512;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(256, 256, 150, 256, 256, 360);
+    grad.addColorStop(0, 'rgba(6,20,32,0)');
+    grad.addColorStop(1, 'rgba(6,20,32,0.42)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 512, 512);
+    return Texture.from(c);
+  }
+
+  // La notte di DREDGE: un cerchio di visione attorno alla nave, il resto
+  // annega nel buio. Trasparente al centro, blu-carbone spesso ai bordi.
+  makeFogTexture() {
+    const c = document.createElement('canvas');
+    c.width = 1024; c.height = 1024;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(512, 512, 130, 512, 512, 512);
+    grad.addColorStop(0, 'rgba(9,14,26,0)');
+    grad.addColorStop(0.45, 'rgba(9,14,26,0.55)');
+    grad.addColorStop(1, 'rgba(9,14,26,0.96)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 1024, 1024);
+    return Texture.from(c);
+  }
+
+  // Alone caldo per lanterne e luci: bianco al centro, svanisce ai bordi.
+  makeGlowTexture() {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(128, 128, 4, 128, 128, 128);
+    grad.addColorStop(0, 'rgba(255,255,255,0.85)');
+    grad.addColorStop(0.35, 'rgba(255,255,255,0.30)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 256, 256);
+    return Texture.from(c);
+  }
+
+  // Acqua bassa: alone turchese che svanisce dolcemente verso il largo.
+  makeShallowTexture() {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(128, 128, 30, 128, 128, 128);
+    grad.addColorStop(0, 'rgba(88,160,183,0.60)');
+    grad.addColorStop(0.62, 'rgba(74,146,170,0.34)');
+    grad.addColorStop(1, 'rgba(62,140,165,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 256, 256);
+    return Texture.from(c);
+  }
+
+  // L'isola dipinta: gradiente di luce da nord-ovest, pennellate procedurali,
+  // alone di sabbia sfumato. Niente contorni neri: il volume nasce dal tono.
+  makeIslandTexture(island, pts) {
+    const R = island.r * 1.45 + 12;
+    const S = Math.ceil(R * 2);
+    const cnv = document.createElement('canvas');
+    cnv.width = cnv.height = S;
+    const g = cnv.getContext('2d');
+    const path = (scale) => {
+      g.beginPath();
+      for (let i = 0; i < pts.length; i += 2) {
+        const x = pts[i] * scale + R, y = pts[i + 1] * scale + R;
+        if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      g.closePath();
+    };
+
+    // battigia: sabbia che sfuma nell'acqua
+    g.filter = 'blur(7px)';
+    path(1.24);
+    g.fillStyle = 'rgba(186,164,118,0.55)';
+    g.fill();
+    g.filter = 'none';
+
+    const sandGrad = g.createRadialGradient(R, R, island.r * 0.3, R, R, island.r * 1.25);
+    sandGrad.addColorStop(0, '#cfb98c');
+    sandGrad.addColorStop(1, '#b39c6c');
+    path(1.17);
+    g.fillStyle = sandGrad;
+    g.fill();
+
+    // terra: luce da nord-ovest (in alto a sinistra), ombra a sud-est
+    const fort = !!island.fortress;
+    const lg = g.createLinearGradient(R - island.r * 0.7, R - island.r * 0.7, R + island.r * 0.8, R + island.r * 0.8);
+    lg.addColorStop(0, fort ? '#8b8b7d' : '#7d9a66');
+    lg.addColorStop(1, fort ? '#565649' : '#4e6540');
+    path(1);
+    g.fillStyle = lg;
+    g.fill();
+
+    // pennellate: tratti corti chiari e scuri, solo dentro la terra
+    g.save();
+    path(1);
+    g.clip();
+    const rng = mulberry32(island.seed ^ 0x9e3779b9);
+    for (let i = 0; i < 170; i++) {
+      const a = rng() * Math.PI * 2, d = Math.sqrt(rng()) * island.r * 1.05;
+      const x = R + Math.cos(a) * d, y = R + Math.sin(a) * d;
+      const dark = rng() > 0.45;
+      g.fillStyle = fort
+        ? (dark ? 'rgba(58,58,50,0.10)' : 'rgba(178,178,160,0.09)')
+        : (dark ? 'rgba(42,60,34,0.11)' : 'rgba(196,214,156,0.10)');
+      g.beginPath();
+      const rr = 2.5 + rng() * 6, rot = rng() * Math.PI;
+      g.ellipse(x, y, rr * (1.6 + rng()), rr * 0.55, rot, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.restore();
+
+    return Texture.from(cnv);
+  }
+
+  // Nuvole alla DREDGE: "normalmente sono soffici… le nostre sono angolari e
+  // dure". Poligoni irregolari grigio-freddi su bianco, in moltiplicazione.
+  makeCloudTexture() {
+    const c = document.createElement('canvas');
+    c.width = 1024; c.height = 1024;
+    const g = c.getContext('2d');
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, 1024, 1024);
+    const rng = mulberry32(23);
+    for (let i = 0; i < 9; i++) {
+      const cx = rng() * 1024, cy = rng() * 1024;
+      const r = 90 + rng() * 170;
+      const n = 5 + (rng() * 4 | 0);
+      const tone = 205 + (rng() * 22 | 0);
+      g.fillStyle = `rgb(${tone - 6},${tone},${tone + 6})`;
+      g.beginPath();
+      for (let v = 0; v < n; v++) {
+        const a = (v / n) * Math.PI * 2 + rng() * 0.5;
+        const rr = r * (0.55 + rng() * 0.6);
+        const px = cx + Math.cos(a) * rr * 1.5, py = cy + Math.sin(a) * rr * 0.8;
+        if (v === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.closePath();
+      g.fill();
+    }
+    return Texture.from(c);
+  }
+
+  addShake(amount) { this.shake = Math.min(14, this.shake + amount); }
+
+  setWorld(world) {
+    this.W = world.W; this.H = world.H;
+    const border = new Graphics();
+    border.rect(30, 30, world.W - 60, world.H - 60).stroke({ width: 3, color: COL.route, alpha: 0.22 });
+    border.rect(44, 44, world.W - 88, world.H - 88).stroke({ width: 1, color: COL.route, alpha: 0.18 });
+    this.shallowLayer.addChild(border);
+    const style = { fontFamily: 'Pirata One, Georgia, serif', fontSize: 46, fill: 0xdfc98d };
+    for (const [x, y, rot] of [[world.W / 2, 90, 0], [world.W / 2, world.H - 90, 0], [90, world.H / 2, -Math.PI / 2], [world.W - 90, world.H / 2, Math.PI / 2]]) {
+      const t = new Text({ text: 'HIC · SVNT · DRACONES', style });
+      t.anchor.set(0.5); t.position.set(x, y); t.rotation = rot; t.alpha = 0.30;
+      this.shallowLayer.addChild(t);
+    }
+  }
+
+  addIsland(island) {
+    if (this.islands.has(island.id)) return;
+    this.islands.set(island.id, island);
+    const rng = mulberry32(island.seed);
+    const c = new Container();
+    c.position.set(island.x, island.y);
+
+    // acqua bassa: gradiente radiale morbido, non un disco piatto
+    const shallow = new Sprite(this.shallowTex);
+    shallow.anchor.set(0.5);
+    shallow.position.set(island.x, island.y);
+    shallow.width = shallow.height = island.r * 3.6;
+    shallow.alpha = 0.34;
+    this.shallowLayer.addChild(shallow);
+
+    const pts = [];
+    const N = 16;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      const r = island.r * (0.74 + rng() * 0.42);
+      pts.push(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    // schiuma animata sulla battigia
+    const foam = new Graphics();
+    foam.poly(pts.map(v => v * 1.26)).stroke({ width: 4, color: 0xd8ecf4, alpha: 1 });
+    foam.position.set(island.x, island.y);
+    foam.phase = rng() * Math.PI * 2;
+    this.shallowLayer.addChild(foam);
+    this.foamGfx.push(foam);
+
+    // terra e sabbia dipinte: luce da nord-ovest, pennellate, bordi sfumati
+    const landSprite = new Sprite(this.makeIslandTexture(island, pts));
+    landSprite.anchor.set(0.5);
+    c.addChild(landSprite);
+
+    if (island.kind === 'porto') this.drawPorto(c, island, rng);
+    else if (island.kind === 'oracolo') this.drawFaro(c, island, rng);
+    else if (island.fortress) this.drawKeep(c, island, rng);
+    else this.drawPalms(c, island, rng);
+
+    this.islandLayer.addChild(c);
+
+    const label = new Text({
+      text: island.name,
+      style: {
+        fontFamily: 'Pirata One, Georgia, serif', fontSize: 18,
+        fill: island.fortress ? 0xd98873 : 0xe9dcbc,
+        stroke: { color: 0x140d05, width: 3 },
+      },
+    });
+    label.anchor.set(0.5);
+    label.position.set(island.x, island.y + island.r * 1.25 + 20);
+    this.labelLayer.addChild(label);
+    this.labels.set(island.id, label);
+  }
+
+  markConquered(islandId) {
+    const label = this.labels.get(islandId);
+    if (label) {
+      label.style.fill = 0x9fe089;
+      label.text = label.text.replace(' ⚑', '') + ' ⚑';
+    }
+  }
+
+  drawPalms(c, island, rng) {
+    const n = 2 + (rng() * 3 | 0);
+    for (let i = 0; i < n; i++) {
+      const a = rng() * Math.PI * 2, d = rng() * island.r * 0.45;
+      const x = Math.cos(a) * d, y = Math.sin(a) * d;
+      const p = new Graphics();
+      p.ellipse(x + 6, y + 3, 12, 5).fill({ color: 0x000000, alpha: 0.14 });
+      p.moveTo(x, y).quadraticCurveTo(x + 4, y - 14, x + 8, y - 22).stroke({ width: 3, color: COL.trunk });
+      for (let f = 0; f < 5; f++) {
+        const fa = -Math.PI / 2 + (f - 2) * 0.55;
+        p.moveTo(x + 8, y - 22)
+          .quadraticCurveTo(x + 8 + Math.cos(fa) * 10, y - 22 + Math.sin(fa) * 7, x + 8 + Math.cos(fa) * 17, y - 22 + Math.sin(fa) * 12 + 4)
+          .stroke({ width: 2.5, color: COL.palm });
+      }
+      c.addChild(p);
+    }
+  }
+
+  drawPorto(c, island, rng) {
+    const g = new Graphics();
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.4;
+      const x1 = Math.cos(a) * island.r * 0.9, y1 = Math.sin(a) * island.r * 0.9;
+      const x2 = Math.cos(a) * (island.r * 1.45), y2 = Math.sin(a) * (island.r * 1.45);
+      g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 7, color: 0x8a6a45 });
+    }
+    for (let i = 0; i < 7; i++) {
+      const a = rng() * Math.PI * 2, d = rng() * island.r * 0.5;
+      const x = Math.cos(a) * d, y = Math.sin(a) * d;
+      g.rect(x - 7, y - 6, 14, 12).fill(0xbd9c6d).stroke({ width: 1.5, color: 0x6d4c22, alpha: 0.6 });
+      g.poly([x - 9, y - 6, x, y - 15, x + 9, y - 6]).fill(0x8a4a34);
+    }
+    g.moveTo(0, 6).lineTo(0, -34).stroke({ width: 3, color: 0x4a3520 });
+    g.poly([0, -34, 22, -28, 0, -22]).fill(COL.gold);
+    c.addChild(g);
+  }
+
+  drawFaro(c, island, rng) {
+    const g = new Graphics();
+    g.poly([-11, 14, 11, 14, 7, -30, -7, -30]).fill(0xe9e2d0).stroke({ width: 2, color: 0x8d8478, alpha: 0.7 });
+    g.rect(-9, -4, 18, 7).fill(0xa04a3a);
+    g.rect(-10, -18, 20, 7).fill(0xa04a3a);
+    g.rect(-8, -38, 16, 9).fill(0x3d3428);
+    g.circle(0, -33, 4).fill(0xffe9a0);
+    c.addChild(g);
+    const beam = new Graphics();
+    beam.poly([0, 0, 190, -26, 190, 26]).fill({ color: 0xffe9a0, alpha: 1 });
+    beam.position.set(0, -33);
+    beam.alpha = 0.13; // di notte il faro si accende davvero (vedi frame)
+    c.addChild(beam);
+    this.lightBeams.push(beam);
+    const halo = new Sprite(this.glowTex);
+    halo.anchor.set(0.5); halo.blendMode = 'add'; halo.tint = 0xffe9a0;
+    halo.position.set(0, -33); halo.scale.set(0.5); halo.alpha = 0.25;
+    c.addChild(halo);
+    this.lightBeams.push(Object.assign(halo, { isHalo: true }));
+  }
+
+  drawKeep(c, island, rng) {
+    const g = new Graphics();
+    g.circle(0, 0, island.r * 0.42).fill(COL.stone).stroke({ width: 3, color: COL.stoneDark });
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      g.rect(Math.cos(a) * island.r * 0.42 - 3, Math.sin(a) * island.r * 0.42 - 3, 6, 6).fill(COL.stoneDark);
+    }
+    c.addChild(g);
+  }
+
+  // --- navi ---
+
+  buildShipBody(c, s, selfId) {
+    const key = s.k + '|' + (s.gp || []).join(',') + (s.id === selfId ? '|S' : '');
+    if (c.buildKey === key) return;
+    c.buildKey = key;
+    if (c.body) c.body.destroy({ children: true });
+    const body = new Container();
+    c.addChildAt(body, (c.glow ? 1 : 0) + (c.ring ? 1 : 0));
+    c.body = body;
+
+    const ghost = s.k === 'g', merc = s.k === 'm';
+    const hullCol = ghost ? 0x3d4750 : COL.hull;
+    const g = new Graphics();
+    // ombra sull'acqua: due strati morbidi, spostati col sole (sud-est)
+    g.poly([-18, -4, 9, -4, 26, 5, 9, 14, -18, 14]).fill({ color: 0x061018, alpha: 0.10 });
+    g.poly([-19, -6, 8, -6, 24, 3, 8, 12, -19, 12]).fill({ color: 0x061018, alpha: 0.16 });
+    // scafo: chiglia scura, fasciame, ponte — niente contorno nero
+    g.poly([-19, -9, 7, -9, 22, 0, 7, 9, -19, 9]).fill(hullCol).stroke({ width: 1.6, color: COL.hullLine, alpha: 0.65 });
+    g.poly([-16, -5.5, 6, -5.5, 16, 0, 6, 5.5, -16, 5.5]).fill({ color: ghost ? 0x55636d : COL.deck });
+    g.moveTo(-16, -2).lineTo(14, -2).stroke({ width: 1, color: COL.plank, alpha: 0.8 });
+    g.moveTo(-16, 2).lineTo(14, 2).stroke({ width: 1, color: COL.plank, alpha: 0.8 });
+    // bompresso
+    g.moveTo(20, 0).lineTo(30, 0).stroke({ width: 2.5, color: ghost ? 0x2c353c : COL.hullDark });
+    // portelli dei cannoni: la potenza di fuoco si VEDE
+    const gp = s.gp || [1, 1, 0, 0];
+    for (let i = 0; i < gp[0]; i++) {
+      const x = gp[0] === 1 ? -3 : -14 + (i / (gp[0] - 1)) * 22;
+      g.rect(x - 2, -10.5, 4.5, 3.5).fill(0x14100a);
+    }
+    for (let i = 0; i < gp[1]; i++) {
+      const x = gp[1] === 1 ? -3 : -14 + (i / (gp[1] - 1)) * 22;
+      g.rect(x - 2, 7, 4.5, 3.5).fill(0x14100a);
+    }
+    for (let i = 0; i < gp[2]; i++) g.circle(23, (i - 0.5) * 7 + 3.5 * (gp[2] === 1 ? 0 : 1) - 3.5, 2.2).fill(0x14100a);
+    for (let i = 0; i < gp[3]; i++) g.circle(-19.5, (i - 0.5) * 7 + 3.5 * (gp[3] === 1 ? 0 : 1) - 3.5, 2.2).fill(0x14100a);
+    body.addChild(g);
+
+    if (merc) {
+      const crates = new Graphics();
+      crates.rect(-6, -3, 7, 6).fill(0x9a7443).stroke({ width: 1, color: 0x5c4526 });
+      crates.rect(2, -2, 6, 5).fill(0x84623a).stroke({ width: 1, color: 0x5c4526 });
+      body.addChild(crates);
+    }
+
+    // vele (animate nel frame)
+    const sailCol = ghost ? COL.sailGhost : merc ? COL.sailMerc : COL.sail;
+    body.sails = [];
+    const mkSail = (px, sc) => {
+      const sail = new Graphics();
+      sail.poly([-3, -13, 3, -13, 6, 0, 3, 13, -3, 13, -6, 0]).fill(sailCol).stroke({ width: 1.2, color: ghost ? 0x6d838f : 0xb09a6e, alpha: 0.65 });
+      sail.position.set(px, 0);
+      sail.scale.set(sc);
+      sail.phase = Math.random() * Math.PI * 2;
+      if (ghost) sail.alpha = 0.85;
+      body.addChild(sail);
+      body.sails.push(sail);
+      return sail;
+    };
+    mkSail(-7, 1);
+    if (!merc) mkSail(8, 0.8);
+
+    if (!merc) {
+      const flag = new Graphics();
+      if (ghost) flag.poly([-19, -2, -24, -5, -22, -7, -27, -9, -19, -10]).fill(0x27313a);
+      else { flag.poly([-19, -2, -27, -6, -19, -10]).fill(0x181818); flag.circle(-23, -6, 1.6).fill(0xffffff); }
+      body.addChild(flag);
+      body.flag = flag;
+    }
+    if (ghost) body.alpha = 0.88;
+  }
+
+  ensureShip(s, selfId) {
+    let c = this.ships.get(s.id);
+    if (!c) {
+      c = new Container();
+      const glow = new Sprite(this.glowTex);
+      glow.anchor.set(0.5); glow.blendMode = 'add'; glow.tint = 0xffc27a;
+      glow.scale.set(0.55); glow.alpha = 0;
+      c.addChild(glow);
+      c.glow = glow;
+      if (s.id === selfId) {
+        const ring = new Graphics();
+        ring.circle(0, 0, 30).stroke({ width: 2, color: COL.gold, alpha: 0.5 });
+        c.addChild(ring);
+        c.ring = ring;
+      }
+      const label = new Text({
+        text: s.name,
+        style: {
+          fontFamily: 'Georgia, serif', fontSize: 13,
+          fill: s.id === selfId ? 0xbfe8a8 : (s.k === 'g' ? 0xa8c4d4 : s.k === 'm' ? 0xcfd6d9 : 0xffc9b0),
+          stroke: { color: 0x1a1208, width: 3 },
+        },
+      });
+      label.anchor.set(0.5); label.position.set(0, -38);
+      const hpBar = new Graphics();
+      c.addChild(label, hpBar);
+      c.hpBar = hpBar;
+      this.shipLayer.addChild(c);
+      this.ships.set(s.id, c);
+    }
+    this.buildShipBody(c, s, selfId);
+    return c;
+  }
+
+  removeShip(id) {
+    const c = this.ships.get(id);
+    if (c) { c.destroy({ children: true }); this.ships.delete(id); }
+  }
+
+  updateShips(list, selfId, dt) {
+    const seen = new Set();
+    for (const s of list) {
+      seen.add(s.id);
+      const c = this.ensureShip(s, selfId);
+      c.position.set(s.x, s.y);
+      c.body.rotation = s.rot;
+      c.visible = !s.docked;
+      const targetAlpha = s.sunk ? 0 : 1;
+      c.alpha += (targetAlpha - c.alpha) * Math.min(1, dt * 4);
+      // lanterna di bordo: si accende con la notte
+      c.glow.alpha = s.sunk ? 0 : (this.lightNow ? this.lightNow.night : 0) * (s.id === selfId ? 0.34 : 0.27);
+      const scale = s.sunk ? Math.max(0.5, c.body.scale.x - dt * 0.5) : 1;
+      c.body.scale.set(scale);
+      // vele che respirano col vento e con l'andatura
+      const puff = 1 + 0.05 * Math.sin(this.t * 3 + (c.body.sails[0]?.phase || 0)) + Math.min(0.12, s.vel / 1400);
+      for (const sail of c.body.sails || []) sail.scale.x = sail.scale.y * puff;
+      if (c.body.flag) c.body.flag.rotation = 0.08 * Math.sin(this.t * 5 + s.x * 0.01);
+      c.hpBar.clear();
+      if (!s.sunk && s.hp < s.maxHp) {
+        const w = 44, frac = clamp(s.hp / s.maxHp, 0, 1);
+        c.hpBar.rect(-w / 2, -28, w, 5).fill({ color: COL.hpBg, alpha: 0.7 });
+        c.hpBar.rect(-w / 2, -28, w * frac, 5).fill(frac > 0.35 ? COL.hpOk : COL.hpBad);
+      }
+      if (!s.sunk && !s.docked && s.vel > 30 && Math.random() < 0.6) {
+        this.wakes.push({
+          x: s.x - Math.cos(s.rot) * 22, y: s.y - Math.sin(s.rot) * 22,
+          life: 1.2, max: 1.2, size: 2 + Math.random() * 3,
+        });
+      }
+    }
+    for (const id of this.ships.keys()) if (!seen.has(id)) this.removeShip(id);
+  }
+
+  // --- difese delle fortezze ---
+
+  updateFort(islandId, defs) {
+    let g = this.forts.get(islandId);
+    if (!g) { g = new Graphics(); this.fortLayer.addChild(g); this.forts.set(islandId, g); }
+    g.clear();
+    for (const [kind, x, y, hp, max, dead] of defs) {
+      if (dead) {
+        g.poly([x - 14, y + 8, x - 5, y - 2, x + 4, y + 3, x + 13, y - 4, x + 15, y + 8]).fill({ color: COL.stoneDark, alpha: 0.75 });
+        continue;
+      }
+      if (kind === 't') {
+        g.ellipse(x + 3, y + 5, 15, 8).fill({ color: 0x000000, alpha: 0.18 });
+        g.circle(x, y, 14).fill(COL.stone).stroke({ width: 2.5, color: COL.stoneDark });
+        g.circle(x, y, 5.5).fill(COL.stoneDark);
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          g.rect(x + Math.cos(a) * 14 - 2, y + Math.sin(a) * 14 - 2, 4, 4).fill(COL.stoneDark);
+        }
+        g.moveTo(x, y).lineTo(x, y - 24).stroke({ width: 2, color: 0x2a2a24 });
+        g.poly([x, y - 24, x + 12, y - 20, x, y - 16]).fill(COL.banner);
+      } else if (kind === 'b') {
+        g.ellipse(x + 3, y + 6, 18, 9).fill({ color: 0x000000, alpha: 0.18 });
+        g.circle(x, y, 16).fill(0x5a5147).stroke({ width: 3, color: 0x32291f });
+        g.circle(x - 3, y - 3, 8).fill(0x241d15).stroke({ width: 2, color: 0x0f0b07 });
+        g.rect(x - 14, y + 8, 28, 5).fill(0x6d4c22);
+      } else {
+        g.ellipse(x + 3, y + 6, 18, 9).fill({ color: 0x000000, alpha: 0.2 });
+        g.circle(x, y, 17).fill(COL.mirror).stroke({ width: 3, color: 0x9c7a1e });
+        g.circle(x, y, 10).fill(0xfff6d8);
+        g.moveTo(x - 8, y - 8).quadraticCurveTo(x, y - 13, x + 8, y - 8).stroke({ width: 2, color: 0xffffff, alpha: 0.8 });
+      }
+      if (hp < max) {
+        g.rect(x - 15, y - 32, 30, 4).fill({ color: COL.hpBg, alpha: 0.7 });
+        g.rect(x - 15, y - 32, 30 * clamp(hp / max, 0, 1), 4).fill(COL.banner);
+      }
+    }
+  }
+
+  // --- proiettili & effetti ---
+
+  spawnShots(shots) {
+    for (const s of shots) {
+      this.shots.push({ ...s, ttl0: s.ttl });
+      // lampo di bocca + sbuffo di fumo
+      this.particles.push({ x: s.x, y: s.y, vx: 0, vy: 0, life: 0.12, max: 0.12, size: 6, color: 0xffe9a0, drag: 0 });
+      for (let i = 0; i < 3; i++) {
+        this.particles.push({
+          x: s.x, y: s.y,
+          vx: s.vx * 0.06 + (Math.random() - 0.5) * 26, vy: s.vy * 0.06 + (Math.random() - 0.5) * 26,
+          life: 0.9 + Math.random() * 0.5, max: 1.4, size: 3 + Math.random() * 3, color: 0xcfcfcf, drag: 1.6,
+        });
+      }
+    }
+  }
+
+  fx(kind, x, y, extra = {}) {
+    const P = this.particles;
+    const burst = (n, opts) => {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, v = opts.v * (0.4 + Math.random());
+        P.push({
+          x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+          life: opts.life * (0.6 + Math.random() * 0.7), max: opts.life,
+          size: opts.size * (0.6 + Math.random() * 0.8), color: opts.color, drag: opts.drag ?? 2,
+        });
+      }
+    };
+    if (kind === 'splash') burst(8, { v: 55, life: 0.6, size: 2.6, color: 0xbfe2f2 });
+    else if (kind === 'hit') { burst(10, { v: 90, life: 0.5, size: 3, color: 0xffb347 }); burst(8, { v: 40, life: 1.1, size: 4, color: 0x4a4a4a }); }
+    else if (kind === 'thud') burst(7, { v: 45, life: 0.6, size: 3, color: 0xcbb684 });
+    else if (kind === 'boom') {
+      burst(18, { v: 120, life: 0.7, size: 4, color: 0xffb347 });
+      burst(12, { v: 60, life: 1.3, size: 5, color: 0x53585c });
+      this.rings.push({ x, y, r: 8, maxR: (extra.r || 70) + 16, life: 0.5, max: 0.5 });
+    } else if (kind === 'sink') {
+      burst(22, { v: 70, life: 1.6, size: 5, color: 0x53585c });
+      burst(14, { v: 45, life: 1.2, size: 3.5, color: 0xbfe2f2 });
+      this.rings.push({ x, y, r: 10, maxR: 60, life: 0.8, max: 0.8 });
+      for (let i = 0; i < 7; i++) {
+        const a = Math.random() * Math.PI * 2, v = 30 + Math.random() * 60;
+        this.debris.push({
+          x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+          rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 4,
+          w: 6 + Math.random() * 8, h: 2.5, life: 2.4 + Math.random(), max: 3,
+        });
+      }
+    } else if (kind === 'towerdown') {
+      burst(20, { v: 95, life: 1.2, size: 4.5, color: 0x8d8d7a });
+      this.rings.push({ x, y, r: 6, maxR: 46, life: 0.5, max: 0.5 });
+    } else if (kind === 'beam') {
+      this.beams.push({ x1: x, y1: y, x2: extra.x2, y2: extra.y2, life: 0.3, max: 0.3 });
+      burst(4, { v: 50, life: 0.4, size: 3, color: 0xffe9a0 });
+    }
+  }
+
+  setDest(island) { this.dest = island; }
+
+  // --- frame ---
+
+  frame(dt, cam, me) {
+    this.t += dt;
+    const w = this.app.renderer.width, h = this.app.renderer.height;
+
+    this.shake = Math.max(0, this.shake - dt * 26);
+    const shx = (Math.random() - 0.5) * this.shake, shy = (Math.random() - 0.5) * this.shake;
+
+    const cx = clamp(cam.x, w / 2, Math.max(w / 2, (this.W || w) - w / 2));
+    const cy = clamp(cam.y, h / 2, Math.max(h / 2, (this.H || h) - h / 2));
+    this.world.position.set(w / 2 - cx + shx, h / 2 - cy + shy);
+
+    // luce del ciclo giorno/notte: acqua, tinta del mondo, meteo
+    const light = this.lightNow = lightNow();
+    if (!this.noWater) this.water.update(dt, cx - w / 2 - shx, cy - h / 2 - shy, w, h, light);
+    if (this.tintOverlay) {
+      this.tintOverlay.width = w; this.tintOverlay.height = h;
+      if (this._tintHex !== light.tintHex) {
+        this._tintHex = light.tintHex;
+        const g = this.tintCanvas.getContext('2d');
+        g.fillStyle = '#' + light.tintHex.toString(16).padStart(6, '0');
+        g.fillRect(0, 0, 8, 8);
+        this.tintTexture.source.update();
+      }
+    } else {
+      this.world.tint = light.tintHex;
+    }
+
+    if (this.cloudShadows.visible) {
+      this.cloudShadows.width = w; this.cloudShadows.height = h;
+      this.cloudShadows.tilePosition.set(-cx * 0.92 + this.t * 10, -cy * 0.92 + this.t * 4.5);
+      this.cloudShadows.alpha = 0.22 * light.cloud;
+    }
+
+    // nebbia e lanterna seguono la nave (in coordinate schermo)
+    const meX = me ? w / 2 - cx + shx + me.x : w / 2;
+    const meY = me ? h / 2 - cy + shy + me.y : h / 2;
+    const cover = Math.max(w, h) * 1.8;
+    this.fog.visible = light.fog > 0.01;
+    if (this.fog.visible) {
+      this.fog.position.set(meX, meY);
+      this.fog.width = cover; this.fog.height = cover;
+      this.fog.alpha = light.fog;
+    }
+    this.lantern.visible = light.night > 0.02;
+    if (this.lantern.visible) {
+      this.lantern.position.set(meX, meY);
+      this.lantern.scale.set(1.5 + 0.05 * Math.sin(this.t * 7.3));
+      this.lantern.alpha = light.night * (0.38 + 0.05 * Math.sin(this.t * 11));
+    }
+
+    this.vignette.width = w; this.vignette.height = h;
+
+    for (const b of this.lightBeams) {
+      if (b.isHalo) { b.alpha = 0.18 + light.night * 0.5; continue; }
+      b.rotation = this.t * 0.6;
+      b.alpha = 0.13 + light.night * 0.45;
+    }
+    for (const f of this.foamGfx) f.alpha = 0.16 + 0.12 * Math.sin(this.t * 1.6 + f.phase);
+
+    // proiettili (i colpi ad arco "volano": ombra a terra, palla che sale)
+    // Di notte le palle di ferro sparirebbero nel buio: sbiancano col calare
+    // della luce, così restano leggibili (per chi spara e per chi schiva).
+    const ballCol = mixHex(0x1d1d1d, 0xeef3f6, light.night);
+    const ballArcCol = mixHex(0x26211a, 0xeef3f6, light.night);
+    this.shotGfx.clear();
+    this.shots = this.shots.filter(s => {
+      s.x += s.vx * dt; s.y += s.vy * dt; s.ttl -= dt;
+      if (s.ttl <= 0) return false;
+      if (s.arc) {
+        const prog = 1 - s.ttl / s.ttl0;
+        const alt = Math.sin(Math.PI * prog) * 26;
+        this.shotGfx.ellipse(s.x, s.y + 6, 5 * (1 - alt / 60), 2.5).fill({ color: 0x000000, alpha: 0.3 });
+        this.shotGfx.circle(s.x, s.y - alt, 4.5).fill(ballArcCol);
+        this.shotGfx.circle(s.x - 1.5, s.y - alt - 1.5, 1.5).fill({ color: 0xffffff, alpha: 0.5 + light.night * 0.4 });
+      } else {
+        this.shotGfx.circle(s.x + 2, s.y + 3, 3).fill({ color: 0x000000, alpha: 0.25 });
+        this.shotGfx.circle(s.x, s.y, 3).fill(ballCol);
+        this.shotGfx.circle(s.x - 1, s.y - 1, 1).fill({ color: 0xffffff, alpha: 0.5 + light.night * 0.4 });
+      }
+      return true;
+    });
+
+    // scie
+    this.wakeGfx.clear();
+    this.wakes = this.wakes.filter(p => {
+      p.life -= dt;
+      if (p.life <= 0) return false;
+      this.wakeGfx.circle(p.x, p.y, p.size * (1 + (1 - p.life / p.max))).fill({ color: 0xd9edf7, alpha: 0.3 * (p.life / p.max) });
+      return true;
+    });
+
+    // particelle, anelli d'urto, relitti
+    this.fxGfx.clear();
+    this.particles = this.particles.filter(p => {
+      p.life -= dt;
+      if (p.life <= 0) return false;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx -= p.vx * p.drag * dt; p.vy -= p.vy * p.drag * dt;
+      this.fxGfx.circle(p.x, p.y, p.size).fill({ color: p.color, alpha: 0.85 * (p.life / p.max) });
+      return true;
+    });
+    this.rings = this.rings.filter(r => {
+      r.life -= dt;
+      if (r.life <= 0) return false;
+      const prog = 1 - r.life / r.max;
+      this.fxGfx.circle(r.x, r.y, r.r + (r.maxR - r.r) * prog).stroke({ width: 3, color: 0xeaf6fc, alpha: 0.5 * (r.life / r.max) });
+      return true;
+    });
+    this.debris = this.debris.filter(d => {
+      d.life -= dt;
+      if (d.life <= 0) return false;
+      d.x += d.vx * dt; d.y += d.vy * dt;
+      d.vx *= (1 - dt); d.vy *= (1 - dt);
+      d.rot += d.vr * dt;
+      const cos = Math.cos(d.rot), sin = Math.sin(d.rot);
+      const hw = d.w / 2, hh = d.h / 2;
+      this.fxGfx.poly([
+        d.x - hw * cos + hh * sin, d.y - hw * sin - hh * cos,
+        d.x + hw * cos + hh * sin, d.y + hw * sin - hh * cos,
+        d.x + hw * cos - hh * sin, d.y + hw * sin + hh * cos,
+        d.x - hw * cos - hh * sin, d.y - hw * sin + hh * cos,
+      ]).fill({ color: 0x6b4a2f, alpha: 0.9 * Math.min(1, d.life) });
+      return true;
+    });
+
+    // il raggio dello Specchio Ustorio
+    this.beamGfx.clear();
+    this.beams = this.beams.filter(b => {
+      b.life -= dt;
+      if (b.life <= 0) return false;
+      const a = b.life / b.max;
+      this.beamGfx.moveTo(b.x1, b.y1).lineTo(b.x2, b.y2).stroke({ width: 9, color: 0xffe9a0, alpha: 0.25 * a });
+      this.beamGfx.moveTo(b.x1, b.y1).lineTo(b.x2, b.y2).stroke({ width: 3.5, color: 0xfff6d8, alpha: 0.85 * a });
+      this.beamGfx.circle(b.x2, b.y2, 7).fill({ color: 0xffe9a0, alpha: 0.5 * a });
+      return true;
+    });
+
+    // rotta verso la destinazione
+    this.routeGfx.clear();
+    if (this.dest && me) {
+      const d = this.dest;
+      const dx = d.x - me.x, dy = d.y - me.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > d.r + 60) {
+        const ux = dx / dist, uy = dy / dist;
+        for (let s = 40; s < dist - d.r; s += 30) {
+          this.routeGfx.moveTo(me.x + ux * s, me.y + uy * s)
+            .lineTo(me.x + ux * Math.min(s + 15, dist - d.r), me.y + uy * Math.min(s + 15, dist - d.r))
+            .stroke({ width: 3, color: COL.route, alpha: 0.55 });
+        }
+      }
+      const pulse = 10 + Math.sin(this.t * 4) * 3;
+      this.routeGfx.moveTo(d.x - pulse, d.y - pulse).lineTo(d.x + pulse, d.y + pulse)
+        .moveTo(d.x + pulse, d.y - pulse).lineTo(d.x - pulse, d.y + pulse)
+        .stroke({ width: 5, color: 0xd8552e, alpha: 0.8 });
+    }
+  }
+}

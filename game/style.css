@@ -1,0 +1,213 @@
+/* Maremagnum — legno, pergamena e oro. */
+
+@font-face {
+  font-family: 'Pirata One';
+  src: url('fonts/pirata-one.woff2') format('woff2');
+  font-display: swap;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: #0e3a57; }
+/* Niente 'Noto Color Emoji' nello stack: si mangerebbe spazi e cifre.
+   Il fallback di sistema (fontconfig) serve gli emoji a colori da solo. */
+body { font-family: Georgia, 'Palatino Linotype', serif; color: #f3e6c2; }
+
+#stage, #stage canvas { position: fixed; inset: 0; }
+
+.hidden { display: none !important; }
+
+/* ---- barra superiore: la plancia di comando ---- */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 54px;
+  display: flex; align-items: center; gap: 14px; padding: 0 14px;
+  background: linear-gradient(#6b4a2a, #4a3018 60%, #3a2512);
+  border-bottom: 3px solid #2a1a0c;
+  box-shadow: 0 3px 14px rgba(0,0,0,.5);
+  z-index: 30;
+}
+#brand { font-family: 'Pirata One', Georgia, serif; font-size: 24px; color: #e8c268; white-space: nowrap; letter-spacing: 1px; }
+#brand span { color: #f3e6c2; font-style: italic; font-weight: normal; }
+#courseForm { flex: 1; display: flex; gap: 8px; max-width: 860px; }
+#courseInput {
+  flex: 1; padding: 8px 14px; font: inherit; font-size: 15px;
+  background: #efe0b9; color: #3a2512; border: 2px solid #2a1a0c; border-radius: 20px;
+  outline: none;
+}
+#courseInput:focus { box-shadow: 0 0 0 3px rgba(232,194,104,.45); }
+button {
+  font: inherit; font-size: 14px; cursor: pointer;
+  background: linear-gradient(#e8c268, #c89a3c); color: #3a2512;
+  border: 2px solid #2a1a0c; border-radius: 18px; padding: 7px 14px; font-weight: bold;
+}
+button:hover:not(:disabled) { filter: brightness(1.08); }
+button:disabled { opacity: .45; cursor: default; }
+#gold { font-size: 18px; color: #e8c268; white-space: nowrap; }
+
+/* ---- barra d'attracco (navigazione del sito nel guscio) ---- */
+#dockbar {
+  position: fixed; top: 54px; left: 0; right: 0; height: 40px;
+  display: flex; align-items: center; gap: 10px; padding: 0 14px;
+  background: linear-gradient(#efe0b9, #dfcb9c); color: #3a2512;
+  border-bottom: 3px solid #2a1a0c; z-index: 29; font-size: 14px;
+}
+#dockInfo { font-weight: bold; white-space: nowrap; }
+#dockNav button, #openExt { padding: 5px 13px; border-radius: 10px; font-size: 14px; }
+#dockUrl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .75; font-style: italic; }
+
+/* ---- HUD nave ---- */
+#hud { position: fixed; left: 16px; bottom: 16px; z-index: 20; width: 260px; }
+#shipName { font-size: 17px; font-weight: bold; text-shadow: 0 2px 4px #000; margin-bottom: 6px; color: #f3e6c2; }
+#hpWrap {
+  position: relative; height: 20px; border: 2px solid #2a1a0c; border-radius: 10px;
+  background: rgba(20,12,5,.75); overflow: hidden;
+}
+#hpBar { height: 100%; width: 100%; background: linear-gradient(#6cd072, #3d9944); transition: width .2s; }
+#hpText { position: absolute; inset: 0; text-align: center; font-size: 12px; line-height: 17px; color: #fff; text-shadow: 0 1px 2px #000; }
+#reloads { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.rl { display: flex; align-items: center; gap: 7px; }
+.rl span { font-size: 11.5px; color: #e8c268; min-width: 34px; text-shadow: 0 1px 2px #000; }
+.rlWrap { flex: 1; height: 6px; border: 1px solid #2a1a0c; border-radius: 4px; background: rgba(20,12,5,.75); overflow: hidden; }
+.rlBar { height: 100%; width: 100%; background: #e8c268; }
+#dockHint { margin-top: 8px; font-size: 14px; font-style: italic; color: #ffe9a0; text-shadow: 0 2px 4px #000; min-height: 18px; }
+
+#hint {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  font-size: 13px; color: rgba(243,230,194,.75); text-shadow: 0 1px 3px #000; z-index: 20;
+}
+#hint b { color: #e8c268; }
+
+#minimap {
+  position: fixed; right: 16px; bottom: 16px; z-index: 20;
+  border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.55);
+}
+
+/* ---- killfeed & toast ---- */
+#killfeed { position: fixed; top: 66px; right: 16px; z-index: 25; transition: top .25s; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.feedItem {
+  background: rgba(26,16,7,.82); border: 1px solid #6b4a2a; border-radius: 14px;
+  padding: 6px 12px; font-size: 13px; transition: opacity 1.2s; max-width: 380px;
+}
+.feedItem.fading { opacity: 0; }
+#toast {
+  position: fixed; top: 110px; left: 50%; transform: translateX(-50%);
+  background: rgba(26,16,7,.9); border: 2px solid #e8c268; border-radius: 18px;
+  padding: 9px 20px; font-size: 15px; z-index: 40; text-align: center; max-width: 70vw;
+}
+
+/* ---- classifica ---- */
+#board {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  background: #efe0b9; color: #3a2512; border: 4px double #6d4c22; border-radius: 8px;
+  padding: 18px 26px; z-index: 45; min-width: 420px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.6);
+}
+#board h3 { text-align: center; margin-bottom: 10px; }
+#board table { width: 100%; border-collapse: collapse; font-size: 15px; }
+#board th, #board td { padding: 4px 10px; text-align: left; border-bottom: 1px solid rgba(109,76,34,.35); }
+#board th { font-variant: small-caps; }
+
+/* ---- overlay generici ---- */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(8,20,30,.62);
+  display: flex; align-items: center; justify-content: center;
+}
+.panel {
+  background: #efe0b9; color: #3a2512;
+  border: 4px double #6d4c22; border-radius: 10px;
+  padding: 26px 34px; text-align: center; max-width: 560px;
+  box-shadow: 0 14px 50px rgba(0,0,0,.65);
+}
+.panel h2 { margin-bottom: 8px; font-family: 'Pirata One', Georgia, serif; letter-spacing: 1px; font-weight: normal; font-size: 30px; }
+.panel .sub { font-style: italic; opacity: .85; margin-bottom: 16px; line-height: 1.5; }
+.panel form { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+.panel input {
+  font: inherit; font-size: 16px; padding: 8px 14px;
+  border: 2px solid #6d4c22; border-radius: 18px; background: #fff8e4; color: #3a2512;
+  outline: none; width: 280px;
+}
+.linkish { background: none; border: none; font-style: italic; text-decoration: underline; font-weight: normal; }
+.panel.death { background: #241708; color: #f3e6c2; border-color: #a1261a; }
+#deathCount { font-size: 56px; font-weight: bold; color: #e8c268; margin-top: 6px; }
+
+/* ---- mappa del tesoro ---- */
+.mapWrap { text-align: center; position: relative; }
+#mapCanvas { border-radius: 4px; box-shadow: 0 18px 70px rgba(0,0,0,.7); transform: rotate(-.6deg); }
+#sailBtn {
+  position: absolute; right: 30px; bottom: 26px; margin: 0;
+  font-size: 17px; padding: 10px 26px; transform: rotate(-.6deg);
+  box-shadow: 0 6px 18px rgba(0,0,0,.45);
+}
+
+/* ---- missione & assedio ---- */
+#missionHud {
+  position: fixed; top: 66px; left: 16px; z-index: 24; transition: top .25s;
+  background: rgba(26,16,7,.85); border: 1px solid #6b4a2a; border-radius: 14px;
+  padding: 7px 14px; font-size: 13.5px; max-width: 420px;
+}
+#missionHud .reward { color: #e8c268; }
+#assedioHud {
+  position: fixed; top: 66px; left: 50%; transform: translateX(-50%); z-index: 24; transition: top .25s;
+  background: rgba(60,14,8,.9); border: 2px solid #a1261a; border-radius: 16px;
+  padding: 8px 18px; font-size: 14.5px; font-weight: bold; color: #ffd9c9;
+}
+.teams { display: flex; gap: 30px; justify-content: center; margin-bottom: 14px; font-size: 14px; }
+.teams > div { min-width: 130px; }
+.row { display: flex; gap: 10px; justify-content: center; margin-top: 6px; }
+
+/* ---- cantiere ---- */
+.panel.wide { max-width: 760px; max-height: 86vh; overflow-y: auto; padding-bottom: 0; }
+.panel .azioni {
+  position: sticky; bottom: 0; margin-top: 14px; padding: 12px 0 16px;
+  background: #efe0b9; border-top: 1px solid rgba(109,76,34,.35);
+}
+.panel.wide::-webkit-scrollbar { width: 10px; }
+.panel.wide::-webkit-scrollbar-thumb { background: #b08d57; border-radius: 6px; border: 2px solid #efe0b9; }
+.panel.wide::-webkit-scrollbar-track { background: transparent; }
+.shopSection { margin: 14px 0 8px; border-top: 1px solid rgba(109,76,34,.4); padding-top: 10px; }
+.wgroup {
+  background: rgba(255,248,228,.5); border: 1px solid #6d4c22; border-radius: 8px;
+  padding: 8px 12px; margin-bottom: 9px; text-align: left;
+}
+.wgroupHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.wgroupHead span { font-size: 12px; opacity: .7; font-style: italic; }
+.wslot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 5px 8px; border-bottom: 1px dashed rgba(109,76,34,.3);
+}
+.wslot:last-of-type { border-bottom: none; }
+.wname .tier { font-size: 11.5px; color: #8a5a17; margin-left: 8px; font-variant: small-caps; }
+.wname .pips { color: #8a5a17; letter-spacing: 2px; margin-left: 10px; font-size: 12px; }
+.wslot button { padding: 4px 12px; font-size: 13px; min-width: 150px; }
+.wslot .tierUp { background: linear-gradient(#c9a2e8, #9a6ac2); }
+.wslot .maxed { font-style: italic; font-size: 12.5px; opacity: .7; }
+.addSlot { margin-top: 7px; width: 100%; font-size: 13px; background: linear-gradient(#b9c99b, #93a877); color: #25330f; }
+
+/* ---- cantiere (righe nave) ---- */
+#shopRows { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; text-align: left; }
+.shopRow {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: rgba(255,248,228,.6); border: 1px solid #6d4c22; border-radius: 8px; padding: 8px 14px;
+}
+.shopInfo { display: flex; flex-direction: column; }
+.shopInfo span { font-size: 12.5px; font-style: italic; opacity: .8; }
+.shopInfo .pips { color: #8a5a17; letter-spacing: 3px; font-style: normal; font-size: 13px; }
+.shopRow button { min-width: 96px; }
+
+/* ---- impostazioni di bordo ---- */
+#settingsBtn { padding: 4px 10px; font-size: 17px; border-radius: 12px; }
+.setRow {
+  display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: center;
+  margin: 12px auto; max-width: 320px; font-size: 15.5px; cursor: pointer; text-align: left;
+}
+.setRow.vol { display: flex; gap: 10px; }
+.setRow input[type="checkbox"] { width: 18px; height: 18px; accent-color: #c89a3c; }
+.setRow input[type="range"] { flex: 1; accent-color: #c89a3c; }
+#guardInfo { font-weight: bold; color: #2e5d2e; white-space: nowrap; }
+#guardInfo.spento { opacity: .4; text-decoration: line-through; }
+
+/* con la barra d'attracco aperta, le pillole scendono sotto di lei */
+body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killfeed { top: 108px; }
+
+/* ruoli dell'assedio, spiegati in una riga */
+.ruoli { font-size: 12.5px; font-style: italic; opacity: .78; margin-bottom: 10px; }

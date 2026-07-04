@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Maremagnum — il mare dell'internet</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage"></div>
+
+<header id="topbar">
+  <div id="brand">⚓ Mare<span>magnum</span></div>
+  <form id="courseForm">
+    <input id="courseInput" placeholder="Dove facciamo rotta, capitano? (wikipedia.org — o una ricerca)" autocomplete="off" spellcheck="false">
+    <button type="submit">🧭 Traccia la rotta</button>
+  </form>
+  <div id="gold">🪙 <b id="goldVal">0</b></div>
+  <button id="settingsBtn" title="Impostazioni di bordo">⚙</button>
+</header>
+
+<div id="dockbar" class="hidden">
+  <span id="dockInfo">⚓</span>
+  <span id="dockNav">
+    <button id="navBack" title="Indietro">←</button><button id="navFwd" title="Avanti">→</button><button id="navReload" title="Ricarica">↺</button>
+  </span>
+  <span id="dockUrl"></span>
+  <span id="guardInfo" title="Parassiti respinti dalla Ciurma di Guardia (tracker e pubblicità bloccati)">🛡 0</span>
+  <button id="openExt" title="Apri nel browser di sistema">🗗</button>
+  <button id="setSailBtn">⛵ Salpa</button>
+</div>
+
+<div id="missionHud" class="hidden"></div>
+<div id="assedioHud" class="hidden"></div>
+
+<div id="hud">
+  <div id="shipName"></div>
+  <div id="hpWrap"><div id="hpBar"></div><span id="hpText"></span></div>
+  <div id="reloads">
+    <div class="rl"><span>Q ◀</span><div class="rlWrap"><div id="rlLeft" class="rlBar"></div></div></div>
+    <div class="rl"><span>E ▶</span><div class="rlWrap"><div id="rlRight" class="rlBar"></div></div></div>
+    <div class="rl hidden" id="rlAxialRow"><span>␣ ⇅</span><div class="rlWrap"><div id="rlAxial" class="rlBar"></div></div></div>
+  </div>
+  <div id="dockHint"></div>
+</div>
+
+<div id="hint">Vela <b>W A S D</b> · Bordata sin. <b>Q</b> / des. <b>E</b> · Prua/Poppa <b>SPAZIO</b> · Attracca <b>F</b> · Classifica <b>TAB</b></div>
+<canvas id="minimap" width="230" height="230"></canvas>
+<div id="killfeed"></div>
+<div id="toast" class="hidden"></div>
+
+<div id="board" class="hidden">
+  <h3>☠ Registro dei Corsari</h3>
+  <table id="boardTable"></table>
+</div>
+
+<div id="mapOverlay" class="overlay hidden">
+  <div class="mapWrap">
+    <canvas id="mapCanvas"></canvas>
+    <button id="sailBtn">⛵ Salpa!</button>
+  </div>
+</div>
+
+<div id="shopOverlay" class="overlay hidden">
+  <div class="panel wide">
+    <h2>🛠 Cantiere del Porto Franco</h2>
+    <p class="sub">Scafo rattoppato e stive piene. Crediti a bordo: <b id="shopGold"></b> 🪙</p>
+    <div id="shopShip"></div>
+    <h3 class="shopSection">⚔ Armamenti</h3>
+    <div id="shopWeapons"></div>
+    <div class="row azioni">
+      <button id="assedioOpen">⚔ Bacheca degli Assedi</button>
+      <button id="shopClose">⛵ Salpa</button>
+    </div>
+  </div>
+</div>
+
+<div id="assedioOverlay" class="overlay hidden">
+  <div class="panel">
+    <h2>⚔ Bacheca degli Assedi</h2>
+    <p class="sub" id="assedioInfo"></p>
+    <p class="ruoli">🏴 I Corridori forzano il blocco della fortezza — ⚓ i Bloccatori lo difendono</p>
+    <div id="assedioTeams" class="teams"></div>
+    <div class="row">
+      <button id="joinCorr">🏴 Corridori</button>
+      <button id="joinBlocc">⚓ Bloccatori</button>
+    </div>
+    <button id="assedioClose" class="linkish">Chiudi</button>
+  </div>
+</div>
+
+<div id="searchOverlay" class="overlay hidden">
+  <div class="panel">
+    <h2>🔭 Il Faro dell'Oracolo</h2>
+    <p class="sub">Chiedi, e l'Oracolo indicherà la rotta fra i sette mari.</p>
+    <form id="searchForm">
+      <input id="searchInput" placeholder="Cosa cerchi, capitano?" autocomplete="off">
+      <button type="submit">Chiedi</button>
+    </form>
+    <button id="searchClose" class="linkish">⛵ Salpa senza chiedere</button>
+  </div>
+</div>
+
+<div id="siteOverlay" class="overlay hidden">
+  <div class="panel">
+    <h2 id="siteTitle">⚓ Attraccato</h2>
+    <p class="sub">Nel guscio browser il sito si apre qui dentro; nel prototipo web si apre in una nuova scheda.</p>
+    <a id="siteLink" href="#" target="_blank" rel="noreferrer noopener"><button>🗺 Apri il sito in una nuova scheda</button></a>
+    <button id="siteClose">⛵ Salpa</button>
+  </div>
+</div>
+
+<div id="deathOverlay" class="overlay hidden">
+  <div class="panel death">
+    <h2>☠️ La tua nave è affondata!</h2>
+    <p class="sub">I flutti ti riportano al Porto Franco per le riparazioni…</p>
+    <div id="deathCount">6</div>
+  </div>
+</div>
+
+<div id="settingsOverlay" class="overlay hidden">
+  <div class="panel">
+    <h2>⚙ Impostazioni di bordo</h2>
+    <label class="setRow"><input type="checkbox" id="setMusic" checked> 🎵 Musica del mare</label>
+    <label class="setRow"><input type="checkbox" id="setSfx" checked> 🔊 Effetti sonori</label>
+    <label class="setRow"><input type="checkbox" id="setGuard" checked> 🛡 Ciurma di Guardia — respinge spie e pubblicità</label>
+    <label class="setRow vol">🔉 Volume <input type="range" id="setVol" min="0" max="100" value="80"></label>
+    <button id="settingsClose" class="linkish">Chiudi</button>
+  </div>
+</div>
+
+<div id="nameOverlay" class="overlay hidden">
+  <div class="panel">
+    <h2>⚓ Maremagnum</h2>
+    <p class="sub">L'internet è un mare magnum: vasto, profondo e infestato di corsari.<br>Con che nome solcherai le onde?</p>
+    <form id="nameForm">
+      <input id="nameInput" maxlength="18" autocomplete="off">
+      <button type="submit">⛵ Salpa!</button>
+    </form>
+  </div>
+</div>
+
+<script src="dist/bundle.js"></script>
+</body>
+</html>

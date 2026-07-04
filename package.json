@@ -1,0 +1,40 @@
+{
+  "name": "maremagnum",
+  "version": "0.5.0",
+  "description": "Maremagnum: un vero browser che è anche un gioco — l'internet è un mare magnum, i siti sono isole, tu sei il corsaro.",
+  "main": "shell/main.js",
+  "scripts": {
+    "build": "esbuild game/src/main.js --bundle --outfile=game/dist/bundle.js --sourcemap",
+    "watch": "esbuild game/src/main.js --bundle --outfile=game/dist/bundle.js --sourcemap --watch",
+    "server": "node server/index.js",
+    "app": "electron .",
+    "dev": "node scripts/dev.js",
+    "start": "node scripts/dev.js",
+    "test": "node scripts/test-protocol.js",
+    "test:guardia": "node scripts/test-guard.js"
+  },
+  "keywords": [
+    "browser",
+    "game",
+    "pirati",
+    "multiplayer",
+    "electron",
+    "pixijs"
+  ],
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@ghostery/adblocker-electron": "^2.18.1",
+    "@ghostery/adblocker-electron-preload": "^2.18.1",
+    "pixi.js": "^8.19.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.0.2",
+    "electron": "^43.0.0",
+    "esbuild": "^0.28.1"
+  },
+  "allowScripts": {
+    "electron@43.0.0": true
+  }
+}

@@ -1,0 +1,481 @@
+// Maremagnum — il client del Mare dell'Internet.
+// Gira identico nel guscio Electron (che espone window.navigareShell) e in un
+// normale browser per lo sviluppo (con fallback "apri in nuova scheda").
+
+import { Renderer } from './render.js';
+import { Minimap } from './minimap.js';
+import { UI } from './ui.js';
+import { Net, serverUrl } from './net.js';
+import { sfx } from './audio.js';
+import { music } from './music.js';
+import { lerp, anglerp, pirateName } from './util.js';
+
+const INTERP_DELAY = 120; // ms nel passato: si naviga fra due snapshot certi
+const GROUPS = ['left', 'right', 'bow', 'stern'];
+
+const shell = window.navigareShell || null;
+
+// Parametri di sviluppo (?nome=X salta la pergamena del nome, ?ora=0..1 blocca
+// l'ora del ciclo, ?autofuoco=1 spara da solo): servono a test e audit visivi.
+const devParams = new URLSearchParams(location.search);
+
+const state = {
+  meId: null, world: null, port: null,
+  islands: new Map(),
+  snaps: [], offset: 0, offsetInit: false,
+  dest: null, docked: null, siteUrl: null,
+  gold: 0,
+  arsenal: null,
+  lastFire: { left: 0, right: 0, bow: 0, stern: 0 },
+  groupReload: { left: 2000, right: 2000, bow: 2000, stern: 2000 },
+  mounts: null,
+  profile: loadProfile(),
+};
+
+function loadProfile() {
+  try {
+    // ?reset=1 (sviluppo): riparti come un pirata mai visto
+    if (new URLSearchParams(location.search).get('reset')) localStorage.removeItem('niw_profile');
+    const p = JSON.parse(localStorage.getItem('niw_profile')) || {};
+    if (p.up) { // migrazione dal vecchio schema
+      p.hullLvl = p.up.hull | 0;
+      p.sailsLvl = p.up.sails | 0;
+      delete p.up;
+    }
+    return p;
+  } catch { return {}; }
+}
+function saveProfile() {
+  try { localStorage.setItem('niw_profile', JSON.stringify(state.profile)); } catch { /* pazienza */ }
+}
+
+const net = new Net(serverUrl());
+let renderer, minimap, ui;
+
+// La musica passa al tema di battaglia quando si combatte davvero: ogni
+// evento bellicoso vicino alla nave estende la finestra di "ingaggio".
+let battleUntil = 0;
+const engage = (ms = 8000) => { battleUntil = Math.max(battleUntil, performance.now() + ms); };
+
+async function boot() {
+  renderer = new Renderer();
+  await renderer.init(document.getElementById('stage'));
+  minimap = new Minimap(document.getElementById('minimap'));
+  ui = new UI({
+    onCourse: setCourse,
+    onSearch: setCourse,
+    onUndock: undock,
+    onBuyShip: (stat) => net.send({ t: 'buyShip', stat }),
+    onBuySlot: (group) => net.send({ t: 'buySlot', group }),
+    onUpgradeWeapon: (group, slot) => net.send({ t: 'upgradeWeapon', group, slot }),
+    onReplaceWeapon: (group, slot) => net.send({ t: 'replaceWeapon', group, slot }),
+    onAssedioJoin: (role) => net.send({ t: 'assedio', role }),
+    onSettings: applySettings,
+    onNavBack: () => shell && shell.navBack(),
+    onNavFwd: () => shell && shell.navFwd(),
+    onNavReload: () => shell && shell.navReload(),
+    onOpenExt: () => shell && state.siteUrl && shell.openExternal(state.siteUrl),
+  });
+  if (!shell) {
+    document.getElementById('dockNav').classList.add('hidden');
+    document.getElementById('openExt').classList.add('hidden');
+  }
+
+  const forcedName = devParams.get('nome');
+  if (forcedName) state.profile.name = forcedName.slice(0, 18);
+  if (!state.profile.name) state.profile.name = await ui.askName(pirateName());
+  ui.setShipName(state.profile.name);
+  saveProfile();
+
+  // preferenze audio dal profilo (default: tutto acceso, volume 80%)
+  const prefs = {
+    music: state.profile.musicOn !== false,
+    sfx: state.profile.sfxOn !== false,
+    guard: state.profile.guardOn !== false,
+    volume: state.profile.volume ?? 0.8,
+  };
+  applySettings(prefs, true);
+
+  wireNet();
+  net.connect();
+  wireInput();
+  wireShell();
+  if (devParams.get('pannello')) ui.show(devParams.get('pannello') + 'Overlay');
+  if (devParams.get('fps')) {
+    let frames = 0;
+    const t0 = performance.now();
+    const count = () => { frames++; requestAnimationFrame(count); };
+    requestAnimationFrame(count);
+    setTimeout(() => {
+      console.log(`FPS medi su 6s: ${(frames / ((performance.now() - t0) / 1000)).toFixed(1)} (tier: ${renderer.lowSpec ? 'basso' : 'alto'})`);
+    }, 6000);
+  }
+  if (devParams.get('autofuoco')) {
+    sfx.unlock();
+    music.start();
+    setInterval(() => { fireGroup('left'); fireGroup('right'); }, 1500);
+  }
+  requestAnimationFrame(frame);
+}
+
+function setCourse(q) { net.send({ t: 'course', q }); }
+function undock() { net.send({ t: 'undock' }); }
+
+function applySettings({ music: m, sfx: s, guard: g, volume: v }, skipSave) {
+  state.profile.musicOn = m;
+  state.profile.sfxOn = s;
+  state.profile.guardOn = g;
+  state.profile.volume = v;
+  if (!skipSave) saveProfile();
+  sfx.setEnabled(s);
+  sfx.setVolume(v);
+  music.setEnabled(m);
+  music.setVolume(v);
+  if (shell) shell.setGuard(g);
+  ui.setSettings({ music: m, sfx: s, guard: g, volume: v });
+}
+
+function weaponReloadMs(w) {
+  const t = state.arsenal && state.arsenal.types[w.type];
+  if (!t) return 2000;
+  return Math.max(500, (t.reload + t.upReload * (w.lvl - 1)) * 1000);
+}
+
+function recomputeReloads() {
+  if (!state.mounts) return;
+  for (const g of GROUPS) {
+    const list = state.mounts[g] || [];
+    state.groupReload[g] = list.length ? Math.min(...list.map(weaponReloadMs)) : 2000;
+  }
+  ui.setGroupsAvailable({
+    left: (state.mounts.left || []).length > 0,
+    right: (state.mounts.right || []).length > 0,
+    axial: (state.mounts.bow || []).length + (state.mounts.stern || []).length > 0,
+  });
+}
+
+function applyYou(you) {
+  state.gold = you.gold;
+  state.mounts = you.mounts;
+  Object.assign(state.profile, {
+    gold: you.gold, hullLvl: you.hullLvl, sailsLvl: you.sailsLvl,
+    mounts: you.mounts, conquered: you.conquered ?? state.profile.conquered ?? [],
+    kills: you.kills ?? state.profile.kills, deaths: you.deaths ?? state.profile.deaths,
+  });
+  saveProfile();
+  ui.setGold(you.gold);
+  recomputeReloads();
+}
+
+function wireNet() {
+  net.on('_open', () => net.send({ t: 'join', name: state.profile.name, profile: state.profile }));
+  net.on('_close', () => ui.toast('⚠ Il mare si è chiuso: connessione perduta. Ricarica per salpare di nuovo.', 60000));
+
+  net.on('welcome', (m) => {
+    state.meId = m.id;
+    state.world = m.world;
+    state.port = m.port;
+    state.arsenal = m.arsenal;
+    renderer.setWorld(m.world);
+    for (const i of m.islands) { state.islands.set(i.id, i); renderer.addIsland(i); }
+    applyYou(m.you);
+    for (const id of m.you.conquered || []) renderer.markConquered(id);
+    ui.toast('⚓ Attracca al Porto Franco (tasto F) per il Cantiere e la Bacheca delle missioni', 6000);
+  });
+
+  net.on('island', (m) => {
+    state.islands.set(m.island.id, m.island);
+    renderer.addIsland(m.island);
+    if ((state.profile.conquered || []).includes(m.island.id)) renderer.markConquered(m.island.id);
+    ui.feed(`🗺 Nuova isola avvistata: ${m.island.name}`);
+  });
+
+  net.on('snap', (m) => {
+    const arrivedOffset = m.ts - Date.now();
+    state.offset = state.offsetInit ? state.offset * 0.9 + arrivedOffset * 0.1 : arrivedOffset;
+    state.offsetInit = true;
+    const ships = new Map();
+    for (const s of m.ships) ships.set(s.id, s);
+    state.snaps.push({ ts: m.ts, ships, list: m.ships });
+    if (state.snaps.length > 10) state.snaps.shift();
+    for (const f of m.forts) renderer.updateFort(f.i, f.d);
+  });
+
+  net.on('course', (m) => {
+    if (!m.ok) { ui.toast(m.error || 'Rotta illeggibile.'); return; }
+    state.islands.set(m.island.id, m.island);
+    renderer.addIsland(m.island);
+    state.dest = { island: m.island, url: m.url };
+    renderer.setDest(m.island);
+    const me = latestMe();
+    ui.showTreasureMap(me || state.port, m.island, m.url);
+    if (m.island.fortress) ui.toast('⚠ Quelle acque sono difese da una Fortezza quasi inespugnabile!', 5000);
+  });
+
+  net.on('docked', (m) => {
+    state.docked = m.island;
+    sfx.dock();
+    const island = m.island;
+    const arrived = state.dest && state.dest.island.id === island.id;
+    const url = arrived ? state.dest.url : (island.domain ? 'https://' + island.domain : null);
+    if (island.kind === 'porto') {
+      // la bottega arriva col messaggio 'shop'
+    } else if (island.kind === 'oracolo') {
+      if (arrived && state.dest.url) openSite(island, state.dest.url);
+      else ui.showSearch();
+    } else if (url) {
+      openSite(island, url);
+    }
+    if (arrived) { state.dest = null; renderer.setDest(null); }
+  });
+
+  net.on('undocked', () => {
+    state.docked = null;
+    state.siteUrl = null;
+    ui.closeDockOverlays();
+    if (shell) shell.closeSite();
+  });
+
+  net.on('shop', (m) => {
+    applyYou({
+      gold: m.gold, hullLvl: m.ship.hullLvl, sailsLvl: m.ship.sailsLvl,
+      mounts: m.mounts,
+    });
+    ui.showShop(m);
+  });
+
+  net.on('gold', (m) => {
+    state.gold = m.gold;
+    state.profile.gold = m.gold;
+    saveProfile();
+    ui.setGold(m.gold);
+    if (m.delta > 0) { sfx.coin(); ui.toast(`+${m.delta} 🪙 — ${m.reason}`); }
+    else if (m.delta < 0) ui.toast(`${m.delta} 🪙 — ${m.reason}`);
+  });
+
+  net.on('conquered', (m) => {
+    state.profile.conquered = m.list;
+    saveProfile();
+    renderer.markConquered(m.island);
+    ui.toast('🏰 FORTEZZA ESPUGNATA! Il blocco è caduto per te, per sempre.', 7000);
+  });
+
+  net.on('fortFall', (m) => { renderer.addShake(10); });
+
+  net.on('mission', (m) => ui.setMission(m));
+  net.on('assedio', (m) => { ui.setAssedio(m); if (m && m.phase === 'battle') engage(12000); });
+
+  net.on('shots', (m) => {
+    renderer.spawnShots(m.shots);
+    const me = latestMe();
+    if (me && m.shots.length && Math.hypot(m.shots[0].x - me.x, m.shots[0].y - me.y) < 950) {
+      sfx.fire();
+      engage(6000);
+    }
+  });
+
+  net.on('fx', (m) => {
+    const me = latestMe();
+    for (const f of m.list) {
+      renderer.fx(f.k, f.x, f.y, f);
+      if (me) {
+        const d = Math.hypot(f.x - me.x, f.y - me.y);
+        if (d < 950 && sfx[f.k]) sfx[f.k]();
+        if (d < 150 && (f.k === 'hit' || f.k === 'boom')) renderer.addShake(f.k === 'boom' ? 9 : 5);
+        if (d < 700 && (f.k === 'hit' || f.k === 'boom' || f.k === 'beam')) engage(8000);
+      }
+    }
+  });
+
+  net.on('kill', (m) => {
+    ui.feed(`💥 ${m.killer} ha affondato ${m.victim}!${m.bounty ? ` (+${m.bounty} 🪙)` : ''}`);
+    if (m.killer === state.profile.name) { state.profile.kills = (state.profile.kills || 0) + 1; saveProfile(); }
+    if (m.victim === state.profile.name) { state.profile.deaths = (state.profile.deaths || 0) + 1; saveProfile(); }
+  });
+
+  net.on('dead', (m) => { ui.showDeath(m.respawn); sfx.sink(); battleUntil = performance.now() + 3000; });
+  net.on('respawned', () => { ui.hideDeath(); ui.toast('Nave riparata a nuovo. Il mare ti aspetta.'); });
+  net.on('board', (m) => ui.setBoard(m.rows));
+  net.on('toast', (m) => ui.toast(m.msg));
+  net.on('feed', (m) => ui.feed(m.msg));
+}
+
+function openSite(island, url) {
+  state.siteUrl = url;
+  if (shell) {
+    shell.openSite(url);
+    ui.showDockbar(island, url);
+  } else {
+    ui.showSiteFallback(island, url);
+  }
+}
+
+function wireShell() {
+  if (!shell) return;
+  shell.onNavRequest(({ url }) => {
+    ui.setCourseInput(url);
+    ui.toast('🧭 Nuova rotta richiesta: si salpa!');
+    if (state.docked) undock();
+    setCourse(url);
+  });
+  shell.onSiteState(({ url }) => {
+    state.siteUrl = url;
+    ui.setDockUrl(url);
+  });
+  // La Ciurma di Guardia riferisce i parassiti respinti sull'isola corrente.
+  let nextGuardBrag = 25;
+  shell.onGuardReport(({ blocked }) => {
+    ui.setGuardCount(blocked);
+    if (blocked === 0) { nextGuardBrag = 25; return; }
+    if (blocked >= nextGuardBrag) {
+      ui.feed(`🛡 La Ciurma di Guardia ha respinto ${blocked} parassiti su quest'isola`);
+      nextGuardBrag = blocked >= 100 ? Infinity : 100;
+    }
+  });
+}
+
+// --- input ---
+
+const keys = new Set();
+let lastInputJson = '';
+
+function currentInput() {
+  return {
+    up: keys.has('KeyW') || keys.has('ArrowUp'),
+    down: keys.has('KeyS') || keys.has('ArrowDown'),
+    left: keys.has('KeyA') || keys.has('ArrowLeft'),
+    right: keys.has('KeyD') || keys.has('ArrowRight'),
+  };
+}
+
+function pushInput() {
+  const inp = currentInput();
+  const j = JSON.stringify(inp);
+  if (j !== lastInputJson) { lastInputJson = j; net.send({ t: 'input', ...inp }); }
+}
+
+function fireGroup(group) {
+  if (state.docked) return;
+  const now = performance.now();
+  if (now - state.lastFire[group] < 220) return;
+  state.lastFire[group] = now;
+  net.send({ t: 'fire', group });
+  engage(7000);
+}
+
+function wireInput() {
+  addEventListener('pointerdown', () => { sfx.unlock(); music.start(); }, { once: true });
+  addEventListener('keydown', (e) => {
+    if (e.code === 'Escape') { ui.escape(); return; }
+    if (ui.typing()) return;
+    sfx.unlock();
+    music.start();
+    if (e.code === 'Tab') { e.preventDefault(); ui.showBoard(true); return; }
+    if (e.code === 'KeyQ') { e.preventDefault(); fireGroup('left'); return; }
+    if (e.code === 'KeyE') { e.preventDefault(); fireGroup('right'); return; }
+    if (e.code === 'Space') {
+      e.preventDefault();
+      fireGroup('bow'); fireGroup('stern');
+      return;
+    }
+    if (e.code === 'KeyF') {
+      e.preventDefault();
+      if (state.docked) undock(); else net.send({ t: 'dock' });
+      return;
+    }
+    if (e.code === 'Enter') { document.getElementById('courseInput').focus(); e.preventDefault(); return; }
+    keys.add(e.code);
+    pushInput();
+  });
+  addEventListener('keyup', (e) => {
+    if (e.code === 'Tab') { ui.showBoard(false); return; }
+    keys.delete(e.code);
+    pushInput();
+  });
+  addEventListener('blur', () => { keys.clear(); pushInput(); });
+  addEventListener('beforeunload', saveProfile);
+}
+
+// --- interpolazione e frame ---
+
+function latestMe() {
+  const last = state.snaps[state.snaps.length - 1];
+  return last ? last.ships.get(state.meId) : null;
+}
+
+function interpolatedShips() {
+  const snaps = state.snaps;
+  if (!snaps.length) return [];
+  const rt = Date.now() + state.offset - INTERP_DELAY;
+  let a = snaps[0], b = snaps[snaps.length - 1];
+  for (let i = snaps.length - 1; i > 0; i--) {
+    if (snaps[i - 1].ts <= rt) { a = snaps[i - 1]; b = snaps[i]; break; }
+  }
+  const span = Math.max(1, b.ts - a.ts);
+  const t = Math.max(0, Math.min(1, (rt - a.ts) / span));
+  const out = [];
+  for (const sb of b.list) {
+    const sa = a.ships.get(sb.id) || sb;
+    out.push({
+      ...sb,
+      x: lerp(sa.x, sb.x, t),
+      y: lerp(sa.y, sb.y, t),
+      rot: anglerp(sa.rot, sb.rot, t),
+      vel: lerp(sa.vel, sb.vel, t),
+    });
+  }
+  return out;
+}
+
+let lastFrame = performance.now();
+let minimapAt = 0;
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastFrame) / 1000);
+  lastFrame = now;
+
+  const ships = interpolatedShips();
+  const me = ships.find(s => s.id === state.meId) || null;
+  const cam = me ? { x: me.x, y: me.y } : (state.port || { x: 0, y: 0 });
+
+  renderer.updateShips(ships, state.meId, dt);
+  renderer.frame(dt, cam, me);
+
+  const rawMe = latestMe();
+  if (rawMe) {
+    ui.setHp(rawMe.hp, rawMe.maxHp);
+    ui.setReloads({
+      left: Math.min(1, (now - state.lastFire.left) / state.groupReload.left),
+      right: Math.min(1, (now - state.lastFire.right) / state.groupReload.right),
+      axial: Math.min(1, (now - Math.max(state.lastFire.bow, state.lastFire.stern)) / Math.min(state.groupReload.bow, state.groupReload.stern)),
+    });
+    updateDockHint(rawMe);
+  }
+
+  if (now > minimapAt) {
+    minimap.update({ world: state.world, islands: state.islands, ships, selfId: state.meId, dest: state.dest && state.dest.island });
+    minimapAt = now + 120;
+  }
+  music.setMood(now < battleUntil ? 'battaglia' : 'calma');
+  requestAnimationFrame(frame);
+}
+
+function updateDockHint(me) {
+  if (state.docked) { ui.setDockHint(''); return; }
+  let best = null, bestD = Infinity;
+  for (const i of state.islands.values()) {
+    const d = Math.hypot(i.x - me.x, i.y - me.y);
+    if (d < bestD) { best = i; bestD = d; }
+  }
+  if (!best || bestD > best.r + 150) { ui.setDockHint(''); return; }
+  const conquered = (state.profile.conquered || []).includes(best.id);
+  if (best.fortress && !conquered) {
+    ui.setDockHint(`🏰 ${best.name}: l'approdo è sbarrato finché le difese sono in piedi`);
+  } else if (bestD <= best.r + 90) {
+    ui.setDockHint(me.vel <= 45 ? `Premi F per attraccare a ${best.name}` : 'Ammaina le vele (S) per attraccare');
+  } else {
+    ui.setDockHint(`${best.name} a un tiro di sasso…`);
+  }
+}
+
+boot();
