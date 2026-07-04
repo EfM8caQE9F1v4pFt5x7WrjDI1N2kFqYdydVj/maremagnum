@@ -10,6 +10,7 @@ const START_GOLD = 200;
 const RESPAWN_S = 6;
 const DISCOVERY_GOLD = 25;
 const MAX_SHIP_LVL = 4;       // scafo e vele
+const PVE_BOUNTY = { merc: 25, ghost: 60 }; // taglie magre e fisse per tipologia
 const WEAK_FORTS = !!(typeof process !== 'undefined' ? process.env.WEAK_FORTS : undefined); // knob per i test: difese di cartapesta
 
 const GROUP_DIR = { left: -Math.PI / 2, right: Math.PI / 2, bow: 0, stern: Math.PI };
@@ -650,13 +651,14 @@ class Game {
     let bounty = 0;
     if (killer && !killer.npc) {
       killerName = killer.name;
-      if (ship.npc === 'merc') bounty = 40 + Math.floor(Math.random() * 60);
-      else if (ship.npc === 'ghost') bounty = 180 + Math.floor(Math.random() * 100);
-      else {
-        const loot = Math.floor(ship.gold * 0.25);
-        ship.gold -= loot;
-        bounty = 60 + loot;
-        this.sendGold(ship, -loot, 'Bottino perduto');
+      if (ship.npc) {
+        // le prede PvE pagano poco e FISSO: l'oro vero naviga sotto bandiera altrui
+        bounty = PVE_BOUNTY[ship.npc] || 0;
+      } else {
+        // legge del mare: chi affonda un capitano si prende TUTTO il forziere
+        bounty = ship.gold;
+        ship.gold = 0;
+        this.sendGold(ship, -bounty, 'Il forziere è del vincitore');
       }
       killer.gold += bounty;
       killer.kills++;

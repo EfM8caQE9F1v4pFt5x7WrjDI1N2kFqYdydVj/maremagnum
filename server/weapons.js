@@ -14,12 +14,13 @@ const TYPES = {
 const TIER_ORDER = ['colubrina', 'cannone', 'carronata', 'mortaio', 'organo'];
 const MAX_WEAPON_LVL = 3;
 
-// Gruppi di fuoco e slot: base → massimo.
+// Gruppi di fuoco e slot: base → massimo. Anche gli slot sono esponenziali:
+// ogni bocca in più sulla fiancata costa ×2.5 della precedente.
 const GROUPS = {
-  left: { base: 1, max: 5, slotCosts: [null, 200, 500, 1200, 2500] },
-  right: { base: 1, max: 5, slotCosts: [null, 200, 500, 1200, 2500] },
-  bow: { base: 0, max: 2, slotCosts: [400, 1000] },
-  stern: { base: 0, max: 2, slotCosts: [400, 1000] },
+  left: { base: 1, max: 5, slotCosts: [null, 200, 500, 1250, 3125] },
+  right: { base: 1, max: 5, slotCosts: [null, 200, 500, 1250, 3125] },
+  bow: { base: 0, max: 2, slotCosts: [400, 1200] },
+  stern: { base: 0, max: 2, slotCosts: [400, 1200] },
 };
 
 // Statistiche effettive di un'arma {type, lvl}.
@@ -37,8 +38,10 @@ function weaponStats(w) {
   };
 }
 
+// Prezzi ESPONENZIALI dappertutto: ogni gradino costa il doppio del
+// precedente (i tier d'arma triplicano già da catalogo: 120→360→1080→…).
 function upgradeCost(w) {
-  return w.lvl >= MAX_WEAPON_LVL ? null : Math.round(TYPES[w.type].cost * 0.5 * w.lvl);
+  return w.lvl >= MAX_WEAPON_LVL ? null : Math.round(TYPES[w.type].cost * 0.5 * 2 ** (w.lvl - 1));
 }
 
 function nextTier(type) {
@@ -81,7 +84,7 @@ function fleetValue(mounts) {
   for (const g of Object.keys(GROUPS)) {
     for (const w of mounts[g] || []) {
       v += TYPES[w.type].cost;
-      for (let l = 1; l < w.lvl; l++) v += Math.round(TYPES[w.type].cost * 0.5 * l);
+      for (let l = 1; l < w.lvl; l++) v += Math.round(TYPES[w.type].cost * 0.5 * 2 ** (l - 1));
     }
   }
   return v;

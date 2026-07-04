@@ -180,7 +180,10 @@ async function main() {
     clearInterval(hunt);
     A.input({});
     ok(!!kill, 'Olonese affondato con la fiancata sinistra');
-    if (kill) ok(kill.bounty >= 60, `taglia incassata (${kill.bounty} 🪙)`);
+    if (kill) ok(kill.bounty >= 60, `bottino incassato (${kill.bounty} 🪙)`);
+    // legge del mare: il vincitore prende TUTTO il forziere della vittima
+    const spoglio = await B.wait(m => m.t === 'gold' && m.gold === 0, 3000);
+    ok(!!spoglio, 'il forziere della vittima è svuotato fino all\'ultima moneta');
     ok(!!await B.wait(m => m.t === 'respawned', 12000), 'la vittima rispunta al porto');
 
     console.log('— La Fortezza Proibita: blocco reale, poi espugnazione —');
