@@ -4,6 +4,7 @@
 // posizionata in modo deterministico (stesso dominio -> stessa posizione per tutti).
 
 const blocklist = require('./blocklist-core');
+const atlante = require('./atlante-core');
 
 const WORLD = { W: 6000, H: 6000 };
 const PORT = { x: WORLD.W / 2, y: WORLD.H / 2 };
@@ -105,7 +106,9 @@ class Archipelago {
     const fortress = blocklist.isBlocked(domain);
     const seed = hashStr(domain);
     const rng = mulberry32(seed);
-    const r = fortress ? 120 + rng() * 40 : 65 + rng() * 55;
+    // la base è il seme, la crescita è dell'equipaggio: più approdi, più stazza
+    const base = fortress ? 120 + rng() * 40 : 65 + rng() * 55;
+    const r = Math.round(base * (fortress ? 1 : atlante.crescita(domain)));
     let x = PORT.x, y = PORT.y, placed = false;
     for (let i = 0; i < 60 && !placed; i++) {
       const angle = rng() * Math.PI * 2;

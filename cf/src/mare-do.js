@@ -4,6 +4,7 @@
 
 import { Game } from '../../server/game.js';
 import blocklist from '../../server/blocklist-core.js';
+import atlante from '../../server/atlante-core.js';
 import { verificaToken } from './sessione.js';
 
 const LIST_URL = 'https://nsfw.oisd.nl/abp';
@@ -45,10 +46,19 @@ export class MareDO {
     }
   }
 
+  async caricaAtlante() {
+    try {
+      const atl = this.env.ATLANTE.get(this.env.ATLANTE.idFromName('atlante'));
+      const res = await atl.fetch('https://atlante/tutte');
+      if (res.ok) atlante.setConteggi((await res.json()).isole);
+    } catch { /* l'Atlante arriverà al prossimo risveglio */ }
+  }
+
   async pronto() {
     if (!this.prontoPromise) {
       this.prontoPromise = (async () => {
         await this.caricaBlocklist();
+        await this.caricaAtlante();
         this.game = new Game((obj) => {
           const s = JSON.stringify(obj);
           for (const ws of this.equipaggio.keys()) {
@@ -56,6 +66,16 @@ export class MareDO {
           }
         });
         this.game.pausa(); // nasce addormentato: si sveglia col primo capitano
+        // ogni approdo fa crescere l'isola per tutto il Maremagnum
+        this.game.onApprodo = (dominio) => {
+          atlante.registraApprodo(dominio); // effetto immediato su questo mare
+          const atl = this.env.ATLANTE.get(this.env.ATLANTE.idFromName('atlante'));
+          atl.fetch('https://atlante/visita', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ dominio }),
+          }).catch(() => { /* si conta al prossimo approdo */ });
+        };
       })();
     }
     return this.prontoPromise;
@@ -91,6 +111,7 @@ export class MareDO {
     };
 
     ws.addEventListener('message', async (e) => {
+      if (typeof e.data !== 'string' || e.data.length > 2048) return; // niente bombe
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
       if (!msg || typeof msg.t !== 'string' || !this.game) return;

@@ -35,7 +35,23 @@ export class ContiDO {
     for (const [key, conto] of conti) {
       if ((conto.ultimoIngresso || 0) < soglia) await this.state.storage.delete(key);
     }
+    // le bozze scadute non devono accumularsi nello storage
+    const bozze = await this.state.storage.list({ prefix: 'bozza:' });
+    for (const [key, bozza] of bozze) {
+      if ((bozza.exp || 0) < Date.now()) await this.state.storage.delete(key);
+    }
     await this.state.storage.setAlarm(Date.now() + SWEEP_MS);
+  }
+
+  // Lucchetto anti-bruteforce: 6 cifre non bastano se puoi provarne un milione.
+  // 5 errori → 15 minuti di cala.
+  bloccato(conto) {
+    return (conto.bloccoFino || 0) > Date.now();
+  }
+  async segnaErrore(uid, conto) {
+    conto.errori = (conto.errori || 0) + 1;
+    if (conto.errori >= 5) { conto.bloccoFino = Date.now() + 15 * 60 * 1000; conto.errori = 0; }
+    await this.state.storage.put('conto:' + uid, conto);
   }
 
   async fetch(req) {
@@ -71,7 +87,12 @@ export class ContiDO {
       const uid = normalizzaHandle(body.handle);
       const conto = uid && await this.state.storage.get('conto:' + uid);
       if (!conto) return json({ errore: 'Nessun ancoraggio con questo nome (o è stato inghiottito dal mare dopo 30 giorni).' }, 404);
-      if (!(await verificaTotp(conto.segreto, body.codice))) return json({ errore: 'Codice errato: controlla l\'app.' }, 401);
+      if (this.bloccato(conto)) return json({ errore: 'Troppi tentativi: l\'ancoraggio riposa 15 minuti.' }, 429);
+      if (!(await verificaTotp(conto.segreto, body.codice))) {
+        await this.segnaErrore(uid, conto);
+        return json({ errore: 'Codice errato: controlla l\'app.' }, 401);
+      }
+      conto.errori = 0;
       conto.ultimoIngresso = Date.now();
       await this.state.storage.put('conto:' + uid, conto);
       const token = await firmaToken({ uid, exp: Date.now() + SESSIONE_TTL_MS }, this.env.SESSION_SECRET);

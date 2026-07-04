@@ -102,6 +102,24 @@ async function main() {
   if (!entra.profilo || entra.profilo.gold == null) die('profilo non persistito: ' + JSON.stringify(entra));
   ok(`login da "altro dispositivo": profilo persistito (oro ${entra.profilo.gold}, nave ${entra.profilo.name})`);
 
+  // lucchetto anti-bruteforce: 5 errori → 429
+  for (let i = 0; i < 5; i++) {
+    await fetch(BASE + '/ancora/entra', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ handle, codice: '111111' }),
+    });
+  }
+  const bloccato = await (await fetch(BASE + '/ancora/entra', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ handle, codice: totp(nuovo.segreto) }),
+  })).json();
+  if (!bloccato.errore || !bloccato.errore.includes('riposa')) die('lucchetto anti-bruteforce non attivo: ' + JSON.stringify(bloccato));
+  ok('lucchetto anti-bruteforce: dopo 5 errori anche il codice giusto riposa 15 minuti');
+
+  const atlante = await (await fetch(BASE + '/atlante')).json();
+  if (!atlante.isole) die('atlante non risponde');
+  ok(`atlante pubblico attivo (${Object.keys(atlante.isole).length} isole sopra la soglia di anonimato)`);
+
   console.log('\nCOLLAUDO CLOUDFLARE VERDE ☁️⚓');
 }
 

@@ -5,6 +5,7 @@
 // Uso: electron scripts/audit-ui-main.js  (server già su 3314; vedi audit-ui.js)
 
 process.env.GAME_URL = process.env.GAME_URL || 'http://localhost:3314/?nome=Auditor&ora=0.25';
+const LARGHEZZA = parseInt(process.env.AUDIT_W || '1440', 10);
 require('../shell/main.js');
 
 const fs = require('fs');

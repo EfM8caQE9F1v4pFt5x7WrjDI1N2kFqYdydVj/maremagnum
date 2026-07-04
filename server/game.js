@@ -283,6 +283,8 @@ class Game {
         this.sendGold(ship, DISCOVERY_GOLD, 'Terra scoperta!');
       }
       this.sendTo(ship, { t: 'docked', island: publicIsland(best) });
+      // Atlante comunitario: l'approdo fa crescere l'isola per tutti
+      if (best.kind === 'site' && this.onApprodo) this.onApprodo(best.domain);
     }
     this.missions.onDock(ship, best, firstVisit);
   }

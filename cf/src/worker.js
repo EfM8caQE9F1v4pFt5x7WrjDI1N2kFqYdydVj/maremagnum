@@ -4,8 +4,9 @@
 
 import { MareDO } from './mare-do.js';
 import { ContiDO } from './conti-do.js';
+import { AtlanteDO } from './atlante-do.js';
 
-export { MareDO, ContiDO };
+export { MareDO, ContiDO, AtlanteDO };
 
 const PUBBLICHE_CONTI = { '/ancora/nuovo': '/nuovo', '/ancora/conferma': '/conferma', '/ancora/entra': '/entra' };
 
@@ -16,6 +17,14 @@ export default {
     const upgrade = (req.headers.get('Upgrade') || '').toLowerCase();
     if (url.pathname === '/mare' && upgrade === 'websocket') {
       return env.MARE.get(env.MARE.idFromName('mare-1')).fetch(req);
+    }
+
+    if (url.pathname === '/atlante' && req.method === 'GET') {
+      const atl = env.ATLANTE.get(env.ATLANTE.idFromName('atlante'));
+      const r = await atl.fetch('https://atlante/tutte');
+      return new Response(await r.text(), {
+        headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=300' },
+      });
     }
 
     if (url.pathname === '/salute') {

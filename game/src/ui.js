@@ -84,21 +84,6 @@ export class UI {
     return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA');
   }
 
-  askName(suggestion) {
-    return new Promise((resolve) => {
-      $('nameInput').value = suggestion;
-      this.show('nameOverlay');
-      $('nameInput').focus();
-      $('nameInput').select();
-      $('nameForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = $('nameInput').value.trim().slice(0, 18) || suggestion;
-        this.hide('nameOverlay');
-        resolve(name);
-      }, { once: true });
-    });
-  }
-
   setSettings({ music, sfx, guard, volume }) {
     $('setMusic').checked = music;
     $('setSfx').checked = sfx;
@@ -194,7 +179,7 @@ export class UI {
 
   showTreasureMap(from, island, url) {
     const canvas = $('mapCanvas');
-    const w = Math.min(880, innerWidth * 0.86);
+    const w = Math.min(1060, innerWidth * 0.82);
     canvas.width = w; canvas.height = Math.round(w * 0.62);
     drawTreasureMap(canvas, { from, island });
     this.show('mapOverlay');

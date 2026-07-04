@@ -12,11 +12,13 @@
   "durable_objects": {
     "bindings": [
       { "name": "MARE", "class_name": "MareDO" },
-      { "name": "CONTI", "class_name": "ContiDO" }
+      { "name": "CONTI", "class_name": "ContiDO" },
+      { "name": "ATLANTE", "class_name": "AtlanteDO" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["MareDO", "ContiDO"] }
+    { "tag": "v1", "new_sqlite_classes": ["MareDO", "ContiDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["AtlanteDO"] }
   ],
   "r2_buckets": [
     { "binding": "DEPOSITO", "bucket_name": "maremagnum" }
