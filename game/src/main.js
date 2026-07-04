@@ -84,7 +84,9 @@ async function boot() {
 
   const forcedName = devParams.get('nome');
   if (forcedName) state.profile.name = forcedName.slice(0, 18);
-  if (!state.profile.name) state.profile.name = await ui.askName(pirateName());
+  else if (!state.profile.name || (!state.profile.ancora && !state.profile.senzaAncora)) {
+    await benvenuto(); // nome → ancoraggio (QR+chiave) | login | salpa senz'ancora
+  }
   ui.setShipName(state.profile.name);
   saveProfile();
 
@@ -126,6 +128,106 @@ async function boot() {
 
 function setCourse(q) { net.send({ t: 'course', q }); }
 function undock() { net.send({ t: 'undock' }); }
+
+// --- Benvenuto: nome → ancoraggio (signup) | login | senza ancora ---
+
+function handleDaNome(nome) {
+  let h = nome.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9@._+-]/g, '');
+  if (h.length < 3) h = 'capitano-' + Math.random().toString(36).slice(2, 6);
+  return h.slice(0, 40);
+}
+
+function benvenuto() {
+  return new Promise((resolve) => {
+    const fine = (nome) => {
+      state.profile.name = (nome || state.profile.name || pirateName()).slice(0, 18);
+      saveProfile();
+      ui.hide('nameOverlay');
+      resolve();
+    };
+    const mostra = (passo) => {
+      for (const p of ['benvenutoNome', 'benvenutoAncora', 'benvenutoEntra']) {
+        $id(p).classList.toggle('hidden', p !== passo);
+      }
+    };
+    let nomeScelto = state.profile.name || '';
+    let handleProposto = null;
+
+    // passo ancoraggio: propone il QR per il nome scelto
+    const proponiAncora = async (nome) => {
+      nomeScelto = nome;
+      let handle = handleDaNome(nome);
+      try {
+        let r = await ancoraChiama('nuovo', { handle });
+        if (r.errore && String(r.errore).includes('già')) {
+          handle = handle.slice(0, 34) + '-' + Math.random().toString(36).slice(2, 6);
+          r = await ancoraChiama('nuovo', { handle });
+        }
+        if (r.errore) { ui.toast('⚓ ' + r.errore); return; }
+        handleProposto = r.uid;
+        $id('benvenutoHandle').textContent = r.uid;
+        QRCode.toCanvas($id('benvenutoQr'), r.otpauth, { width: 168, margin: 1 });
+        $id('benvenutoSegreto').textContent = r.segreto;
+        mostra('benvenutoAncora');
+        $id('benvenutoCodice').focus();
+      } catch {
+        // server locale senza Conti (es. Electron offline): si salpa e basta
+        state.profile.senzaAncora = true;
+        fine(nome);
+      }
+    };
+
+    $id('nameForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const nome = $id('nameInput').value.trim().slice(0, 18) || $id('nameInput').value || pirateName();
+      proponiAncora(nome);
+    });
+    $id('benvenutoConfermaForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const r = await ancoraChiama('conferma', {
+        handle: handleProposto,
+        codice: $id('benvenutoCodice').value.trim(),
+        profilo: { ...state.profile, name: nomeScelto },
+      }).catch(() => ({ errore: 'mare irraggiungibile' }));
+      if (r.errore) { ui.toast('⚓ ' + r.errore); return; }
+      state.profile.ancora = { token: r.token, uid: r.uid };
+      ui.toast('⚓ Ancora gettata: il bottino è al sicuro in mare aperto.', 4000);
+      fine(nomeScelto);
+    });
+    $id('benvenutoSalta').addEventListener('click', () => {
+      state.profile.senzaAncora = true;
+      fine(nomeScelto);
+    });
+    $id('benvenutoLogin').addEventListener('click', () => {
+      mostra('benvenutoEntra');
+      $id('benvenutoEntraHandle').focus();
+    });
+    $id('benvenutoIndietro').addEventListener('click', () => mostra('benvenutoNome'));
+    $id('benvenutoEntraForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const r = await ancoraChiama('entra', {
+        handle: $id('benvenutoEntraHandle').value.trim(),
+        codice: $id('benvenutoEntraCodice').value.trim(),
+      }).catch(() => ({ errore: 'mare irraggiungibile' }));
+      if (r.errore) { ui.toast('⚓ ' + r.errore); return; }
+      state.profile.ancora = { token: r.token, uid: r.uid };
+      if (r.profilo) Object.assign(state.profile, r.profilo);
+      ui.toast('⚓ Bentornato a bordo, capitano.', 3000);
+      fine((r.profilo && r.profilo.name) || r.uid);
+    });
+
+    // ingresso: se il nome c'è già (vecchi lupi di mare) si propone subito l'ancora
+    ui.show('nameOverlay');
+    if (state.profile.name) {
+      proponiAncora(state.profile.name);
+    } else {
+      $id('nameInput').value = pirateName();
+      mostra('benvenutoNome');
+      $id('nameInput').focus();
+      $id('nameInput').select();
+    }
+  });
+}
 
 // --- Ancoraggio del profilo (nome + TOTP, vive sul Maremagnum online) ---
 

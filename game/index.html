@@ -145,6 +145,7 @@
       </form>
       <p class="ruoli">Niente password, niente email di conferma. Se perdi il generatore perdi il forziere;<br>dopo 30 giorni senza entrare, il mare si riprende tutto.</p>
     </div>
+    <p class="credits">♪ Musiche: Kevin MacLeod (incompetech.com) — CC BY 3.0<br>"Netherworld Shanty" · "Bushwick Tarantella" · "Stoneworld Battle"</p>
     <button id="settingsClose" class="linkish">Chiudi</button>
   </div>
 </div>
@@ -152,11 +153,35 @@
 <div id="nameOverlay" class="overlay hidden">
   <div class="panel">
     <h2>⚓ Maremagnum</h2>
-    <p class="sub">L'internet è un mare magnum: vasto, profondo e infestato di corsari.<br>Con che nome solcherai le onde?</p>
-    <form id="nameForm">
-      <input id="nameInput" maxlength="18" autocomplete="off">
-      <button type="submit">⛵ Salpa!</button>
-    </form>
+    <div id="benvenutoNome">
+      <p class="sub">L'internet è un mare magnum: vasto, profondo e infestato di corsari.<br>Con che nome solcherai le onde?</p>
+      <form id="nameForm">
+        <input id="nameInput" maxlength="18" autocomplete="off">
+        <button type="submit">⛵ Salpa!</button>
+      </form>
+      <button id="benvenutoLogin" class="linkish">Ho già un ancoraggio</button>
+    </div>
+    <div id="benvenutoAncora" class="hidden">
+      <p class="sub">Il tuo ancoraggio è <b id="benvenutoHandle"></b>.<br>
+        Inquadralo con la tua app di autenticazione (Google Authenticator, Aegis, 1Password…):<br>
+        il codice a 6 cifre ti farà rientrare nelle prossime sessioni.</p>
+      <canvas id="benvenutoQr" width="168" height="168"></canvas>
+      <p class="sub">Chiave manuale: <code id="benvenutoSegreto"></code></p>
+      <form id="benvenutoConfermaForm">
+        <input id="benvenutoCodice" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="off">
+        <button type="submit">⚓ Getta l'ancora e salpa</button>
+      </form>
+      <button id="benvenutoSalta" class="linkish">Salpa senza ancora — il bottino resterà solo su questa nave</button>
+    </div>
+    <div id="benvenutoEntra" class="hidden">
+      <p class="sub">Bentornato, capitano. Nome d'ancoraggio e codice dalla tua app.</p>
+      <form id="benvenutoEntraForm">
+        <input id="benvenutoEntraHandle" placeholder="nome d'ancoraggio" autocomplete="off">
+        <input id="benvenutoEntraCodice" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="off">
+        <button type="submit">⛵ Entra</button>
+      </form>
+      <button id="benvenutoIndietro" class="linkish">Sono nuovo da queste acque</button>
+    </div>
   </div>
 </div>
 

@@ -220,3 +220,12 @@ body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killf
 #ancoraSegreto { font-size: 12px; word-break: break-all; }
 #ancoraCodice { width: 170px; text-align: center; letter-spacing: 4px; }
 #ancoraStato b { color: #2e5d2e; }
+
+/* ---- benvenuto: ancoraggio alla prima visita ---- */
+#benvenutoQr { background: #fff8e4; border: 2px solid #6d4c22; border-radius: 8px; }
+#benvenutoSegreto { font-size: 12px; word-break: break-all; }
+#benvenutoHandle { color: #2e5d2e; }
+#benvenutoCodice, #benvenutoEntraCodice { width: 170px; text-align: center; letter-spacing: 4px; }
+#benvenutoEntraForm { flex-wrap: wrap; }
+
+.credits { font-size: 11.5px; opacity: .65; margin-top: 12px; font-style: italic; }

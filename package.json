@@ -1,6 +1,6 @@
 {
   "name": "maremagnum",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "description": "Maremagnum: un vero browser che è anche un gioco — l'internet è un mare magnum, i siti sono isole, tu sei il corsaro.",
   "main": "shell/main.js",
   "scripts": {

@@ -20,8 +20,9 @@ const rms = () => {
   return Math.sqrt(s / d.length);
 };
 
-setTimeout(() => console.log('LABM calma rms=' + rms().toFixed(4)), 4000);
-setTimeout(() => music.setMood('battaglia'), 4500);
-setTimeout(() => console.log('LABM battaglia rms=' + rms().toFixed(4)), 9500);
-setTimeout(() => music.setEnabled(false), 10000);
-setTimeout(() => console.log('LABM spenta rms=' + rms().toFixed(4)), 13500);
+setTimeout(() => console.log('LABM calma rms=' + rms().toFixed(4)), 5000);
+setTimeout(() => music.setMood('battaglia'), 5500);
+setTimeout(() => { console.log('LABM battaglia rms=' + rms().toFixed(4)); }, 13000);
+setTimeout(() => { console.log('LABM battaglia2 rms=' + rms().toFixed(4)); }, 16000);
+setTimeout(() => music.setEnabled(false), 17000);
+setTimeout(() => console.log('LABM spenta rms=' + rms().toFixed(4)), 19500);

@@ -116,3 +116,9 @@ cantiere, scala dei tier, missioni, assedio ed espugnazione della fortezza.
 Prossime tappe sensate: ciurme/alleanze e scorte, persistenza server-side dei
 profili (oggi: localStorage, fidarsi è da ingenui), zone/rooms con Colyseus,
 hardening del guscio (Fase 2: CEF o fork stile Vivaldi).
+
+## Musiche
+
+Kevin MacLeod (incompetech.com) — Licensed under [Creative Commons: By Attribution 3.0](http://creativecommons.org/licenses/by/3.0/):
+"Netherworld Shanty", "Bushwick Tarantella" (navigazione) e "Stoneworld Battle" (battaglia).
+Dettagli in `game/assets/musica/LICENZE.md`.
