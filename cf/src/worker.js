@@ -27,6 +27,24 @@ export default {
       });
     }
 
+    // Il riscatto delle isole: i proprietari dei siti veri si mettono in rada
+    // per l'Editor dell'Isola (in cantiere). Solo una lista d'attesa, per ora.
+    if (url.pathname === '/riscatto' && req.method === 'POST') {
+      const corpo = await req.text();
+      if (corpo.length > 2048) return new Response('{"errore":"troppo lungo"}', { status: 413 });
+      const atl = env.ATLANTE.get(env.ATLANTE.idFromName('atlante'));
+      return atl.fetch('https://atlante/riscatto', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: corpo,
+      });
+    }
+    if (url.pathname === '/ammiragliato/riscatti' && req.method === 'GET') {
+      if (!env.ADMIN_SECRET || req.headers.get('X-Ammiragliato') !== env.ADMIN_SECRET) {
+        return new Response('Chi va là?', { status: 401 });
+      }
+      const atl = env.ATLANTE.get(env.ATLANTE.idFromName('atlante'));
+      return atl.fetch('https://atlante/riscatti');
+    }
+
     // Ammiragliato: rotte d'amministrazione protette da segreto (mai nel git)
     if (url.pathname.startsWith('/ammiragliato/profilo/')) {
       if (!env.ADMIN_SECRET || req.headers.get('X-Ammiragliato') !== env.ADMIN_SECRET) {

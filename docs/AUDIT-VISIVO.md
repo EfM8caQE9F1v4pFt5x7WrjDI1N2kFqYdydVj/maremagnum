@@ -255,3 +255,18 @@ mortaio a pentola con la bocca al cielo, organo a TRE canne. Il livello 3
   stessa trasparenza morbida (l'alpha c'è, VP8X+ALPH), un quarto del peso.
 - Il fattore di stazza a schermo ora viaggia in navi.json (`scala` = 79·D/13):
   cambiare la camera di cottura non richiede più di ricordarsi il client.
+
+---
+
+## Round 7 — il Manuale del Corsaro e la rada del riscatto
+
+Nuovo bottone 📜 in plancia → modale "Il Manuale del Corsaro": come si
+naviga, le isole che crescono con gli approdi, le fortezze, le classi di
+nave, l'Ancoraggio, la Ciurma di Guardia, i comandi. Testo a sinistra
+(si LEGGE, non si ammira), pattern standard (ESC/click-fuori/Chiudi).
+
+In coda al manuale, "Riscatta la tua isola": i proprietari dei siti veri
+lasciano dominio+recapito in lista d'attesa per l'Editor dell'Isola
+(visione nella issue #1 su GitHub). POST /riscatto → AtlanteDO (una voce
+per dominio, max 5 recapiti), elenco per l'Ammiragliato dietro segreto.
+Se attraccati a un sito, il dominio è precompilato.

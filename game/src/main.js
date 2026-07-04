@@ -76,6 +76,12 @@ async function boot() {
     onUpgradeWeapon: (group, slot) => net.send({ t: 'upgradeWeapon', group, slot }),
     onReplaceWeapon: (group, slot) => net.send({ t: 'replaceWeapon', group, slot }),
     onAssedioJoin: (role) => net.send({ t: 'assedio', role }),
+    onHelp: () => {
+      let dominio = '';
+      try { if (state.siteUrl) dominio = new URL(state.siteUrl).hostname.replace(/^www\./, ''); } catch { /* rotta senza porto */ }
+      ui.showHelp(dominio);
+    },
+    onRiscatto: riscattaIsola,
     onSettings: applySettings,
     onNavBack: () => shell && shell.navBack(),
     onNavFwd: () => shell && shell.navFwd(),
@@ -612,6 +618,25 @@ function initZoom() {
   zoomIdx = Math.max(0, Math.min(ZOOM_STOPS.length - 1, zoomIdx));
   renderer.setZoom(ZOOM_STOPS[zoomIdx]);
   renderer.zoom = ZOOM_STOPS[zoomIdx]; // niente carrellata all'avvio
+}
+
+// Il riscatto dell'isola: il proprietario del sito vero lascia un segnale
+// e verrà chiamato quando l'Editor dell'Isola aprirà la banchina.
+async function riscattaIsola(dominio, contatto) {
+  if (!dominio || !dominio.includes('.')) { ui.setRiscattoEsito('Serve il dominio della tua isola (es. iltuosito.it).'); return; }
+  if (!contatto) { ui.setRiscattoEsito('Lascia un recapito: senza, non sapremmo chi chiamare.'); return; }
+  try {
+    const r = await fetch('/riscatto', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ dominio, contatto }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) ui.setRiscattoEsito(`⚓ Segnale ricevuto per ${j.dominio || dominio}: sei il n° ${j.posto || '—'} in rada. Ti chiameremo.`);
+    else ui.setRiscattoEsito(j.errore || 'Il mare ha respinto il segnale: riprova.');
+  } catch {
+    ui.setRiscattoEsito('Il riscatto si firma nel mare aperto: maremagnum.maremagnum.workers.dev');
+  }
 }
 
 // --- interpolazione e frame ---

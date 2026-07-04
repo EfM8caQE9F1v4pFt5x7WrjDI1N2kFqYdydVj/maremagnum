@@ -40,6 +40,12 @@ export class UI {
     $('openExt').addEventListener('click', () => this.h.onOpenExt());
     $('settingsBtn').addEventListener('click', () => this.show('settingsOverlay'));
     $('settingsClose').addEventListener('click', () => this.hide('settingsOverlay'));
+    $('helpBtn').addEventListener('click', () => this.h.onHelp());
+    $('helpClose').addEventListener('click', () => this.hide('helpOverlay'));
+    $('riscattoForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.h.onRiscatto($('riscattoDominio').value.trim(), $('riscattoContatto').value.trim());
+    });
     const emitSettings = (e) => {
       this.h.onSettings({
         music: $('setMusic').checked,
@@ -59,17 +65,26 @@ export class UI {
     $('joinBlocc').addEventListener('click', () => this.h.onAssedioJoin('bloccatori'));
 
     // click fuori dal pannello = chiudi (solo overlay non distruttivi)
-    for (const oid of ['mapOverlay', 'settingsOverlay', 'assedioOverlay']) {
+    for (const oid of ['mapOverlay', 'settingsOverlay', 'assedioOverlay', 'helpOverlay']) {
       $(oid).addEventListener('click', (e) => { if (e.target.id === oid) this.hide(oid); });
     }
   }
+
+  // il Manuale del Corsaro; se siamo attraccati a un sito, il riscatto
+  // parte già compilato con quell'isola
+  showHelp(dominio) {
+    if (dominio && !$('riscattoDominio').value) $('riscattoDominio').value = dominio;
+    $('riscattoEsito').textContent = '';
+    this.show('helpOverlay');
+  }
+  setRiscattoEsito(msg) { $('riscattoEsito').textContent = msg; }
 
   // ESC: prima libera il timone dagli input, poi chiude l'overlay in cima.
   // Sui pannelli d'attracco (cantiere/oracolo/sito) equivale a salpare.
   escape() {
     const a = document.activeElement;
     if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) { a.blur(); return; }
-    for (const oid of ['settingsOverlay', 'assedioOverlay', 'mapOverlay']) {
+    for (const oid of ['helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay']) {
       if (!$(oid).classList.contains('hidden')) { this.hide(oid); return; }
     }
     for (const oid of ['shopOverlay', 'searchOverlay', 'siteOverlay']) {

@@ -120,6 +120,20 @@ async function main() {
   if (!atlante.isole) die('atlante non risponde');
   ok(`atlante pubblico attivo (${Object.keys(atlante.isole).length} isole sopra la soglia di anonimato)`);
 
+  // la rada del riscatto: segnale valido accolto, dominio farlocco respinto
+  const risc = await (await fetch(BASE + '/riscatto', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ dominio: 'collaudo.example.com', contatto: 'collaudo@esempio.it' }),
+  })).json();
+  if (!risc.ok || risc.dominio !== 'collaudo.example.com') die('riscatto non accolto: ' + JSON.stringify(risc));
+  ok(`riscatto in rada per ${risc.dominio} (posto n° ${risc.posto})`);
+  const riscNo = await fetch(BASE + '/riscatto', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ dominio: 'senza-punto', contatto: 'x' }),
+  });
+  if (riscNo.status !== 400) die('riscatto: dominio non valido non respinto');
+  ok('riscatto: dominio senza punto respinto (400)');
+
   console.log('\nCOLLAUDO CLOUDFLARE VERDE ☁️⚓');
 }
 

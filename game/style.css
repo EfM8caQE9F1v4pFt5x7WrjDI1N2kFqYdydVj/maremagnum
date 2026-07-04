@@ -204,7 +204,15 @@ button:disabled { opacity: .45; cursor: default; }
 .shopRow button { min-width: 96px; }
 
 /* ---- impostazioni di bordo ---- */
-#settingsBtn { padding: 4px 10px; font-size: 17px; border-radius: 12px; }
+#settingsBtn, #helpBtn { padding: 4px 10px; font-size: 17px; border-radius: 12px; }
+
+/* Il Manuale del Corsaro */
+.manuale { text-align: left; }
+.manuale p { font-size: 13.5px; line-height: 1.55; margin: 4px 0 10px; }
+.manuale .comandi { line-height: 2; }
+#riscattoForm { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+#riscattoForm input { flex: 1 1 190px; min-width: 0; }
+#riscattoEsito { min-height: 18px; }
 .setRow {
   display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: center;
   margin: 12px auto; max-width: 320px; font-size: 15.5px; cursor: pointer; text-align: left;

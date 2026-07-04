@@ -16,6 +16,7 @@
     <button type="submit">🧭 Traccia la rotta</button>
   </form>
   <div id="gold">🪙 <b id="goldVal">0</b></div>
+  <button id="helpBtn" title="Il Manuale del Corsaro — come funziona Maremagnum">📜</button>
   <button id="settingsBtn" title="Impostazioni di bordo">⚙</button>
 </header>
 
@@ -147,6 +148,67 @@
     </div>
     <p class="credits">♪ Musiche: Kevin MacLeod (incompetech.com) — CC BY 3.0<br>"Netherworld Shanty" · "Bushwick Tarantella" · "Stoneworld Battle"</p>
     <button id="settingsClose" class="linkish">Chiudi</button>
+  </div>
+</div>
+
+<div id="helpOverlay" class="overlay hidden">
+  <div class="panel wide">
+    <h2>📜 Il Manuale del Corsaro</h2>
+    <p class="sub">L'internet è un mare magnum. Questo è un browser che lo prende alla lettera.</p>
+
+    <div class="manuale">
+      <h3 class="shopSection">🧭 Navigare È navigare</h3>
+      <p>Scrivi un indirizzo o una ricerca nella barra di rotta: la destinazione diventa
+      un'<b>isola</b> e la tua nave salpa. Arrivato sotto costa, premi <b>F</b> per attraccare:
+      il sito si apre davvero. Ogni dominio ha la sua isola, sempre nello stesso punto del mare.</p>
+
+      <h3 class="shopSection">🏝 Le isole crescono con gli approdi</h3>
+      <p>L'<b>Atlante comunitario</b> conta gli approdi di tutti i capitani: più un'isola è
+      visitata, più diventa grande sulla mappa. Un'isola entra nell'Atlante pubblico solo
+      quando è meta condivisa (almeno 3 approdi): il tuo primo sbarco resta affar tuo.</p>
+
+      <h3 class="shopSection">🏰 Le fortezze proibite</h3>
+      <p>I siti della lista nera (tracker, trappole e acque malfamate) sono <b>fortezze</b>:
+      torri e bastioni ne sbarrano l'approdo. Vuoi passare lo stesso? Abbatti <b>tutte</b> le
+      difese e la fortezza è espugnata — per te, per sempre. Oppure unisciti a un
+      <b>Assedio</b> dalla bacheca del Porto Franco.</p>
+
+      <h3 class="shopSection">⛵ La tua nave</h3>
+      <p>Si parte <b>sloop</b>. Al Cantiere del Porto Franco lo scafo ti fa <b>brigantino</b>
+      (scafo 2), <b>galeone</b> (scafo 4) e — con anche le vele al massimo — <b>Galeone
+      Dorato</b>, la regina dei mari. Cinque bocche da fuoco per i tuoi slot: colubrina,
+      cannone, carronata, mortaio e organo. Missioni e taglie pagano l'oro che serve.</p>
+
+      <h3 class="shopSection">⚓ L'Ancoraggio</h3>
+      <p>Il conto del Maremagnum: un nome e un codice a 6 cifre dalla tua app di
+      autenticazione. <b>Niente password, niente email</b>, niente conferme. Se non entri
+      per 30 giorni, il mare si riprende il forziere.</p>
+
+      <h3 class="shopSection">🛡 La Ciurma di Guardia</h3>
+      <p>Nell'app da scrivania, mentre leggi un sito la ciurma respinge tracker e pubblicità
+      (liste EasyList/EasyPrivacy/uBlock), issa il segnale <i>Global Privacy Control</i> e
+      preferisce sempre le rotte cifrate (HTTPS). Il contatore 🛡 tiene il conto dei
+      parassiti respinti.</p>
+
+      <h3 class="shopSection">🎛 I comandi</h3>
+      <p class="comandi"><b>W A S D</b> vela e timone · <b>Q</b>/<b>E</b> bordata sinistra/destra ·
+      <b>SPAZIO</b> prua e poppa · <b>F</b> attracca/salpa · <b>Z</b> o rotella cannocchiale ·
+      <b>TAB</b> classifica · <b>ESC</b> chiudi/salpa</p>
+
+      <h3 class="shopSection">👑 Riscatta la tua isola</h3>
+      <p>Sei il capitano del sito vero? Presto potrai <b>riscattare la tua isola</b>:
+      diventarne proprietario e ridisegnarla con l'<b>Editor dell'Isola</b> — colori,
+      edifici, vessilli, fino a farne la tua insegna sul mare. L'editor è in cantiere:
+      lascia un segnale e ti chiameremo quando la banchina apre.</p>
+      <form id="riscattoForm">
+        <input id="riscattoDominio" placeholder="iltuosito.it" autocomplete="off" spellcheck="false">
+        <input id="riscattoContatto" placeholder="come ti raggiungiamo (mail o ancoraggio)" autocomplete="off">
+        <button type="submit">👑 Prenota il riscatto</button>
+      </form>
+      <p class="ruoli" id="riscattoEsito"></p>
+    </div>
+
+    <button id="helpClose" class="linkish">Chiudi</button>
   </div>
 </div>
 

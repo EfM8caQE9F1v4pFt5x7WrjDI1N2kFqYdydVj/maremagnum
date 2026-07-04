@@ -24,6 +24,30 @@ export class AtlanteDO {
       return json({ dominio, approdi: n });
     }
 
+    // la rada del riscatto: i proprietari lasciano un segnale, uno per dominio
+    // (i recapiti si accumulano fino a 5 — ristampe della stessa richiesta)
+    if (url.pathname === '/riscatto' && req.method === 'POST') {
+      const { dominio, contatto } = await req.json().catch(() => ({}));
+      const dom = String(dominio || '').trim().toLowerCase().replace(/^www\./, '');
+      if (!/^[a-z0-9][a-z0-9.-]{2,199}$/.test(dom) || !dom.includes('.')) return json({ errore: 'Dominio non valido.' }, 400);
+      const rec = String(contatto || '').trim().slice(0, 120);
+      if (!rec) return json({ errore: 'Serve un recapito.' }, 400);
+      const chiave = 'riscatto:' + dom;
+      const voce = (await this.state.storage.get(chiave)) || { dominio: dom, contatti: [], quando: Date.now() };
+      if (!voce.contatti.includes(rec)) {
+        if (voce.contatti.length >= 5) return json({ errore: 'Questa isola ha già troppe richieste in rada.' }, 429);
+        voce.contatti.push(rec);
+        await this.state.storage.put(chiave, voce);
+      }
+      const rada = await this.state.storage.list({ prefix: 'riscatto:' });
+      return json({ ok: true, dominio: dom, posto: rada.size });
+    }
+
+    if (url.pathname === '/riscatti' && req.method === 'GET') {
+      const rada = await this.state.storage.list({ prefix: 'riscatto:' });
+      return json({ riscatti: [...rada.values()] });
+    }
+
     if (url.pathname === '/tutte' && req.method === 'GET') {
       const righe = await this.state.storage.list({ prefix: 'isola:' });
       const tutte = [...righe].map(([k, v]) => [k.slice(6), v]);
