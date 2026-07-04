@@ -43,10 +43,12 @@ function loadProfile() {
       p.sailsLvl = p.up.sails | 0;
       delete p.up;
     }
-    // ?scafo=0..4&vele=0..4 (sviluppo): salpa già con la classe da collaudare
+    // ?scafo=0..4&vele=&timone=&ciurma=&stiva= (sviluppo): salpa con la build da collaudare
     const dp = new URLSearchParams(location.search);
-    if (dp.get('scafo') != null) p.hullLvl = Math.min(4, Math.max(0, dp.get('scafo') | 0));
-    if (dp.get('vele') != null) p.sailsLvl = Math.min(4, Math.max(0, dp.get('vele') | 0));
+    const linee = { scafo: 'hullLvl', vele: 'sailsLvl', timone: 'helmLvl', ciurma: 'crewLvl', stiva: 'holdLvl' };
+    for (const [param, field] of Object.entries(linee)) {
+      if (dp.get(param) != null) p[field] = Math.min(4, Math.max(0, dp.get(param) | 0));
+    }
     return p;
   } catch { return {}; }
 }
@@ -331,9 +333,10 @@ function weaponReloadMs(w) {
 
 function recomputeReloads() {
   if (!state.mounts) return;
+  const crewMul = 1 - 0.07 * (state.profile.crewLvl || 0); // la Ciurma accorcia, come sul server
   for (const g of GROUPS) {
     const list = state.mounts[g] || [];
-    state.groupReload[g] = list.length ? Math.min(...list.map(weaponReloadMs)) : 2000;
+    state.groupReload[g] = list.length ? Math.min(...list.map(weaponReloadMs)) * crewMul : 2000;
   }
   ui.setGroupsAvailable({
     left: (state.mounts.left || []).length > 0,
@@ -347,6 +350,8 @@ function applyYou(you) {
   state.mounts = you.mounts;
   Object.assign(state.profile, {
     gold: you.gold, hullLvl: you.hullLvl, sailsLvl: you.sailsLvl,
+    helmLvl: you.helmLvl ?? state.profile.helmLvl, crewLvl: you.crewLvl ?? state.profile.crewLvl,
+    holdLvl: you.holdLvl ?? state.profile.holdLvl,
     mounts: you.mounts, conquered: you.conquered ?? state.profile.conquered ?? [],
     kills: you.kills ?? state.profile.kills, deaths: you.deaths ?? state.profile.deaths,
   });
@@ -430,6 +435,7 @@ function wireNet() {
   net.on('shop', (m) => {
     applyYou({
       gold: m.gold, hullLvl: m.ship.hullLvl, sailsLvl: m.ship.sailsLvl,
+      helmLvl: m.ship.helmLvl, crewLvl: m.ship.crewLvl, holdLvl: m.ship.holdLvl,
       mounts: m.mounts,
     });
     ui.showShop(m);

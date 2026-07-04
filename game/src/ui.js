@@ -222,6 +222,12 @@ export class UI {
       () => this.h.onBuyShip('hull')));
     ship.appendChild(this.statRow('⛵ Vele', 'Chi fugge vive per combattere domani', m.ship.sailsLvl, 4, m.ship.sailsCost, m.gold,
       () => this.h.onBuyShip('sails')));
+    ship.appendChild(this.statRow('☸ Timone', 'Vira come un pesce, non come un tronco', m.ship.helmLvl | 0, 4, m.ship.helmCost ?? null, m.gold,
+      () => this.h.onBuyShip('helm')));
+    ship.appendChild(this.statRow('💪 Ciurma', 'Più braccia, bordate più fitte', m.ship.crewLvl | 0, 4, m.ship.crewCost ?? null, m.gold,
+      () => this.h.onBuyShip('crew')));
+    ship.appendChild(this.statRow('🛢 Stiva', 'Un doppiofondo che i vincitori non trovano', m.ship.holdLvl | 0, 4, m.ship.holdCost ?? null, m.gold,
+      () => this.h.onBuyShip('hold')));
 
     const wep = $('shopWeapons');
     wep.innerHTML = '';

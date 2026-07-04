@@ -31,6 +31,7 @@ class Player {
     this.ws.addEventListener('message', (e) => {
       const m = JSON.parse(e.data);
       if (m.t === 'snap') { this.snap = m; return; }
+      m._rx = Date.now(); // per misurare le cadenze (es. ricarica con la Ciurma)
       this.msgs.push(m);
       if (m.t === 'welcome') { this.welcome = m; this.id = m.id; }
     });
@@ -82,15 +83,32 @@ async function main() {
   }
 
   try {
-    const A = new Player('Barbanera', { gold: 99999 });
-    const B = new Player('Olonese');
+    // Timone 99 su Olonese (che sta fermo): testa il clamp senza scombussolare
+    // l'autopilota di Barbanera, tarato sulla virata di base
+    const A = new Player('Barbanera', { gold: 99999, crewLvl: 4 });
+    const B = new Player('Olonese', { gold: 1000, holdLvl: 2, helmLvl: 99 });
     await A.join(); await B.join();
 
     console.log('— Benvenuto, arsenale, mondo —');
     ok(A.welcome.arsenal && A.welcome.arsenal.types.colubrina, 'il welcome porta il catalogo delle armi');
     ok(A.welcome.you.mounts.left.length === 1 && A.welcome.you.mounts.left[0].type === 'colubrina', 'nave base: 1 colubrina per lato');
     ok(A.welcome.you.gold === 99999, 'profilo (oro) accettato');
+    ok(A.welcome.you.crewLvl === 4, 'punti nave dal profilo (Ciurma 4)');
+    ok(B.welcome.you.helmLvl === 4 && B.welcome.you.holdLvl === 2 && B.welcome.you.gold === 1000,
+      'Stiva di Olonese dal profilo, timone tosato al tetto (99 → 4)');
     ok(!!await A.wait(m => m.t === 'mission', 4000), 'missione personale assegnata al join');
+
+    console.log('— Ciurma al completo: ricarica misurata —');
+    // colubrina L1: 2.0s di base; con Ciurma 4 (−28%) attesi ~1440ms fra le bordate
+    const spam = setInterval(() => A.send({ t: 'fire', group: 'left' }), 80);
+    await sleep(3700);
+    clearInterval(spam);
+    const bordate = A.msgs.filter(m => m.t === 'shots' && m.from === A.id).map(m => m._rx);
+    A.msgs = A.msgs.filter(m => !(m.t === 'shots' && m.from === A.id));
+    const gaps = bordate.slice(1).map((t, i) => t - bordate[i]);
+    ok(bordate.length >= 3, `bordate a raffica registrate: ${bordate.length}`);
+    ok(gaps.length > 0 && gaps.every(g => g > 1200 && g < 1850),
+      `la Ciurma accorcia la ricarica: ${gaps.join(', ')} ms (base 2000, attesi ~1440)`);
 
     console.log('— Rotte e fortezza oisd —');
     A.send({ t: 'course', q: 'wikipedia.org' });
@@ -126,6 +144,15 @@ async function main() {
       shop = await A.wait(m => m.t === 'shop', 1200);
     }
     ok(!!shop, 'attracco al porto: il cantiere apre');
+    console.log('— Cantiere: punti nave —');
+    ok(shop.ship.crewCost === null, 'Ciurma già al tetto: nessun gradino in vendita');
+    ok(shop.ship.helmCost === 90 && shop.ship.holdCost === 90, 'Timone e Stiva partono da 90 🪙');
+    A.send({ t: 'buyShip', stat: 'helm' });
+    shop = await A.wait(m => m.t === 'shop');
+    ok(shop && shop.ship.helmLvl === 1 && shop.ship.helmCost === 180, 'Timone 1 comprato, il gradino dopo costa il doppio (180)');
+    A.send({ t: 'buyShip', stat: 'hold' });
+    shop = await A.wait(m => m.t === 'shop');
+    ok(shop && shop.ship.holdLvl === 1 && shop.ship.holdCost === 180, 'Stiva 1 comprata: prezzi esponenziali su ogni linea');
     A.send({ t: 'buySlot', group: 'left' });
     shop = await A.wait(m => m.t === 'shop');
     ok(shop && shop.groups.left.slots.length === 2, 'slot sinistro aggiunto (2/5), colubrina inclusa');
@@ -180,10 +207,12 @@ async function main() {
     clearInterval(hunt);
     A.input({});
     ok(!!kill, 'Olonese affondato con la fiancata sinistra');
-    if (kill) ok(kill.bounty >= 60, `bottino incassato (${kill.bounty} 🪙)`);
-    // legge del mare: il vincitore prende TUTTO il forziere della vittima
-    const spoglio = await B.wait(m => m.t === 'gold' && m.gold === 0, 3000);
-    ok(!!spoglio, 'il forziere della vittima è svuotato fino all\'ultima moneta');
+    // legge del mare + Stiva 2: il doppiofondo trattiene il 20%, il resto è bottino
+    const spoglio = await B.wait(m => m.t === 'gold' && m.delta < 0, 3000);
+    const pre = spoglio ? spoglio.gold - spoglio.delta : 0;
+    ok(spoglio && spoglio.gold > 0 && spoglio.gold === Math.round(pre * 0.2),
+      `il doppiofondo della Stiva salva il 20% del forziere (${spoglio && spoglio.gold}/${pre} 🪙)`);
+    if (kill) ok(kill.bounty === pre - (spoglio ? spoglio.gold : 0), `bottino del vincitore: tutto il resto (${kill.bounty} 🪙)`);
     ok(!!await B.wait(m => m.t === 'respawned', 12000), 'la vittima rispunta al porto');
 
     console.log('— La Fortezza Proibita: blocco reale, poi espugnazione —');

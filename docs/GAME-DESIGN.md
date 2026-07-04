@@ -60,7 +60,12 @@ Slot aggiuntivi: fianchi 200/500/1200/2500; prua e poppa 400/1000.
 | Assedio vinto | 400 (100 di consolazione) |
 | Espugnare una Fortezza | 1500 |
 
-Scafo e vele restano potenziamenti della nave (4 livelli, 90×2^lvl).
+Le linee di **punti nave** del Cantiere (4 livelli ciascuna, costo 90×2^lvl):
+scafo (+40 HP/punto), vele (+20 velocità/punto), timone (virata +8%/punto),
+ciurma (ricarica di tutte le armi −7%/punto, −28% al tetto), stiva (il
+10%/punto dell'oro sopravvive all'affondamento, sottratto al bottino del
+vincitore). L'oro a bordo si perde, i punti spesi no: il Cantiere è la banca
+del corsaro.
 
 ## Missioni
 

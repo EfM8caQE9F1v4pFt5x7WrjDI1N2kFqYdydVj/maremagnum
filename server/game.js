@@ -9,18 +9,24 @@ const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
 const START_GOLD = 200;
 const RESPAWN_S = 6;
 const DISCOVERY_GOLD = 25;
-const MAX_SHIP_LVL = 4;       // scafo e vele
+const MAX_SHIP_LVL = 4;       // ogni linea del Cantiere: scafo, vele, timone, ciurma, stiva
 const PVE_BOUNTY = { merc: 25, ghost: 60 }; // taglie magre e fisse per tipologia
 const WEAK_FORTS = !!(typeof process !== 'undefined' ? process.env.WEAK_FORTS : undefined); // knob per i test: difese di cartapesta
 
 const GROUP_DIR = { left: -Math.PI / 2, right: Math.PI / 2, bow: 0, stern: Math.PI };
 
+// Le linee di punti nave in vendita al Cantiere: stat pubblica → campo della nave.
+const SHIP_LINES = { hull: 'hullLvl', sails: 'sailsLvl', helm: 'helmLvl', crew: 'crewLvl', hold: 'holdLvl' };
+
 const NPCS = { merc: 3, ghost: 2 };
 
+// L'oro a bordo si perde, i punti nave no: il Cantiere è la banca del corsaro.
 function shipStats(ship) {
   return {
     maxHp: 100 + ship.hullLvl * 40,
     speed: 135 + ship.sailsLvl * 20,
+    turnRate: 2.3 * (1 + 0.08 * ship.helmLvl),  // timone: virate più strette
+    reloadMul: 1 - 0.07 * ship.crewLvl,         // ciurma: ricarica −7% a punto (−28% al tetto)
   };
 }
 
@@ -61,7 +67,7 @@ class Game {
       id, name, npc: npc || false, conn: null,
       x: p.x, y: p.y, rot: Math.random() * Math.PI * 2, vel: 0,
       input: { up: false, down: false, left: false, right: false },
-      gold: START_GOLD, hullLvl: 0, sailsLvl: 0,
+      gold: START_GOLD, hullLvl: 0, sailsLvl: 0, helmLvl: 0, crewLvl: 0, holdLvl: 0,
       mounts: W.defaultMounts(), ready: { left: [0], right: [0], bow: [], stern: [] },
       hp: 100, kills: 0, deaths: 0,
       docked: null, sunkUntil: 0, lastHitBy: null, lastDamageAt: 0,
@@ -125,8 +131,7 @@ class Game {
     ship.graceUntil = this.now + 5; // tregua d'arrivo: i Fantasmi non toccano i nuovi
     const p = msg.profile || {};
     ship.gold = Math.min(1e7, Math.max(0, (p.gold | 0) || START_GOLD));
-    ship.hullLvl = Math.min(MAX_SHIP_LVL, Math.max(0, p.hullLvl | 0));
-    ship.sailsLvl = Math.min(MAX_SHIP_LVL, Math.max(0, p.sailsLvl | 0));
+    for (const f of Object.values(SHIP_LINES)) ship[f] = Math.min(MAX_SHIP_LVL, Math.max(0, p[f] | 0));
     ship.mounts = W.sanitizeMounts(p.mounts);
     ship.kills = Math.min(1e6, Math.max(0, p.kills | 0));
     ship.deaths = Math.min(1e6, Math.max(0, p.deaths | 0));
@@ -151,6 +156,7 @@ class Game {
   youFor(ship) {
     return {
       gold: ship.gold, hullLvl: ship.hullLvl, sailsLvl: ship.sailsLvl,
+      helmLvl: ship.helmLvl, crewLvl: ship.crewLvl, holdLvl: ship.holdLvl,
       mounts: ship.mounts, conquered: [...ship.conquered],
       kills: ship.kills, deaths: ship.deaths,
     };
@@ -214,12 +220,13 @@ class Game {
     if (!ship.npc) ship.graceUntil = 0; // chi apre il fuoco rinuncia alla tregua
     const mounts = ship.mounts[group];
     if (!mounts.length) return;
+    const reloadMul = shipStats(ship).reloadMul;
     const out = [];
     for (let i = 0; i < mounts.length; i++) {
       if (this.now < ship.ready[group][i]) continue;
       const w = mounts[i];
       const st = W.weaponStats(w);
-      ship.ready[group][i] = this.now + st.reload;
+      ship.ready[group][i] = this.now + st.reload * reloadMul;
       const dir = ship.rot + GROUP_DIR[group];
       // posizione della bocca da fuoco lungo lo scafo
       let along = 0, side = 0;
@@ -326,7 +333,10 @@ class Game {
       t: 'shop', gold: ship.gold,
       ship: {
         hullLvl: ship.hullLvl, sailsLvl: ship.sailsLvl,
+        helmLvl: ship.helmLvl, crewLvl: ship.crewLvl, holdLvl: ship.holdLvl,
         hullCost: shipLvlCost(ship.hullLvl), sailsCost: shipLvlCost(ship.sailsLvl),
+        helmCost: shipLvlCost(ship.helmLvl), crewCost: shipLvlCost(ship.crewLvl),
+        holdCost: shipLvlCost(ship.holdLvl),
       },
       mounts: ship.mounts,
       groups,
@@ -341,11 +351,11 @@ class Game {
   }
 
   buyShip(ship, stat) {
-    if (ship.docked !== 'porto' || !['hull', 'sails'].includes(stat)) return;
-    const lvl = stat === 'hull' ? ship.hullLvl : ship.sailsLvl;
-    if (!this.charge(ship, shipLvlCost(lvl))) return;
-    if (stat === 'hull') { ship.hullLvl++; ship.hp = shipStats(ship).maxHp; }
-    else ship.sailsLvl++;
+    const field = SHIP_LINES[stat];
+    if (ship.docked !== 'porto' || !field) return;
+    if (!this.charge(ship, shipLvlCost(ship[field]))) return;
+    ship[field]++;
+    if (stat === 'hull') ship.hp = shipStats(ship).maxHp;
     this.sendShop(ship);
   }
 
@@ -404,9 +414,10 @@ class Game {
   }
 
   move(ship, dt) {
-    const speed = ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : shipStats(ship).speed);
+    const st = shipStats(ship);
+    const speed = ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed);
     const turn = (ship.input.left ? -1 : 0) + (ship.input.right ? 1 : 0);
-    ship.rot += turn * 2.3 * dt;
+    ship.rot += turn * st.turnRate * dt;
     const desired = ship.input.up ? speed : 0;
     ship.vel += (desired - ship.vel) * Math.min(1, dt * 1.1);
     if (ship.input.down) ship.vel *= Math.max(0, 1 - 2.5 * dt);
@@ -655,10 +666,12 @@ class Game {
         // le prede PvE pagano poco e FISSO: l'oro vero naviga sotto bandiera altrui
         bounty = PVE_BOUNTY[ship.npc] || 0;
       } else {
-        // legge del mare: chi affonda un capitano si prende TUTTO il forziere
-        bounty = ship.gold;
-        ship.gold = 0;
-        this.sendGold(ship, -bounty, 'Il forziere è del vincitore');
+        // legge del mare: chi affonda un capitano si prende il forziere —
+        // meno quel che la Stiva nasconde nel doppiofondo (10% a punto)
+        const salvo = Math.round(ship.gold * 0.10 * ship.holdLvl);
+        bounty = ship.gold - salvo;
+        ship.gold = salvo;
+        this.sendGold(ship, -bounty, salvo > 0 ? 'Il doppiofondo della stiva ha salvato qualcosa' : 'Il forziere è del vincitore');
       }
       killer.gold += bounty;
       killer.kills++;
