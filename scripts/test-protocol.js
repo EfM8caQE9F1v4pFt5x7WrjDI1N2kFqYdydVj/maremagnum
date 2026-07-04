@@ -98,6 +98,22 @@ async function main() {
       'Stiva di Olonese dal profilo, timone tosato al tetto (99 → 4)');
     ok(!!await A.wait(m => m.t === 'mission', 4000), 'missione personale assegnata al join');
 
+    console.log('— Tipi di nave: grandfathering e frontiera di fiducia —');
+    // profilo sporco: tipo inventato, Organo comprato ai vecchi tempi,
+    // e un'esclusiva di un ALTRO tipo infilata di contrabbando
+    const C = new Player('Mastro Organista', {
+      gold: 5000, tipo: 'sgorbio',
+      mounts: { left: [{ type: 'organo', lvl: 2 }], right: [{ type: 'lunga', lvl: 1 }] },
+    });
+    await C.join();
+    ok(C.welcome.you.tipo === 'galeone', 'grandfathering: chi ha l\'Organo senza tipo è Galeone d\'ufficio');
+    ok(C.welcome.you.mounts.left[0].type === 'organo' && C.welcome.you.mounts.left[0].lvl === 2, 'l\'Organo pagato resta a bordo');
+    ok(C.welcome.you.mounts.right[0].type === 'colubrina', 'la Colubrina Lunga di contrabbando è rifiutata al join');
+    await sleep(500);
+    const cGaleone = C.me();
+    ok(cGaleone && cGaleone.tp === 3 && cGaleone.maxHp === 120,
+      `lo snapshot veste il tipo: Galeone corazzato (tp=3, ${cGaleone && cGaleone.maxHp}/120 HP)`);
+
     console.log('— Ciurma al completo: ricarica misurata —');
     // colubrina L1: 2.0s di base; con Ciurma 4 (−28%) attesi ~1440ms fra le bordate
     const spam = setInterval(() => A.send({ t: 'fire', group: 'left' }), 80);
@@ -109,6 +125,32 @@ async function main() {
     ok(bordate.length >= 3, `bordate a raffica registrate: ${bordate.length}`);
     ok(gaps.length > 0 && gaps.every(g => g > 1200 && g < 1850),
       `la Ciurma accorcia la ricarica: ${gaps.join(', ')} ms (base 2000, attesi ~1440)`);
+
+    console.log('— Il varo: Mastro Organista cambia rotta —');
+    ok(await C.goto(PORTO.x, PORTO.y, 195, 40000), 'il Galeone raggiunge il Porto Franco');
+    let cshop = null;
+    for (let i = 0; i < 20 && !cshop; i++) {
+      C.send({ t: 'dock' });
+      cshop = await C.wait(m => m.t === 'shop', 1200);
+    }
+    ok(!!cshop, 'attracco: il cantiere apre');
+    ok(cshop && cshop.varo && cshop.varo.tipo === 'galeone' && cshop.varo.cost === 90,
+      'il cantiere espone il varo: tipo attuale e primo prezzo (90)');
+    ok(cshop && cshop.ship.hullCost === 45, 'sconto di tipo: lo Scafo del Galeone è a metà prezzo (45)');
+    C.send({ t: 'varo', tipo: 'galeone' });
+    ok(!!await C.wait(m => m.t === 'toast' && /già la tua nave/.test(m.msg), 3000), 'varare lo stesso tipo è rifiutato senza spese');
+    C.send({ t: 'varo', tipo: 'goletta' });
+    ok(!!await C.wait(m => m.t === 'gold' && m.delta === 14550, 3000), 'l\'Organo L2 è riscattato al prezzo pieno pagato (14550 🪙)');
+    cshop = await C.wait(m => m.t === 'shop', 3000);
+    ok(cshop && cshop.varo.tipo === 'goletta' && cshop.varo.cost === 180, 'ora è Goletta; il prossimo varo costa il doppio (180)');
+    ok(cshop && cshop.gold === 5000 - 90 + 14550, `i conti tornano: ${cshop && cshop.gold} 🪙 (5000 − 90 + 14550)`);
+    ok(cshop && cshop.mounts.left[0].type === 'colubrina' && cshop.mounts.left[0].lvl === 1, 'lo slot dell\'Organo riparte con la colubrina');
+    ok(cshop && cshop.ship.helmCost === 45, 'lo sconto segue il tipo: ora è il Timone a metà prezzo (45)');
+    await sleep(500);
+    const cGoletta = C.me();
+    ok(cGoletta && cGoletta.tp === 1 && cGoletta.maxHp === 85,
+      `snapshot rivestito: Goletta (tp=1, ${cGoletta && cGoletta.maxHp}/85 HP)`);
+    C.ws.close();
 
     console.log('— Rotte e fortezza oisd —');
     A.send({ t: 'course', q: 'wikipedia.org' });
@@ -184,8 +226,20 @@ async function main() {
     A.send({ t: 'upgradeWeapon', group: 'bow', slot: 0 });
     shop = await A.wait(m => m.t === 'shop');
     ok(shop && shop.groups.bow.slots[0].lvl === 3, 'mortaio potenziato al massimo (gittata 590)');
+
+    console.log('— Il varo di Barbanera: Goletta da caccia —');
+    A.send({ t: 'varo', tipo: 'goletta' });
+    shop = await A.wait(m => m.t === 'shop');
+    ok(shop && shop.varo.tipo === 'goletta' && shop.varo.cost === 180, 'Barbanera vara la Goletta (90); ripensarci costerebbe 180');
+    ok(shop && shop.ship.helmCost === 90, 'sconto di tipo: Timone 2 a metà prezzo (90 invece di 180)');
+    ok(shop && shop.groups.bow.slots[0].replace && shop.groups.bow.slots[0].replace.type === 'lunga',
+      'sopra il mortaio ora c\'è la Colubrina Lunga, non l\'Organo');
     A.send({ t: 'undock' });
     await A.wait(m => m.t === 'undocked');
+    await sleep(500);
+    const aGoletta = A.me();
+    ok(aGoletta && aGoletta.tp === 1 && aGoletta.maxHp === 85,
+      `Barbanera in mare da Goletta (tp=1, ${aGoletta && aGoletta.maxHp}/85 HP)`);
 
     console.log('— Battaglia: fiancate indipendenti —');
     let killed = false;

@@ -474,26 +474,32 @@ export class Renderer {
 
   // --- navi ---
 
-  // La classe si legge dallo scafo: fino a scafo lvl1 sei una sloop, lvl2-3
-  // un brigantino, lvl4 un galeone; con anche le vele al massimo il galeone
-  // si veste d'oro. I livelli viaggiano già nello snapshot (maxHp, sl).
+  // Se il varo ha dato un tipo, la classe è quella (tp nello snapshot);
+  // altrimenti si legge dallo scafo come un tempo: fino a scafo lvl1 sei una
+  // sloop, lvl2-3 un brigantino, lvl4 un galeone; con anche le vele al
+  // massimo il galeone si veste d'oro.
   shipClass(s) {
     if (s.k === 'g') return 'fantasma';
     if (s.k === 'm') return 'mercantile';
+    if (s.tp === 1) return 'goletta';
+    if (s.tp === 2) return 'guerra';
+    // tipo galeone: hp ×1.2, quindi il dorato scatta a 312 (260 × 1.2)
+    if (s.tp === 3) return (s.sl | 0) >= 4 && s.maxHp >= 312 ? 'oro' : 'galeone';
     if (s.maxHp >= 260) return (s.sl | 0) >= 4 ? 'oro' : 'galeone';
     return s.maxHp >= 180 ? 'brigantino' : 'sloop';
   }
 
   // Un cannone vero, non un pallino: affusto + canna con la SAGOMA dell'arma
   // (colubrina sottile, carronata tozza, mortaio a pentola, organo a tre
-  // canne). dir = angolo verso cui spara, nel sistema della nave.
+  // canne, colubrina lunga a spillo, carronata pesante a botte).
+  // dir = angolo verso cui spara, nel sistema della nave.
   drawGun(g, cx, cy, dir, type, lvl) {
     const cos = Math.cos(dir), sin = Math.sin(dir);
     const P = (x, y) => [cx + x * cos - y * sin, cy + x * sin + y * cos];
     const rect = (x0, x1, hw, col) =>
       g.poly([...P(x0, -hw), ...P(x1, -hw), ...P(x1, hw), ...P(x0, hw)]).fill(col);
     const ferro = lvl >= 3 ? 0x6e5638 : 0x24272c; // il livello 3 è di bronzo
-    const len = { c: 9, n: 7.5, r: 5.5, m: 4.5, o: 7 }[type] + lvl * 0.6;
+    const len = { c: 9, n: 7.5, r: 5.5, m: 4.5, o: 7, l: 11.5, p: 6 }[type] + lvl * 0.6;
     rect(-3.2, 0.5, 2.6, 0x59401f); // affusto
     if (type === 'o') {
       for (const off of [-1.7, 0, 1.7]) {
@@ -504,7 +510,7 @@ export class Renderer {
       g.circle(px, py, 2.6).fill(ferro);
       g.circle(px, py, 1.3).fill(0x0d0d0f); // la bocca guarda il cielo
     } else {
-      const hw = type === 'r' ? 1.9 : type === 'n' ? 1.4 : 1.05;
+      const hw = type === 'p' ? 2.5 : type === 'r' ? 1.9 : type === 'n' ? 1.4 : type === 'l' ? 0.9 : 1.05;
       g.poly([...P(-1, -hw), ...P(len, -hw * 0.75), ...P(len, hw * 0.75), ...P(-1, hw)]).fill(ferro);
       const [mx, my] = P(len, 0);
       g.circle(mx, my, hw * 0.62).fill(0x0d0d0f);
@@ -531,7 +537,8 @@ export class Renderer {
       const variant = this.navi.frames[classe] ? classe
         : this.navi.frames.pirata ? 'pirata' : Object.keys(this.navi.frames)[0];
       // lo scafo si allunga con la classe (solo in lunghezza: il baglio è fisso)
-      const fL = variant === 'sloop' ? 0.82 : (variant === 'galeone' || variant === 'oro') ? 1.16 : 1;
+      const fL = variant === 'sloop' ? 0.82 : variant === 'goletta' ? 0.88
+        : (variant === 'galeone' || variant === 'oro') ? 1.16 : 1;
       const shadow = new Graphics();
       shadow.ellipse(2, 7, 27 * fL, 11).fill({ color: 0x061018, alpha: 0.17 });
       c.addChildAt(shadow, (c.glow ? 1 : 0));

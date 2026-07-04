@@ -18,19 +18,56 @@ const GROUP_DIR = { left: -Math.PI / 2, right: Math.PI / 2, bow: 0, stern: Math.
 // Le linee di punti nave in vendita al Cantiere: stat pubblica → campo della nave.
 const SHIP_LINES = { hull: 'hullLvl', sails: 'sailsLvl', helm: 'helmLvl', crew: 'crewLvl', hold: 'holdLvl' };
 
+// I tipi di nave: identità di build scelta col "varo" al Cantiere.
+// Moltiplicatori piccoli (mai oltre ±20%: nessuno scontro va perso in
+// partenza), uno sconto di linea, un'arma esclusiva a coronare la scala.
+// Il tipo "equilibrato" non ha bonus alle stat: la lezione dei brigantini
+// che dominano è già stata scritta da altri mari.
+const TIPI = {
+  goletta: {
+    nome: 'Goletta', hpMul: 0.85, speedMul: 1.12, turnMul: 1,
+    sconto: 'helmLvl', motto: 'Veloce e fragile: pungi da lontano, vivi per raccontarlo',
+  },
+  guerra: {
+    nome: 'Brigantino da Guerra', hpMul: 1, speedMul: 1, turnMul: 1,
+    sconto: 'crewLvl', motto: 'Equilibrato: bordate fitte e nervi saldi',
+  },
+  galeone: {
+    nome: 'Galeone', hpMul: 1.2, speedMul: 1, turnMul: 0.88,
+    sconto: 'hullLvl', motto: 'Lento e corazzato: un castello che naviga',
+  },
+};
+const TIPO_SNAP = { goletta: 1, guerra: 2, galeone: 3 };
+// catalogo pubblico del varo (statico): quello che il Cantiere espone
+const TIPI_PUB = Object.fromEntries(Object.entries(TIPI).map(([k, t]) => [k, {
+  nome: t.nome, motto: t.motto, sconto: t.sconto,
+  hpMul: t.hpMul, speedMul: t.speedMul, turnMul: t.turnMul,
+  esclusiva: W.TYPES[W.EXCLUSIVES[k]].name,
+}]));
+
 const NPCS = { merc: 3, ghost: 2 };
 
 // L'oro a bordo si perde, i punti nave no: il Cantiere è la banca del corsaro.
 function shipStats(ship) {
+  const t = TIPI[ship.tipo];
   return {
-    maxHp: 100 + ship.hullLvl * 40,
-    speed: 135 + ship.sailsLvl * 20,
-    turnRate: 2.3 * (1 + 0.08 * ship.helmLvl),  // timone: virate più strette
+    maxHp: Math.round((100 + ship.hullLvl * 40) * (t ? t.hpMul : 1)),
+    speed: (135 + ship.sailsLvl * 20) * (t ? t.speedMul : 1),
+    turnRate: 2.3 * (1 + 0.08 * ship.helmLvl) * (t ? t.turnMul : 1), // timone: virate più strette
     reloadMul: 1 - 0.07 * ship.crewLvl,         // ciurma: ricarica −7% a punto (−28% al tetto)
   };
 }
 
 function shipLvlCost(lvl) { return lvl >= MAX_SHIP_LVL ? null : 90 * 2 ** lvl; }
+
+// Prezzo di un gradino per QUESTA nave: il tipo dimezza la sua linea di sconto.
+function lineCost(ship, field) {
+  const c = shipLvlCost(ship[field]);
+  const t = TIPI[ship.tipo];
+  return c !== null && t && t.sconto === field ? Math.round(c / 2) : c;
+}
+
+function varoCost(ship) { return 90 * 2 ** ship.vari; } // ogni cambio di rotta costa il doppio
 
 class Game {
   constructor(broadcast) {
@@ -68,6 +105,7 @@ class Game {
       x: p.x, y: p.y, rot: Math.random() * Math.PI * 2, vel: 0,
       input: { up: false, down: false, left: false, right: false },
       gold: START_GOLD, hullLvl: 0, sailsLvl: 0, helmLvl: 0, crewLvl: 0, holdLvl: 0,
+      tipo: null, vari: 0,
       mounts: W.defaultMounts(), ready: { left: [0], right: [0], bow: [], stern: [] },
       hp: 100, kills: 0, deaths: 0,
       docked: null, sunkUntil: 0, lastHitBy: null, lastDamageAt: 0,
@@ -132,7 +170,12 @@ class Game {
     const p = msg.profile || {};
     ship.gold = Math.min(1e7, Math.max(0, (p.gold | 0) || START_GOLD));
     for (const f of Object.values(SHIP_LINES)) ship[f] = Math.min(MAX_SHIP_LVL, Math.max(0, p[f] | 0));
-    ship.mounts = W.sanitizeMounts(p.mounts);
+    ship.tipo = TIPI[p.tipo] ? p.tipo : null;
+    ship.vari = Math.min(30, Math.max(0, p.vari | 0));
+    // grandfathering: chi comprò l'Organo quando era di tutti è Galeone
+    // d'ufficio, gratis — nessuno perde un'arma che ha pagato
+    if (!ship.tipo && hasOrgano(p.mounts)) ship.tipo = 'galeone';
+    ship.mounts = W.sanitizeMounts(p.mounts, ship.tipo);
     ship.kills = Math.min(1e6, Math.max(0, p.kills | 0));
     ship.deaths = Math.min(1e6, Math.max(0, p.deaths | 0));
     if (Array.isArray(p.conquered)) {
@@ -157,6 +200,7 @@ class Game {
     return {
       gold: ship.gold, hullLvl: ship.hullLvl, sailsLvl: ship.sailsLvl,
       helmLvl: ship.helmLvl, crewLvl: ship.crewLvl, holdLvl: ship.holdLvl,
+      tipo: ship.tipo, vari: ship.vari,
       mounts: ship.mounts, conquered: [...ship.conquered],
       kills: ship.kills, deaths: ship.deaths,
     };
@@ -191,6 +235,7 @@ class Game {
       case 'undock': this.undock(ship); break;
       case 'shop': if (ship.docked === 'porto') this.sendShop(ship); break;
       case 'buyShip': this.buyShip(ship, msg.stat); break;
+      case 'varo': this.varo(ship, msg.tipo); break;
       case 'buySlot': this.buySlot(ship, msg.group); break;
       case 'upgradeWeapon': this.upgradeWeapon(ship, msg.group, msg.slot); break;
       case 'replaceWeapon': this.replaceWeapon(ship, msg.group, msg.slot); break;
@@ -320,7 +365,7 @@ class Game {
         max: W.GROUPS[g].max,
         nextSlotCost: W.slotCost(g, ship.mounts[g].length),
         slots: ship.mounts[g].map((w, i) => {
-          const nt = w.lvl >= W.MAX_WEAPON_LVL ? W.nextTier(w.type) : null;
+          const nt = w.lvl >= W.MAX_WEAPON_LVL ? W.nextTier(w.type, ship.tipo) : null;
           return {
             slot: i, type: w.type, lvl: w.lvl, name: W.TYPES[w.type].name, tier: W.TYPES[w.type].tier,
             upCost: W.upgradeCost(w),
@@ -334,13 +379,40 @@ class Game {
       ship: {
         hullLvl: ship.hullLvl, sailsLvl: ship.sailsLvl,
         helmLvl: ship.helmLvl, crewLvl: ship.crewLvl, holdLvl: ship.holdLvl,
-        hullCost: shipLvlCost(ship.hullLvl), sailsCost: shipLvlCost(ship.sailsLvl),
-        helmCost: shipLvlCost(ship.helmLvl), crewCost: shipLvlCost(ship.crewLvl),
-        holdCost: shipLvlCost(ship.holdLvl),
+        hullCost: lineCost(ship, 'hullLvl'), sailsCost: lineCost(ship, 'sailsLvl'),
+        helmCost: lineCost(ship, 'helmLvl'), crewCost: lineCost(ship, 'crewLvl'),
+        holdCost: lineCost(ship, 'holdLvl'),
       },
       mounts: ship.mounts,
       groups,
+      varo: { tipo: ship.tipo, vari: ship.vari, cost: varoCost(ship), tipi: TIPI_PUB },
     });
+  }
+
+  // Il varo: si sceglie (o si cambia) il tipo di nave. Le esclusive
+  // dell'altro tipo vengono riscattate al prezzo PIENO pagato: cambiare
+  // rotta costa il varo, mai le armi già comprate.
+  varo(ship, tipo) {
+    if (ship.docked !== 'porto' || !TIPI[tipo]) return;
+    if (ship.tipo === tipo) { this.sendTo(ship, { t: 'toast', msg: 'Questa è già la tua nave, capitano.' }); return; }
+    if (!this.charge(ship, varoCost(ship))) return;
+    ship.vari++;
+    ship.tipo = tipo;
+    let riscatto = 0;
+    for (const g of Object.keys(W.GROUPS)) {
+      ship.mounts[g] = ship.mounts[g].map(w => {
+        const t = W.TYPES[w.type];
+        if (t.tipo && t.tipo !== tipo) { riscatto += W.weaponValue(w); return { type: 'colubrina', lvl: 1 }; }
+        return w;
+      });
+    }
+    if (riscatto) {
+      ship.gold += riscatto;
+      this.sendGold(ship, riscatto, 'Il Cantiere riscatta le armi dell\'altro tipo');
+    }
+    ship.hp = shipStats(ship).maxHp; // il varo esce dal bacino a scafo asciutto
+    this.broadcast({ t: 'feed', msg: `⚓ ${ship.name} ha varato: ora naviga su un ${TIPI[tipo].nome}!` });
+    this.sendShop(ship);
   }
 
   charge(ship, cost) {
@@ -353,7 +425,7 @@ class Game {
   buyShip(ship, stat) {
     const field = SHIP_LINES[stat];
     if (ship.docked !== 'porto' || !field) return;
-    if (!this.charge(ship, shipLvlCost(ship[field]))) return;
+    if (!this.charge(ship, lineCost(ship, field))) return;
     ship[field]++;
     if (stat === 'hull') ship.hp = shipStats(ship).maxHp;
     this.sendShop(ship);
@@ -379,7 +451,7 @@ class Game {
     const w = W.GROUPS[group] && ship.mounts[group][slot | 0];
     if (ship.docked !== 'porto' || !w) return;
     if (w.lvl < W.MAX_WEAPON_LVL) { this.sendTo(ship, { t: 'toast', msg: 'Prima porta quest\'arma al livello massimo.' }); return; }
-    const nt = W.nextTier(w.type);
+    const nt = W.nextTier(w.type, ship.tipo);
     if (!nt) { this.sendTo(ship, { t: 'toast', msg: 'Non esiste arma più potente di questa.' }); return; }
     if (!this.charge(ship, W.TYPES[nt].cost)) return;
     ship.mounts[group][slot | 0] = { type: nt, lvl: 1 };
@@ -713,6 +785,7 @@ class Game {
         docked: s.docked, sunk: this.isSunk(s),
         k: s.npc === 'merc' ? 'm' : s.npc === 'ghost' ? 'g' : 'p',
         sl: s.npc ? 0 : s.sailsLvl,
+        tp: TIPO_SNAP[s.tipo] || 0, // il tipo vestito dal varo (0 = nessuno)
         gp: [s.mounts.left.length, s.mounts.right.length, s.mounts.bow.length, s.mounts.stern.length],
         // armi in chiaro (iniziale+livello per slot): il client disegna i
         // cannoni VERI, non pallini — "n" = cannone, "r" = carronata
@@ -746,6 +819,12 @@ function norm(a) {
   while (a > Math.PI) a -= 2 * Math.PI;
   while (a < -Math.PI) a += 2 * Math.PI;
   return a;
+}
+
+// C'è un Organo di Da Vinci in un profilo GREZZO (non ancora sanificato)?
+function hasOrgano(m) {
+  return !!m && typeof m === 'object' &&
+    Object.values(m).some(list => Array.isArray(list) && list.some(w => w && w.type === 'organo'));
 }
 
 function r1(n) { return Math.round(n * 10) / 10; }

@@ -83,9 +83,11 @@ vedrete in mare. Il server è il solo arbitro di danni, oro e upgrade.
 - **Al Porto Franco** c'è il cantiere: si parte con 1 colubrina per lato e si
   arriva a 5 slot per fiancata + 2 a prua + 2 a poppa; ogni arma ha 3 livelli e,
   al massimo, si sostituisce col tier superiore (colubrina → cannone → carronata
-  → mortaio ad area → Organo di Da Vinci). A parte, i **punti nave**: scafo,
-  vele, timone, ciurma e stiva — l'oro a bordo si perde se ti affondano, i
-  punti spesi mai. Numeri in
+  → mortaio ad area → **l'esclusiva del tuo tipo di nave**). Col **varo** si
+  sceglie il tipo: Goletta veloce e fragile, Brigantino da Guerra equilibrato o
+  Galeone corazzato — ognuno con la sua arma esclusiva e una linea di punti a
+  metà prezzo. A parte, i **punti nave**: scafo, vele, timone, ciurma e stiva —
+  l'oro a bordo si perde se ti affondano, i punti spesi mai. Numeri in
   [`docs/GAME-DESIGN.md`](docs/GAME-DESIGN.md).
 - **Missioni**: una missione personale sempre attiva (esplorazione/caccia); alla
   Bacheca del porto si bandiscono gli **Assedi**: Corridori che devono attraccare

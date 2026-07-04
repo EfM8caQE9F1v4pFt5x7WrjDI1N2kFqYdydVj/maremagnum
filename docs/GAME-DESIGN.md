@@ -67,6 +67,28 @@ ciurma (ricarica di tutte le armi −7%/punto, −28% al tetto), stiva (il
 vincitore). L'oro a bordo si perde, i punti spesi no: il Cantiere è la banca
 del corsaro.
 
+## I tipi di nave (il varo)
+
+Identità di build scelta al Cantiere. Primo varo 90 🪙, ogni cambio successivo
+raddoppia (90×2^vari). Moltiplicatori piccoli — mai oltre ±20%, nessuno
+scontro va perso in partenza (regola del 6-4 di Sirlin) — e il tipo
+equilibrato NON ha bonus alle statistiche: è la lezione del brigantino di Sea
+of Thieves, il "medio" che domina rompe il triangolo.
+
+| Tipo | Stat | Sconto (linea a metà prezzo) | Esclusiva (tier 5) |
+|---|---|---|---|
+| Goletta | HP −15%, velocità +12% | Timone | Colubrina Lunga (14 dmg, 560 gittata, 2.2s) |
+| Brigantino da Guerra | — | Ciurma | Carronata Pesante (62 dmg, 210 gittata, 3.0s) |
+| Galeone | HP +20%, virata −12% | Scafo | Organo di Da Vinci |
+
+La scala comune delle armi si ferma al mortaio; il quinto gradino è l'esclusiva
+del proprio tipo (frontiera di fiducia: `sanitizeMounts` con whitelist).
+Cambiando tipo le esclusive dell'altro vengono **riscattate al prezzo pieno
+pagato** (precedente ben accolto: Armored Warfare Balance 2.0; i rimborsi
+parziali di World of Tanks "portarono guai"). Grandfathering: un profilo senza
+tipo ma con l'Organo diventa Galeone d'ufficio, gratis — nessun gioco
+studiato ha mai aggiunto un lock retroattivo senza tutela.
+
 ## Missioni
 
 **Personali** (una attiva, riassegnata al completamento): "Attracca a un'isola

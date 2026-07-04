@@ -22,6 +22,12 @@ const TINTA = {
     hull: 0x3d4750, deck: 0x55636d, mast: 0x2c353c, flag: 0x27313a,
     wale: 0x232b32, trim: 0x74919e, accento: 0x31555c, sail: 0xbdd2d7,
   },
+  // livrea da battaglia del Brigantino da Guerra: fascia e bandiera rosse,
+  // tela ambrata — si riconosce il tipo prima ancora di contare i cannoni
+  guerra: {
+    hull: 0x6f4425, deck: 0x9d7c4e, mast: 0x53401f, flag: 0x7c1710,
+    wale: 0x201812, trim: 0xe9b93c, accento: 0x8a2418, sail: 0xf3e9d2,
+  },
   oro: 0xf0c14e,
 };
 
@@ -33,6 +39,9 @@ const CLASSI = {
   oro:        { L: 1.22, alberi: 3, castello: 2, gabbia: true,  fiocco: true,  pal: 'legno', dorata: true },
   fantasma:   { L: 1.00, alberi: 2, castello: 1, gabbia: true,  fiocco: true,  pal: 'fantasma', spettrale: true },
   mercantile: { L: 1.00, alberi: 1, castello: 1, gabbia: false, fiocco: false, pal: 'legno', casse: true },
+  // i TIPI di nave (issue #2): in coda per non spostare gli indici già cotti
+  goletta:    { L: 0.86, alberi: 2, castello: 0, gabbia: false, fiocco: true,  pal: 'legno' },
+  guerra:     { L: 1.04, alberi: 2, castello: 1, gabbia: true,  fiocco: true,  pal: 'guerra' },
 };
 const VARIANTS = Object.keys(CLASSI);
 

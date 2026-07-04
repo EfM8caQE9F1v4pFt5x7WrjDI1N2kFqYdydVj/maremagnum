@@ -49,6 +49,7 @@ function loadProfile() {
     for (const [param, field] of Object.entries(linee)) {
       if (dp.get(param) != null) p[field] = Math.min(4, Math.max(0, dp.get(param) | 0));
     }
+    if (dp.get('tipo') != null) p.tipo = dp.get('tipo'); // ?tipo=goletta|guerra|galeone
     return p;
   } catch { return {}; }
 }
@@ -74,6 +75,7 @@ async function boot() {
     onSearch: setCourse,
     onUndock: undock,
     onBuyShip: (stat) => net.send({ t: 'buyShip', stat }),
+    onVaro: (tipo) => net.send({ t: 'varo', tipo }),
     onBuySlot: (group) => net.send({ t: 'buySlot', group }),
     onUpgradeWeapon: (group, slot) => net.send({ t: 'upgradeWeapon', group, slot }),
     onReplaceWeapon: (group, slot) => net.send({ t: 'replaceWeapon', group, slot }),
@@ -352,6 +354,9 @@ function applyYou(you) {
     gold: you.gold, hullLvl: you.hullLvl, sailsLvl: you.sailsLvl,
     helmLvl: you.helmLvl ?? state.profile.helmLvl, crewLvl: you.crewLvl ?? state.profile.crewLvl,
     holdLvl: you.holdLvl ?? state.profile.holdLvl,
+    // il tipo può essere legittimamente null: solo undefined significa "server vecchio"
+    tipo: you.tipo !== undefined ? you.tipo : state.profile.tipo,
+    vari: you.vari !== undefined ? you.vari : state.profile.vari,
     mounts: you.mounts, conquered: you.conquered ?? state.profile.conquered ?? [],
     kills: you.kills ?? state.profile.kills, deaths: you.deaths ?? state.profile.deaths,
   });
@@ -436,6 +441,7 @@ function wireNet() {
     applyYou({
       gold: m.gold, hullLvl: m.ship.hullLvl, sailsLvl: m.ship.sailsLvl,
       helmLvl: m.ship.helmLvl, crewLvl: m.ship.crewLvl, holdLvl: m.ship.holdLvl,
+      tipo: m.varo ? m.varo.tipo : undefined, vari: m.varo ? m.varo.vari : undefined,
       mounts: m.mounts,
     });
     ui.showShop(m);

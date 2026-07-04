@@ -208,15 +208,22 @@ export class UI {
     $('shopGold').textContent = m.gold;
     const ship = $('shopShip');
     ship.innerHTML = '';
-    // la classe si conquista al Cantiere: dille al capitano cosa manca
+    // l'insegna: col varo la classe è il TIPO scelto; senza, si conquista
+    // a colpi di scafo come un tempo
     const h = m.ship.hullLvl, v = m.ship.sailsLvl;
-    const classe = h >= 4 ? (v >= 4 ? 'Galeone Dorato' : 'Galeone') : h >= 2 ? 'Brigantino' : 'Sloop';
-    const prossima = h >= 4
-      ? (v >= 4 ? 'la regina dei mari: non c\'è legno migliore' : 'con Vele 4 diventa <b>Galeone Dorato</b>')
-      : h >= 2 ? 'con Scafo 4 diventa <b>Galeone</b>' : 'con Scafo 2 diventa <b>Brigantino</b>';
+    const tuoTipo = m.varo && m.varo.tipo ? m.varo.tipi[m.varo.tipo] : null;
     const banner = document.createElement('div');
     banner.className = 'shipClass';
-    banner.innerHTML = `⚓ La tua nave: <b>${classe}</b> — ${prossima}`;
+    if (tuoTipo) {
+      const dorato = m.varo.tipo === 'galeone' && h >= 4 && v >= 4;
+      banner.innerHTML = `⚓ La tua nave: <b>${dorato ? 'Galeone Dorato' : esc(tuoTipo.nome)}</b> — ${esc(tuoTipo.motto)}`;
+    } else {
+      const classe = h >= 4 ? (v >= 4 ? 'Galeone Dorato' : 'Galeone') : h >= 2 ? 'Brigantino' : 'Sloop';
+      const prossima = h >= 4
+        ? (v >= 4 ? 'la regina dei mari: non c\'è legno migliore' : 'con Vele 4 diventa <b>Galeone Dorato</b>')
+        : h >= 2 ? 'con Scafo 4 diventa <b>Galeone</b>' : 'con Scafo 2 diventa <b>Brigantino</b>';
+      banner.innerHTML = `⚓ La tua nave: <b>${classe}</b> — ${prossima}`;
+    }
     ship.appendChild(banner);
     ship.appendChild(this.statRow('🛡 Scafo', 'Legno di quercia, ossa dure', m.ship.hullLvl, 4, m.ship.hullCost, m.gold,
       () => this.h.onBuyShip('hull')));
@@ -228,6 +235,7 @@ export class UI {
       () => this.h.onBuyShip('crew')));
     ship.appendChild(this.statRow('🛢 Stiva', 'Un doppiofondo che i vincitori non trovano', m.ship.holdLvl | 0, 4, m.ship.holdCost ?? null, m.gold,
       () => this.h.onBuyShip('hold')));
+    if (m.varo) ship.appendChild(this.varoBlock(m.varo, m.gold));
 
     const wep = $('shopWeapons');
     wep.innerHTML = '';
@@ -275,6 +283,41 @@ export class UI {
       wep.appendChild(block);
     }
     this.show('shopOverlay');
+  }
+
+  // Il varo: tre tipi di nave, uno alla volta. Effetti riassunti dai
+  // moltiplicatori che arrivano dal server: una sola fonte di verità.
+  varoBlock(varo, gold) {
+    const LINEA = { hullLvl: 'Scafo', sailsLvl: 'Vele', helmLvl: 'Timone', crewLvl: 'Ciurma', holdLvl: 'Stiva' };
+    const EMOJI = { goletta: '🐟', guerra: '⚔', galeone: '🏰' };
+    const pct = (mul) => `${mul > 1 ? '+' : ''}${Math.round((mul - 1) * 100)}%`;
+    const block = document.createElement('div');
+    block.className = 'wgroup';
+    const head = document.createElement('div');
+    head.className = 'wgroupHead';
+    head.innerHTML = `<b>⚓ Il varo${varo.tipo ? '' : ' — scegli il tipo della tua nave'}</b><span>${varo.cost} 🪙</span>`;
+    block.appendChild(head);
+    for (const [key, t] of Object.entries(varo.tipi)) {
+      const eff = [];
+      if (t.hpMul !== 1) eff.push(`scafo ${pct(t.hpMul)}`);
+      if (t.speedMul !== 1) eff.push(`velocità ${pct(t.speedMul)}`);
+      if (t.turnMul !== 1) eff.push(`virata ${pct(t.turnMul)}`);
+      eff.push(`${LINEA[t.sconto]} a metà prezzo`);
+      const row = document.createElement('div');
+      row.className = 'shopRow';
+      row.innerHTML = `<div class="shopInfo"><b>${EMOJI[key] || '⚓'} ${esc(t.nome)}</b><span>${esc(t.motto)}</span>
+        <span class="effetti">${esc(eff.join(' · '))} · esclusiva: ${esc(t.esclusiva)}</span></div>`;
+      const btn = document.createElement('button');
+      if (varo.tipo === key) { btn.textContent = 'La tua nave'; btn.disabled = true; }
+      else {
+        btn.textContent = `Vara · ${varo.cost} 🪙`;
+        btn.disabled = gold < varo.cost;
+        btn.addEventListener('click', () => this.h.onVaro(key));
+      }
+      row.appendChild(btn);
+      block.appendChild(row);
+    }
+    return block;
   }
 
   statRow(title, desc, lvl, maxLvl, cost, gold, onBuy) {

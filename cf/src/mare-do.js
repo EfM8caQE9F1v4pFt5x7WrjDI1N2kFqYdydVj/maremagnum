@@ -166,6 +166,8 @@ export class MareDO {
       helmLvl: ship.helmLvl,
       crewLvl: ship.crewLvl,
       holdLvl: ship.holdLvl,
+      tipo: ship.tipo,
+      vari: ship.vari,
       mounts: ship.mounts,
       conquered: [...(ship.conquered || [])],
       kills: ship.kills,
