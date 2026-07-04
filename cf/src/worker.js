@@ -27,6 +27,18 @@ export default {
       });
     }
 
+    // Ammiragliato: rotte d'amministrazione protette da segreto (mai nel git)
+    if (url.pathname.startsWith('/ammiragliato/profilo/')) {
+      if (!env.ADMIN_SECRET || req.headers.get('X-Ammiragliato') !== env.ADMIN_SECRET) {
+        return new Response('Chi va là?', { status: 401 });
+      }
+      const uid = url.pathname.slice('/ammiragliato/profilo/'.length);
+      const conti = env.CONTI.get(env.CONTI.idFromName('conti'));
+      return conti.fetch('https://conti/profilo/' + encodeURIComponent(uid), {
+        method: req.method, headers: { 'content-type': 'application/json' }, body: req.body,
+      });
+    }
+
     if (url.pathname === '/salute') {
       const mare = await env.MARE.get(env.MARE.idFromName('mare-1')).fetch('https://mare/');
       return new Response(JSON.stringify({ ok: true, mare: await mare.json() }), {
