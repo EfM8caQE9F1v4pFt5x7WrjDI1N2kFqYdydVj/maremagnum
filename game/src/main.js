@@ -110,6 +110,10 @@ async function boot() {
       console.log(`FPS medi su 6s: ${(frames / ((performance.now() - t0) / 1000)).toFixed(1)} (tier: ${renderer.lowSpec ? 'basso' : 'alto'})`);
     }, 6000);
   }
+  if (devParams.get('vela')) {
+    keys.add('KeyW');
+    setInterval(pushInput, 500);
+  }
   if (devParams.get('autofuoco')) {
     sfx.unlock();
     music.start();

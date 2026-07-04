@@ -2,7 +2,7 @@
 // procedurale (niente asset): la forma di ogni isola nasce dal suo seed, che il
 // server distribuisce a tutti — così il mondo è identico per ogni giocatore.
 
-import { Application, Container, Graphics, Text, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { Application, Container, Graphics, Text, Sprite, Texture, TilingSprite, Assets, Rectangle } from 'pixi.js';
 import { mulberry32, clamp } from './util.js';
 import { Water } from './water.js';
 import { CanvasWater } from './water-canvas.js';
@@ -117,6 +117,9 @@ export class Renderer {
     this.app.stage.addChild(this.vignette);
     this.lightNow = lightNow();
 
+    this.navi = null; // atlas delle navi cotte; finché manca si resta sul vettoriale
+    this.loadNavi();
+
     this.ships = new Map();
     this.forts = new Map();     // islandId -> Graphics
     this.islands = new Map();
@@ -131,6 +134,29 @@ export class Renderer {
     this.dest = null;
     this.shake = 0;
     this.t = 0;
+  }
+
+  async loadNavi() {
+    try {
+      const meta = await (await fetch('assets/navi.json')).json();
+      const tex = await Assets.load('assets/navi.png');
+      const frames = {};
+      for (const [name, vi] of Object.entries(meta.variants)) {
+        const arr = [];
+        for (let k = 0; k < meta.steps; k++) {
+          const col = k % meta.cols, row = ((k / meta.cols) | 0) + vi * meta.rows;
+          arr.push(new Texture({
+            source: tex.source,
+            frame: new Rectangle(col * meta.frame, row * meta.frame, meta.frame, meta.frame),
+          }));
+        }
+        frames[name] = arr;
+      }
+      this.navi = { meta, frames };
+      for (const c of this.ships.values()) c.buildKey = ''; // ricostruisci con gli sprite
+    } catch (e) {
+      console.warn('Navi cotte non disponibili, resto sul vettoriale:', e.message);
+    }
   }
 
   makeVignette() {
@@ -227,6 +253,19 @@ export class Renderer {
     path(1);
     g.fillStyle = lg;
     g.fill();
+
+    // colline: il volume sale verso il cuore dell'isola
+    g.filter = 'blur(4px)';
+    const hg = g.createLinearGradient(R - island.r * 0.4, R - island.r * 0.4, R + island.r * 0.45, R + island.r * 0.45);
+    hg.addColorStop(0, fort ? '#98988a' : '#8aa871');
+    hg.addColorStop(1, fort ? '#505044' : '#48603b');
+    path(0.52);
+    g.fillStyle = hg;
+    g.fill();
+    path(0.26);
+    g.fillStyle = fort ? 'rgba(178,178,164,0.55)' : 'rgba(160,190,124,0.55)';
+    g.fill();
+    g.filter = 'none';
 
     // pennellate: tratti corti chiari e scuri, solo dentro la terra
     g.save();
@@ -429,15 +468,50 @@ export class Renderer {
   // --- navi ---
 
   buildShipBody(c, s, selfId) {
-    const key = s.k + '|' + (s.gp || []).join(',') + (s.id === selfId ? '|S' : '');
+    const mode = this.navi ? 'S' : 'V';
+    const key = mode + '|' + s.k + '|' + (s.gp || []).join(',') + (s.id === selfId ? '|S' : '');
     if (c.buildKey === key) return;
     c.buildKey = key;
     if (c.body) c.body.destroy({ children: true });
+    if (c.shadow) { c.shadow.destroy(); c.shadow = null; }
     const body = new Container();
     c.addChildAt(body, (c.glow ? 1 : 0) + (c.ring ? 1 : 0));
     c.body = body;
 
     const ghost = s.k === 'g', merc = s.k === 'm';
+
+    if (this.navi) {
+      // nave cotta: sprite pre-renderizzato + portelli che ruotano continui
+      const variant = ghost ? 'fantasma' : merc ? 'mercantile' : 'pirata';
+      const shadow = new Graphics();
+      shadow.ellipse(2, 7, 27, 11).fill({ color: 0x061018, alpha: 0.17 });
+      c.addChildAt(shadow, (c.glow ? 1 : 0));
+      c.shadow = shadow;
+      const spr = new Sprite(this.navi.frames[variant][0]);
+      spr.anchor.set(0.5, 0.53);
+      spr.scale.set(79 / this.navi.meta.frame); // stessa stazza a schermo a qualunque risoluzione di cottura
+      if (ghost) spr.alpha = 0.88;
+      body.addChild(spr);
+      const ports = new Graphics();
+      const gp = s.gp || [1, 1, 0, 0];
+      for (let i = 0; i < gp[0]; i++) {
+        const x = gp[0] === 1 ? -3 : -14 + (i / (gp[0] - 1)) * 22;
+        ports.circle(x, -12, 2).fill(0x14100a);
+      }
+      for (let i = 0; i < gp[1]; i++) {
+        const x = gp[1] === 1 ? -3 : -14 + (i / (gp[1] - 1)) * 22;
+        ports.circle(x, 12, 2).fill(0x14100a);
+      }
+      for (let i = 0; i < gp[2]; i++) ports.circle(24, (i - 0.5) * 7, 2.2).fill(0x14100a);
+      for (let i = 0; i < gp[3]; i++) ports.circle(-21, (i - 0.5) * 7, 2.2).fill(0x14100a);
+      body.addChild(ports);
+      body.shipSprite = spr;
+      body.ports = ports;
+      body.variant = variant;
+      body.frameIdx = -1;
+      body.sails = [];
+      return;
+    }
     const hullCol = ghost ? 0x3d4750 : COL.hull;
     const g = new Graphics();
     // ombra sull'acqua: due strati morbidi, spostati col sole (sud-est)
@@ -543,7 +617,24 @@ export class Renderer {
       seen.add(s.id);
       const c = this.ensureShip(s, selfId);
       c.position.set(s.x, s.y);
-      c.body.rotation = s.rot;
+      if (c.body.shipSprite && this.navi) {
+        const steps = this.navi.meta.steps;
+        const step = (2 * Math.PI) / steps;
+        let f = Math.round(-s.rot / step) % steps;
+        if (f < 0) f += steps;
+        if (c.body.frameIdx !== f) {
+          c.body.frameIdx = f;
+          c.body.shipSprite.texture = this.navi.frames[c.body.variant][f];
+        }
+        c.body.rotation = 0;
+        c.body.ports.rotation = s.rot;
+        // beccheggio: lo scafo danza, l'ombra resta al pelo dell'acqua
+        c.body.y = Math.sin(this.t * 1.7 + (s.x + s.y) * 0.011) * 1.7;
+        c.body.shipSprite.rotation = Math.sin(this.t * 1.3 + s.x * 0.013) * 0.028;
+      } else {
+        c.body.rotation = s.rot;
+        c.body.y = 0;
+      }
       c.visible = !s.docked;
       const targetAlpha = s.sunk ? 0 : 1;
       c.alpha += (targetAlpha - c.alpha) * Math.min(1, dt * 4);

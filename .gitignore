@@ -3,3 +3,4 @@ game/dist/
 server/data/
 release/
 *.log
+.env
