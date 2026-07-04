@@ -89,6 +89,23 @@ parziali di World of Tanks "portarono guai"). Grandfathering: un profilo senza
 tipo ma con l'Organo diventa Galeone d'ufficio, gratis — nessun gioco
 studiato ha mai aggiunto un lock retroattivo senza tutela.
 
+## Le abilità di tipo (tasto R)
+
+Una per tipo, cooldown lungo rispetto al duello (TTK ~10-30s): i precedenti
+arcade veloci stanno sui 12-23s (Brawl Stars, Among Us), World of Warships sui
+40-160s ma su battaglie 5× più lente — noi in mezzo. Telegrafo sempre visibile
+(principio: mai prendere danno per confusione, solo per errore).
+
+| Tipo | Abilità | Cooldown | Effetto |
+|---|---|---|---|
+| Goletta | Speronamento | 30s | carica 2.2s a velocità ×1.9; al contatto 42 danni al bersaglio, 10 a sé; FX di partenza |
+| Brigantino da Guerra | Fumogeno | 40s | nuvola r=150 per 10s: invisibile a fantasmi e fortezze; i giocatori possono sparare alla cieca (contro-gioco) |
+| Galeone | Bordata Doppia | 40s | ricarica azzerata all'attivazione + palle raddoppiate per 4s |
+
+Il fumogeno NON nasconde la nave nello snapshot (i client la coprono col fumo):
+lo snapshot è broadcast unico e filtrarlo per destinatario costerebbe CPU sul
+piano gratuito — il fumo acceca le IA sul server e gli occhi sul client.
+
 ## Missioni
 
 **Personali** (una attiva, riassegnata al completamento): "Attracca a un'isola

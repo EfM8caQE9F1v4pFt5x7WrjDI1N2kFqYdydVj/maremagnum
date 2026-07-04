@@ -121,10 +121,18 @@ export class UI {
     $('hpText').textContent = `${Math.ceil(hp)} / ${maxHp}`;
   }
 
-  setReloads({ left, right, axial }) {
+  setReloads({ left, right, axial, ability }) {
     $('rlLeft').style.width = (Math.max(0, Math.min(1, left)) * 100) + '%';
     $('rlRight').style.width = (Math.max(0, Math.min(1, right)) * 100) + '%';
     $('rlAxial').style.width = (Math.max(0, Math.min(1, axial)) * 100) + '%';
+    if (ability !== undefined) $('abilityBar').style.width = (Math.max(0, Math.min(1, ability)) * 100) + '%';
+  }
+
+  // La riga dell'abilità di tipo (tasto R): compare solo dopo il varo.
+  setAbility(tipo) {
+    const EMO = { goletta: '🐏', guerra: '💨', galeone: '💥' };
+    $('abilityRow').classList.toggle('hidden', !EMO[tipo]);
+    if (EMO[tipo]) $('abilityKey').textContent = `R ${EMO[tipo]}`;
   }
 
   setGroupsAvailable({ axial }) {
@@ -305,6 +313,7 @@ export class UI {
       eff.push(`${LINEA[t.sconto]} a metà prezzo`);
       const row = document.createElement('div');
       row.className = 'shopRow';
+      if (t.abilita) eff.push(`abilità: ${t.abilita}`);
       row.innerHTML = `<div class="shopInfo"><b>${EMOJI[key] || '⚓'} ${esc(t.nome)}</b><span>${esc(t.motto)}</span>
         <span class="effetti">${esc(eff.join(' · '))} · esclusiva: ${esc(t.esclusiva)}</span></div>`;
       const btn = document.createElement('button');

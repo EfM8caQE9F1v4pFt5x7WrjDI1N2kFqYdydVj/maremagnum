@@ -41,11 +41,12 @@
     <div class="rl"><span>Q ◀</span><div class="rlWrap"><div id="rlLeft" class="rlBar"></div></div></div>
     <div class="rl"><span>E ▶</span><div class="rlWrap"><div id="rlRight" class="rlBar"></div></div></div>
     <div class="rl hidden" id="rlAxialRow"><span>␣ ⇅</span><div class="rlWrap"><div id="rlAxial" class="rlBar"></div></div></div>
+    <div class="rl hidden" id="abilityRow"><span id="abilityKey">R ✦</span><div class="rlWrap"><div id="abilityBar" class="rlBar"></div></div></div>
   </div>
   <div id="dockHint"></div>
 </div>
 
-<div id="hint">Vela <b>W A S D</b> · Bordata sin. <b>Q</b> / des. <b>E</b> · Prua/Poppa <b>SPAZIO</b> · Attracca <b>F</b> · Zoom <b>Z</b> · Classifica <b>TAB</b></div>
+<div id="hint">Vela <b>W A S D</b> · Bordata sin. <b>Q</b> / des. <b>E</b> · Prua/Poppa <b>SPAZIO</b> · Abilità <b>R</b> · Attracca <b>F</b> · Zoom <b>Z</b> · Classifica <b>TAB</b></div>
 <canvas id="minimap" width="230" height="230"></canvas>
 <div id="killfeed"></div>
 <div id="toast" class="hidden"></div>
@@ -193,6 +194,12 @@
       monete e ogni cambio successivo il doppio del precedente; le esclusive dell'altro
       tipo vengono <b>riscattate al prezzo pieno</b> pagato. Chi possedeva già l'Organo
       è Galeone d'ufficio: nessuno perde ciò che ha pagato.</p>
+      <p>Ogni tipo ha anche la sua <b>abilità</b> (tasto <b>R</b>, si ricarica lenta):
+      lo <b>Speronamento</b> della Goletta (una carica a vele spiegate: chi tocchi
+      incassa la prua, tu paghi un pegno di legno), il <b>Fumogeno</b> del Brigantino
+      da Guerra (una nuvola che nasconde tutti ai fantasmi e alle fortezze — ma i
+      capitani veri possono sempre sparare alla cieca) e la <b>Bordata Doppia</b> del
+      Galeone (canne fresche all'istante e palle doppie per qualche secondo).</p>
 
       <h3 class="shopSection">🪙 La legge del mare</h3>
       <p><b>Chi affonda un capitano si prende tutto il suo forziere.</b> L'oro che porti
@@ -214,7 +221,7 @@
 
       <h3 class="shopSection">🎛 I comandi</h3>
       <p class="comandi"><b>W A S D</b> vela e timone · <b>Q</b>/<b>E</b> bordata sinistra/destra ·
-      <b>SPAZIO</b> prua e poppa · <b>F</b> attracca/salpa · <b>Z</b> o rotella cannocchiale ·
+      <b>SPAZIO</b> prua e poppa · <b>R</b> abilità del tipo · <b>F</b> attracca/salpa · <b>Z</b> o rotella cannocchiale ·
       <b>TAB</b> classifica · <b>ESC</b> chiudi/salpa</p>
 
       <h3 class="shopSection">👑 Riscatta la tua isola</h3>

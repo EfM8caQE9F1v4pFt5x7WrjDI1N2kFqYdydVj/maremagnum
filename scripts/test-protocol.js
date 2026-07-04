@@ -152,6 +152,75 @@ async function main() {
       `snapshot rivestito: Goletta (tp=1, ${cGoletta && cGoletta.maxHp}/85 HP)`);
     C.ws.close();
 
+    console.log('— Abilità di tipo (tasto R) —');
+    // Bordata Doppia: canne fresche all'istante e palle raddoppiate
+    const G = new Player('Bombardiere', { tipo: 'galeone' });
+    await G.join();
+    G.send({ t: 'fire', group: 'left' });
+    let volley = await G.wait(m => m.t === 'shots' && m.from === G.id, 3000);
+    ok(volley && volley.shots.length === 1, 'colubrina a riposo: una palla per volta');
+    G.send({ t: 'fire', group: 'left' });
+    ok(!await G.wait(m => m.t === 'shots' && m.from === G.id, 700), 'canna calda: il secondo colpo non parte');
+    G.send({ t: 'abilita' });
+    ok(!!await G.wait(m => m.t === 'abilita' && m.nome === 'Bordata Doppia' && m.cd === 40, 3000), 'Bordata Doppia attivata (ack col cooldown)');
+    G.send({ t: 'fire', group: 'left' });
+    volley = await G.wait(m => m.t === 'shots' && m.from === G.id, 3000);
+    ok(volley && volley.shots.length === 2, 'ricarica azzerata e palle RADDOPPIATE');
+    G.send({ t: 'abilita' });
+    ok(!!await G.wait(m => m.t === 'toast' && /⏳/.test(m.msg), 3000), 'abilità scarica: il mare dice di aspettare');
+    G.ws.close();
+    // il Fumogeno entra nello snapshot (i client lo disegnano, le IA lo temono)
+    const F = new Player('Fumaiolo', { tipo: 'guerra' });
+    await F.join();
+    F.send({ t: 'abilita' });
+    ok(!!await F.wait(m => m.t === 'abilita' && m.nome === 'Fumogeno', 3000), 'Fumogeno attivato');
+    await sleep(500);
+    const sm = F.snap && F.snap.sm;
+    ok(!!sm && sm.length >= 1 && sm[0][2] === 150 && sm[0][3] > 7,
+      `la nuvola è nello snapshot (r=${sm && sm[0][2]}, ${sm && sm[0][3]}s restanti)`);
+    F.ws.close();
+    // senza varo, niente abilità
+    B.send({ t: 'abilita' });
+    ok(!await B.wait(m => m.t === 'abilita', 800), 'senza tipo il server ignora il tasto R');
+    // Speronamento: carica a vele spiegate e mazzata da contatto
+    const D = new Player('Ariete', { tipo: 'goletta' });
+    const E = new Player('Bersaglio');
+    await D.join(); await E.join();
+    await sleep(5300); // la tregua d'arrivo del bersaglio deve spegnersi
+    const eShip = () => D.find(E.id);
+    ok(!!eShip(), 'il bersaglio è in vista');
+    // avvicinati, PUNTA la prua, poi carica; se la geometria rema contro
+    // (isole sulla rotta), riprova una volta a cooldown scaduto
+    let speronato = false, ackRam = false;
+    for (let tentativo = 0; tentativo < 2 && !speronato; tentativo++) {
+      if (tentativo) await sleep(31000); // lo Speronamento si ricarica (30s)
+      if (!await D.goto(eShip().x, eShip().y, 120, 60000)) continue;
+      for (let i = 0; i < 25; i++) {
+        const me = D.me(), tgt = eShip();
+        const turn = norm(Math.atan2(tgt.y - me.y, tgt.x - me.x) - me.rot);
+        if (Math.abs(turn) < 0.15) break;
+        D.input({ left: turn < 0, right: turn > 0 });
+        await sleep(80);
+      }
+      D.send({ t: 'abilita' });
+      ackRam = !!await D.wait(m => m.t === 'abilita' && m.nome === 'Speronamento', 3000) || ackRam;
+      const tRam = Date.now();
+      while (Date.now() - tRam < 4500 && !speronato) {
+        const me = D.me(), tgt = eShip();
+        if (tgt && tgt.hp <= 58) { speronato = true; break; }
+        if (me && tgt) {
+          const turn = norm(Math.atan2(tgt.y - me.y, tgt.x - me.x) - me.rot);
+          D.input({ up: true, left: turn < -0.08, right: turn > 0.08 });
+        }
+        await sleep(80);
+      }
+      D.input({});
+    }
+    ok(ackRam, 'Speronamento attivato');
+    ok(speronato, `speronato: il bersaglio incassa la prua (${eShip() && eShip().hp}/100)`);
+    ok(speronato && D.me() && D.me().hp <= 76, `lo speronatore paga il pegno di legno (${D.me() && D.me().hp}/85)`);
+    D.ws.close(); E.ws.close();
+
     console.log('— Rotte e fortezza oisd —');
     A.send({ t: 'course', q: 'wikipedia.org' });
     let c = await A.wait(m => m.t === 'course');

@@ -75,8 +75,11 @@ export class Renderer {
     this.fxGfx = new Graphics();
     this.beamGfx = new Graphics();
     this.labelLayer = new Container();
+    this.smokeGfx = new Graphics(); // i fumogeni: sopra TUTTO il mondo, nomi compresi
+    this.smokes = new Map();
     this.world.addChild(this.shallowLayer, this.routeGfx, this.wakeGfx, this.islandLayer,
-      this.fortLayer, this.shotGfx, this.shipLayer, this.fxGfx, this.beamGfx, this.labelLayer);
+      this.fortLayer, this.shotGfx, this.shipLayer, this.fxGfx, this.beamGfx, this.labelLayer,
+      this.smokeGfx);
 
     // strato meteo e luce, sopra il mondo: ombre di nuvole, nebbia notturna
     // centrata sul giocatore (alla DREDGE), lanterna di bordo, vignetta.
@@ -748,6 +751,19 @@ export class Renderer {
 
   // --- difese delle fortezze ---
 
+  // I fumogeni dallo snapshot: [x, y, raggio, secondi restanti]. La chiave
+  // posizionale preserva l'età della nuvola fra uno snapshot e l'altro.
+  updateSmokes(list) {
+    const now = performance.now();
+    const next = new Map();
+    for (const [x, y, r, ttl] of list || []) {
+      const key = x + ',' + y;
+      const prev = this.smokes.get(key);
+      next.set(key, { x, y, r, fine: now + ttl * 1000, nato: prev ? prev.nato : now });
+    }
+    this.smokes = next;
+  }
+
   updateFort(islandId, defs) {
     let g = this.forts.get(islandId);
     if (!g) { g = new Graphics(); this.fortLayer.addChild(g); this.forts.set(islandId, g); }
@@ -839,6 +855,10 @@ export class Renderer {
     } else if (kind === 'beam') {
       this.beams.push({ x1: x, y1: y, x2: extra.x2, y2: extra.y2, life: 0.3, max: 0.3 });
       burst(4, { v: 50, life: 0.4, size: 3, color: 0xffe9a0 });
+    } else if (kind === 'ram') {
+      // il telegrafo dello Speronamento: schiuma e anello alla partenza
+      burst(12, { v: 75, life: 0.5, size: 3, color: 0xd9edf7 });
+      this.rings.push({ x, y, r: 6, maxR: 42, life: 0.4, max: 0.4 });
     }
   }
 
@@ -988,6 +1008,25 @@ export class Renderer {
       this.beamGfx.circle(b.x2, b.y2, 7).fill({ color: 0xffe9a0, alpha: 0.5 * a });
       return true;
     });
+
+    // i fumogeni: ciuffi che respirano, deterministici (niente sfarfallio)
+    this.smokeGfx.clear();
+    if (this.smokes.size) {
+      const nowMs = performance.now();
+      for (const [key, s] of this.smokes) {
+        const left = (s.fine - nowMs) / 1000;
+        if (left <= 0) { this.smokes.delete(key); continue; }
+        const alpha = Math.min(1, (nowMs - s.nato) / 450) * Math.min(1, left / 1.5);
+        for (let i = 0; i < 9; i++) {
+          const a = (i / 9) * Math.PI * 2 + s.x;
+          const wob = Math.sin(this.t * 0.7 + i * 1.7 + s.y) * 6;
+          const d = i === 0 ? 0 : s.r * 0.52 + wob;
+          const rr = (i === 0 ? s.r * 0.62 : s.r * 0.46) + wob;
+          this.smokeGfx.circle(s.x + Math.cos(a) * d, s.y + Math.sin(a) * d, rr)
+            .fill({ color: i % 2 ? 0x8e99a3 : 0x76818b, alpha: alpha * 0.5 });
+        }
+      }
+    }
 
     // rotta verso la destinazione
     this.routeGfx.clear();

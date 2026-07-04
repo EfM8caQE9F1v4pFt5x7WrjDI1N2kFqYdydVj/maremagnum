@@ -29,6 +29,7 @@ const state = {
   arsenal: null,
   lastFire: { left: 0, right: 0, bow: 0, stern: 0 },
   groupReload: { left: 2000, right: 2000, bow: 2000, stern: 2000 },
+  ability: { at: 0, cd: 30 }, // il cooldown vero lo detta il server con l'ack
   mounts: null,
   profile: loadProfile(),
 };
@@ -137,6 +138,9 @@ async function boot() {
     sfx.unlock();
     music.start();
     setInterval(() => { fireGroup('left'); fireGroup('right'); }, 1500);
+  }
+  if (devParams.get('autoabilita')) {
+    setInterval(() => net.send({ t: 'abilita' }), 3000);
   }
   requestAnimationFrame(frame);
 }
@@ -362,6 +366,7 @@ function applyYou(you) {
   });
   saveProfile();
   ui.setGold(you.gold);
+  ui.setAbility(state.profile.tipo);
   recomputeReloads();
 }
 
@@ -400,6 +405,12 @@ function wireNet() {
     state.snaps.push({ ts: m.ts, ships, list: m.ships });
     if (state.snaps.length > 10) state.snaps.shift();
     for (const f of m.forts) renderer.updateFort(f.i, f.d);
+    renderer.updateSmokes(m.sm);
+  });
+
+  net.on('abilita', (m) => {
+    state.ability = { at: performance.now() + m.cd * 1000, cd: m.cd };
+    engage(6000);
   });
 
   net.on('course', (m) => {
@@ -586,6 +597,11 @@ function wireInput() {
       if (state.docked) undock(); else net.send({ t: 'dock' });
       return;
     }
+    if (e.code === 'KeyR') {
+      e.preventDefault();
+      if (!state.docked && state.profile.tipo) net.send({ t: 'abilita' });
+      return;
+    }
     if (e.code === 'Enter') { document.getElementById('courseInput').focus(); e.preventDefault(); return; }
     if (e.code === 'KeyZ') { e.preventDefault(); cycleZoom(); return; }
     keys.add(e.code);
@@ -707,6 +723,7 @@ function frame(now) {
       left: Math.min(1, (now - state.lastFire.left) / state.groupReload.left),
       right: Math.min(1, (now - state.lastFire.right) / state.groupReload.right),
       axial: Math.min(1, (now - Math.max(state.lastFire.bow, state.lastFire.stern)) / Math.min(state.groupReload.bow, state.groupReload.stern)),
+      ability: state.ability.at > now ? 1 - (state.ability.at - now) / (state.ability.cd * 1000) : 1,
     });
     updateDockHint(rawMe);
   }

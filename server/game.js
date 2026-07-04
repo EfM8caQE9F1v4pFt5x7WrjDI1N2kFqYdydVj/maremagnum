@@ -38,11 +38,21 @@ const TIPI = {
   },
 };
 const TIPO_SNAP = { goletta: 1, guerra: 2, galeone: 3 };
+
+// Le abilità attive: una per tipo, tasto R, cooldown lungo rispetto al
+// ritmo del duello (TTK ~10-30s). Il fumogeno acceca solo le IA (fantasmi
+// e fortezze): i capitani veri possono sempre sparare alla cieca nel fumo.
+const ABILITA = {
+  goletta: { nome: 'Speronamento', cd: 30, durata: 2.2, dmg: 42, autodanno: 10, spinta: 1.9 },
+  guerra: { nome: 'Fumogeno', cd: 40, durata: 10, raggio: 150 },
+  galeone: { nome: 'Bordata Doppia', cd: 40, durata: 4 },
+};
 // catalogo pubblico del varo (statico): quello che il Cantiere espone
 const TIPI_PUB = Object.fromEntries(Object.entries(TIPI).map(([k, t]) => [k, {
   nome: t.nome, motto: t.motto, sconto: t.sconto,
   hpMul: t.hpMul, speedMul: t.speedMul, turnMul: t.turnMul,
   esclusiva: W.TYPES[W.EXCLUSIVES[k]].name,
+  abilita: ABILITA[k].nome,
 }]));
 
 const NPCS = { merc: 3, ghost: 2 };
@@ -76,6 +86,7 @@ class Game {
     this.missions = new Missions(this);
     this.ships = new Map();
     this.shots = new Map();
+    this.smokes = [];
     this.nextId = 1;
     this.nextShotId = 1;
     this.now = Date.now() / 1000;
@@ -109,6 +120,7 @@ class Game {
       mounts: W.defaultMounts(), ready: { left: [0], right: [0], bow: [], stern: [] },
       hp: 100, kills: 0, deaths: 0,
       docked: null, sunkUntil: 0, lastHitBy: null, lastDamageAt: 0,
+      abilityAt: 0, ramUntil: 0, doubleUntil: 0,
       visited: new Set(), conquered: new Set(),
       mission: null, wp: null, fleeUntil: 0,
     };
@@ -236,6 +248,7 @@ class Game {
       case 'shop': if (ship.docked === 'porto') this.sendShop(ship); break;
       case 'buyShip': this.buyShip(ship, msg.stat); break;
       case 'varo': this.varo(ship, msg.tipo); break;
+      case 'abilita': this.abilita(ship); break;
       case 'buySlot': this.buySlot(ship, msg.group); break;
       case 'upgradeWeapon': this.upgradeWeapon(ship, msg.group, msg.slot); break;
       case 'replaceWeapon': this.replaceWeapon(ship, msg.group, msg.slot); break;
@@ -266,6 +279,7 @@ class Game {
     const mounts = ship.mounts[group];
     if (!mounts.length) return;
     const reloadMul = shipStats(ship).reloadMul;
+    const raddoppio = ship.doubleUntil > this.now ? 2 : 1; // Bordata Doppia
     const out = [];
     for (let i = 0; i < mounts.length; i++) {
       if (this.now < ship.ready[group][i]) continue;
@@ -282,8 +296,9 @@ class Game {
       else { along = -22; side = (i - 0.5) * 8; }
       const px = ship.x + Math.cos(ship.rot) * along + Math.cos(dir) * side;
       const py = ship.y + Math.sin(ship.rot) * along + Math.sin(dir) * side;
-      for (let b = 0; b < st.burst; b++) {
-        const jitter = (Math.random() - 0.5) * (st.burst > 1 ? 0.16 : 0.09);
+      const balle = st.burst * raddoppio;
+      for (let b = 0; b < balle; b++) {
+        const jitter = (Math.random() - 0.5) * (balle > 1 ? 0.16 : 0.09);
         out.push(this.spawnShot(ship.id, px, py, dir + jitter, st));
       }
     }
@@ -458,6 +473,48 @@ class Game {
     this.sendShop(ship);
   }
 
+  // --- abilità di tipo (tasto R) ---
+
+  abilita(ship) {
+    const a = !ship.npc && ABILITA[ship.tipo];
+    if (!a || ship.docked || this.isSunk(ship)) return;
+    if (this.now < ship.abilityAt) {
+      this.sendTo(ship, { t: 'toast', msg: `⏳ ${a.nome}: ancora ${Math.ceil(ship.abilityAt - this.now)}s` });
+      return;
+    }
+    ship.abilityAt = this.now + a.cd;
+    if (ship.tipo === 'goletta') {
+      ship.ramUntil = this.now + a.durata;
+      ship.graceUntil = 0; // chi sperona rinuncia alla tregua
+      this.fxQueue.push({ k: 'ram', x: r1(ship.x), y: r1(ship.y) }); // telegrafo: la carica si vede partire
+    } else if (ship.tipo === 'guerra') {
+      this.smokes.push({ x: ship.x, y: ship.y, r: a.raggio, until: this.now + a.durata });
+    } else if (ship.tipo === 'galeone') {
+      ship.doubleUntil = this.now + a.durata;
+      for (const g of Object.keys(W.GROUPS)) ship.ready[g] = ship.ready[g].map(() => 0); // canne fresche
+    }
+    this.sendTo(ship, { t: 'abilita', nome: a.nome, cd: a.cd });
+  }
+
+  inSmoke(ship) {
+    return this.smokes.some(s => s.until > this.now && Math.hypot(ship.x - s.x, ship.y - s.y) < s.r);
+  }
+
+  // lo Speronamento: prua indurita e vento in poppa; chi viene toccato
+  // incassa la mazzata, lo speronatore paga un piccolo pegno di legno
+  ramTick(ship) {
+    const a = ABILITA.goletta;
+    for (const other of this.ships.values()) {
+      if (other === ship || other.docked || this.isSunk(other)) continue;
+      if (Math.hypot(other.x - ship.x, other.y - ship.y) > 30) continue;
+      ship.ramUntil = 0;
+      this.fxQueue.push({ k: 'boom', x: r1((ship.x + other.x) / 2), y: r1((ship.y + other.y) / 2), r: 42 });
+      this.damageShip(other, a.dmg, ship.id);
+      this.damageShip(ship, a.autodanno, other.id);
+      break;
+    }
+  }
+
   sendGold(ship, delta, reason) {
     if (!ship.npc) this.sendTo(ship, { t: 'gold', gold: ship.gold, delta, reason });
   }
@@ -469,12 +526,14 @@ class Game {
   tick() {
     this.now = Date.now() / 1000;
     const dt = TICK;
+    if (this.smokes.length) this.smokes = this.smokes.filter(s => s.until > this.now);
     for (const ship of this.ships.values()) {
       if (ship.sunkUntil && this.now >= ship.sunkUntil) this.respawn(ship);
       if (this.isSunk(ship) || ship.docked) continue;
       if (ship.npc === 'merc') this.steerMerc(ship);
       else if (ship.npc === 'ghost') this.steerGhost(ship);
       this.move(ship, dt);
+      if (ship.ramUntil > this.now) this.ramTick(ship);
       this.regen(ship, dt);
     }
     this.moveShots(dt);
@@ -490,7 +549,9 @@ class Game {
     const speed = ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed);
     const turn = (ship.input.left ? -1 : 0) + (ship.input.right ? 1 : 0);
     ship.rot += turn * st.turnRate * dt;
-    const desired = ship.input.up ? speed : 0;
+    // durante lo speronamento la nave carica, vele o non vele
+    const desired = ship.ramUntil > this.now ? speed * ABILITA.goletta.spinta
+      : ship.input.up ? speed : 0;
     ship.vel += (desired - ship.vel) * Math.min(1, dt * 1.1);
     if (ship.input.down) ship.vel *= Math.max(0, 1 - 2.5 * dt);
     ship.x += Math.cos(ship.rot) * ship.vel * dt;
@@ -540,6 +601,7 @@ class Game {
       if (s.npc || s.docked || this.isSunk(s)) continue;
       if (s.graceUntil > this.now) continue;          // tregua
       if (this.inSafeWaters(s)) continue;             // acque franche sotto costa
+      if (this.inSmoke(s)) continue;                  // il fumogeno acceca i fantasmi
       const d = Math.hypot(s.x - ship.x, s.y - ship.y);
       if (d < bestD) { target = s; bestD = d; }
     }
@@ -685,6 +747,7 @@ class Game {
         let target = null, bestD = spec.range;
         for (const ship of this.ships.values()) {
           if (ship.docked || this.isSunk(ship) || ship.conquered.has(island.id)) continue;
+          if (this.inSmoke(ship)) continue; // le vedette non sparano nel fumo
           const d = Math.hypot(ship.x - def.x, ship.y - def.y);
           if (d < bestD) { target = ship; bestD = d; }
         }
@@ -802,7 +865,10 @@ class Game {
         });
       }
     }
-    this.broadcast({ t: 'snap', ts: Date.now(), ships, forts });
+    const snap = { t: 'snap', ts: Date.now(), ships, forts };
+    // campo additivo: i fumogeni attivi (x, y, raggio, secondi restanti)
+    if (this.smokes.length) snap.sm = this.smokes.map(s => [r1(s.x), r1(s.y), s.r, r2(s.until - this.now)]);
+    this.broadcast(snap);
   }
 
   sendBoard() {
