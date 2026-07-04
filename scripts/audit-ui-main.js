@@ -26,18 +26,37 @@ const key = (code, type = 'keydown') =>
   J(`window.dispatchEvent(new KeyboardEvent('${type}', { code: '${code}', cancelable: true }))`);
 const hint = () => game.executeJavaScript(`document.getElementById('dockHint').textContent`);
 
-// naviga a tentativi verso il Porto Franco usando il suggerimento d'attracco
+// naviga verso il Porto Franco col rilevamento vero (?spia=1 espone
+// posizione e porto): prua sul molo, avanti, e F appena il porto lo consente
 async function dockAtPort() {
-  for (let attempt = 0; attempt < 10; attempt++) {
-    await key('KeyW'); await sleep(1000); await key('KeyW', 'keyup');
-    await sleep(1400); // decelera
+  const spia = () => game.executeJavaScript(`(() => {
+    if (!window.__spia) return null;
+    const me = window.__spia.latestMe();
+    const port = window.__spia.state.port;
+    return me && port ? { x: me.x, y: me.y, rot: me.rot, px: port.x, py: port.y } : null;
+  })()`);
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const s = await spia();
+    if (!s) { await sleep(600); continue; }
+    const dist = Math.hypot(s.px - s.x, s.py - s.y);
+    const bearing = Math.atan2(s.py - s.y, s.px - s.x);
+    let err = bearing - s.rot;
+    while (err > Math.PI) err -= 2 * Math.PI;
+    while (err < -Math.PI) err += 2 * Math.PI;
     const h = await hint();
-    console.log(`AUDIT rotta ${attempt}: "${h}"`);
-    if (/Premi F per attraccare a Porto Franco/.test(h)) { await key('KeyF'); await key('KeyF', 'keyup'); await sleep(900); return true; }
-    if (/Ammaina/.test(h) && /Porto Franco/.test((await hint()) || h)) { await key('KeyS'); await sleep(1500); await key('KeyS', 'keyup'); await key('KeyF'); await key('KeyF', 'keyup'); await sleep(900); return true; }
-    // fuori rotta: vira e riprova (più deciso se abbiamo perso l'isola)
-    const turn = h.includes('tiro di sasso') ? 420 : 850;
-    await key('KeyA'); await sleep(turn); await key('KeyA', 'keyup');
+    if (attempt % 5 === 0) console.log(`AUDIT rotta ${attempt}: dist=${dist | 0} err=${err.toFixed(2)} "${h}"`);
+    if (/Premi F per attraccare a Porto Franco/.test(h)) {
+      await key('KeyF'); await key('KeyF', 'keyup'); await sleep(900);
+      return true;
+    }
+    if (Math.abs(err) > 0.18) {
+      const k = err > 0 ? 'KeyD' : 'KeyA'; // rot cresce in senso orario (y in giù)
+      await key(k); await sleep(Math.min(900, Math.abs(err) * 420)); await key(k, 'keyup');
+    } else if (dist > 150) {
+      await key('KeyW'); await sleep(900); await key('KeyW', 'keyup');
+    } else {
+      await sleep(500); // vicini e lenti: aspetta che il molo ci "prenda"
+    }
   }
   return false;
 }

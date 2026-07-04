@@ -193,6 +193,16 @@ export class UI {
     $('shopGold').textContent = m.gold;
     const ship = $('shopShip');
     ship.innerHTML = '';
+    // la classe si conquista al Cantiere: dille al capitano cosa manca
+    const h = m.ship.hullLvl, v = m.ship.sailsLvl;
+    const classe = h >= 4 ? (v >= 4 ? 'Galeone Dorato' : 'Galeone') : h >= 2 ? 'Brigantino' : 'Sloop';
+    const prossima = h >= 4
+      ? (v >= 4 ? 'la regina dei mari: non c\'è legno migliore' : 'con Vele 4 diventa <b>Galeone Dorato</b>')
+      : h >= 2 ? 'con Scafo 4 diventa <b>Galeone</b>' : 'con Scafo 2 diventa <b>Brigantino</b>';
+    const banner = document.createElement('div');
+    banner.className = 'shipClass';
+    banner.innerHTML = `⚓ La tua nave: <b>${classe}</b> — ${prossima}`;
+    ship.appendChild(banner);
     ship.appendChild(this.statRow('🛡 Scafo', 'Legno di quercia, ossa dure', m.ship.hullLvl, 4, m.ship.hullCost, m.gold,
       () => this.h.onBuyShip('hull')));
     ship.appendChild(this.statRow('⛵ Vele', 'Chi fugge vive per combattere domani', m.ship.sailsLvl, 4, m.ship.sailsCost, m.gold,

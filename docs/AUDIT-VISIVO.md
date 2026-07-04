@@ -160,3 +160,67 @@ screenshot per stato (scratchpad/audit/a1..a12).
 La homing cieca del runner attraccava alla prima isola con "Premi F" (una
 volta il Faro dell'Oracolo): il test ora pretende il Porto Franco. I bug
 scoperti dai test sono spesso nei test.
+
+---
+
+## Round 5 — la flotta ha classi (e si vedono)
+
+Prima c'era UNA nave pirata per tutti: il capitano al livello massimo era
+identico al novellino. Progressione invisibile = progressione che non
+emoziona (Rex, 18: "perché pago il Cantiere se non si vede?").
+
+### La flotta cotta (scripts/bake-navi-page.js, parametrica)
+| Classe | Quando | Silhouette |
+|---|---|---|
+| **Sloop** | scafo 0–1 | corta (L 0.78), 1 albero, fiocco |
+| **Brigantino** | scafo 2–3 | L 1.00, 2 alberi, castello di poppa |
+| **Galeone** | scafo 4 | L 1.22, 3 alberi, doppio castello, gabbie |
+| **Galeone Dorato** | scafo 4 + vele 4 | come il galeone, ma listello/fregio/pomi/lanterna d'ORO, vele avorio |
+| Fantasma / Mercantile | PvE | palette spettrale / 1 albero e casse |
+
+La classe è derivata dallo snapshot (`maxHp` → scafo, nuovo campo `sl` →
+vele): nessun profilo fidato dal client, e i client vecchi ignorano il campo.
+
+### Scelte visive (e perché)
+- **La stazza racconta il rango** (preattentivo: la dimensione si legge prima
+  del colore): sloop → galeone si distinguono a colpo d'occhio dalla scia.
+- **L'oro deve brillare anche a mezzogiorno**: a zoom di gioco il listello
+  dorato del modello non basta; il Dorato ha bagliore caldo perenne che
+  respira (sin 2.1 Hz) e nome in oro. Di notte la lanterna fa il resto.
+- **Portelli e ombra si allungano con la classe** (fL 0.82/1/1.16): i portelli
+  del galeone non galleggiano oltre lo scafo, quelli della sloop non si
+  ammassano.
+- **Il Cantiere dichiara la classe** (.shipClass): "La tua nave: Brigantino —
+  con Scafo 4 diventa Galeone". La scala di progressione è visibile PRIMA
+  dell'acquisto (Nielsen: visibilità dello stato + motivazione).
+- Camera di cottura a D=13.6 (il galeone deve stare nel fotogramma 192px);
+  compensata lato client con scala 82.6/frame per non rimpicciolire il mare.
+
+Verifica: foto di famiglia con 4 bot (uno per classe) via harness scratchpad
+shot-flotta.js + scatti giorno/notte del Dorato (dev param nuovi
+`?scafo=0..4&vele=0..4`). Test protocollo verdi.
+
+### Round 5-bis — la lezione di Monkey Island (reference dell'utente)
+
+L'utente ha portato screenshot delle battaglie navali di The Curse of
+Monkey Island: quello è il livello. Cosa mancava alle nostre navi, e cosa
+si è fatto (tutto nel bake, gratis a runtime):
+
+| Reference CMI | Fix nel Cantiere di Cottura |
+|---|---|
+| Vele quadre enormi, a 2-3 ordini, che DOMINANO la sagoma | ordini di vele più grandi e alti, alberatura +50%, royale sul galeone |
+| Le vele restano piene da ogni inquadratura | pennoni **bracciati** (~22°): di traverso una vela squadrata sparirebbe di taglio — è il trucco che nei reference nessuno nota e tutti vedono |
+| Tela candida anche in ombra (è dipinta, non fotorealista) | emissiva alta sulla tela + texture canvas con cuciture e ombra al piede |
+| Bordo giallo che contorna il ponte visto dall'alto | piastra a forma di ponte, un filo più larga, sotto il capodibanda |
+| Doppio listello giallo + fascia verdazzurra + incinta scura in fiancata | listelli sporgenti dallo scafo (prima erano DENTRO la geometria, invisibili) |
+| Scafo di legno vivo, non lastra marrone | texture fasciame procedurale (corsi + chiazze di tono), UV in unità mondo |
+| Pennoncello scuro in testa d'albero | bandiera ridotta, verde pino, teschio = punto chiaro (a questa scala basta) |
+| Galleria di poppa che vive | finestrelle emissive calde sullo specchio |
+
+L'ammiraglia dorata ora si distingue dalla TELA (canapa d'oro, non bianca)
+oltre che da bagliore perenne e nome in oro: da quando tutte le classi
+vestono il listello giallo, l'oro del solo scafo non bastava più.
+
+Nota di metodo: il driver d'audit ora attracca col rilevamento vero
+(`?spia=1` espone posizione e porto) invece di veleggiare alla cieca —
+attracco in 6 iterazioni dove prima falliva 2 volte su 3.

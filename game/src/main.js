@@ -43,6 +43,10 @@ function loadProfile() {
       p.sailsLvl = p.up.sails | 0;
       delete p.up;
     }
+    // ?scafo=0..4&vele=0..4 (sviluppo): salpa già con la classe da collaudare
+    const dp = new URLSearchParams(location.search);
+    if (dp.get('scafo') != null) p.hullLvl = Math.min(4, Math.max(0, dp.get('scafo') | 0));
+    if (dp.get('vele') != null) p.sailsLvl = Math.min(4, Math.max(0, dp.get('vele') | 0));
     return p;
   } catch { return {}; }
 }
@@ -582,6 +586,10 @@ function latestMe() {
   const last = state.snaps[state.snaps.length - 1];
   return last ? last.ships.get(state.meId) : null;
 }
+
+// ?spia=1 (sviluppo): espone posizione e porto ai driver di audit, che così
+// governano col rilevamento vero invece di veleggiare alla cieca
+if (devParams.get('spia')) window.__spia = { state, latestMe };
 
 function interpolatedShips() {
   const snaps = state.snaps;

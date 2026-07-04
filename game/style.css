@@ -169,6 +169,11 @@ button:disabled { opacity: .45; cursor: default; }
 .panel.wide::-webkit-scrollbar-thumb { background: #b08d57; border-radius: 6px; border: 2px solid #efe0b9; }
 .panel.wide::-webkit-scrollbar-track { background: transparent; }
 .shopSection { margin: 14px 0 8px; border-top: 1px solid rgba(109,76,34,.4); padding-top: 10px; }
+.shipClass {
+  background: rgba(255,248,228,.6); border: 1px solid #6d4c22; border-radius: 8px;
+  padding: 7px 12px; margin-bottom: 10px; text-align: left; font-size: 13.5px;
+}
+.shipClass b { color: #7a4a12; }
 .wgroup {
   background: rgba(255,248,228,.5); border: 1px solid #6d4c22; border-radius: 8px;
   padding: 8px 12px; margin-bottom: 9px; text-align: left;

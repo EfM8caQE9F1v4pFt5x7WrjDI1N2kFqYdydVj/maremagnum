@@ -4,3 +4,4 @@ server/data/
 release/
 *.log
 .env
+references/

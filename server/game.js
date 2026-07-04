@@ -697,6 +697,7 @@ class Game {
         maxHp: s.npc ? this.npcMaxHp(s) : shipStats(s).maxHp,
         docked: s.docked, sunk: this.isSunk(s),
         k: s.npc === 'merc' ? 'm' : s.npc === 'ghost' ? 'g' : 'p',
+        sl: s.npc ? 0 : s.sailsLvl,
         gp: [s.mounts.left.length, s.mounts.right.length, s.mounts.bow.length, s.mounts.stern.length],
       });
     }

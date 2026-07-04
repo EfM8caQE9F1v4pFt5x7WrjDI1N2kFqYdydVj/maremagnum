@@ -467,9 +467,20 @@ export class Renderer {
 
   // --- navi ---
 
+  // La classe si legge dallo scafo: fino a scafo lvl1 sei una sloop, lvl2-3
+  // un brigantino, lvl4 un galeone; con anche le vele al massimo il galeone
+  // si veste d'oro. I livelli viaggiano già nello snapshot (maxHp, sl).
+  shipClass(s) {
+    if (s.k === 'g') return 'fantasma';
+    if (s.k === 'm') return 'mercantile';
+    if (s.maxHp >= 260) return (s.sl | 0) >= 4 ? 'oro' : 'galeone';
+    return s.maxHp >= 180 ? 'brigantino' : 'sloop';
+  }
+
   buildShipBody(c, s, selfId) {
     const mode = this.navi ? 'S' : 'V';
-    const key = mode + '|' + s.k + '|' + (s.gp || []).join(',') + (s.id === selfId ? '|S' : '');
+    const classe = this.shipClass(s);
+    const key = mode + '|' + s.k + '|' + classe + '|' + (s.gp || []).join(',') + (s.id === selfId ? '|S' : '');
     if (c.buildKey === key) return;
     c.buildKey = key;
     if (c.body) c.body.destroy({ children: true });
@@ -482,14 +493,17 @@ export class Renderer {
 
     if (this.navi) {
       // nave cotta: sprite pre-renderizzato + portelli che ruotano continui
-      const variant = ghost ? 'fantasma' : merc ? 'mercantile' : 'pirata';
+      const variant = this.navi.frames[classe] ? classe
+        : this.navi.frames.pirata ? 'pirata' : Object.keys(this.navi.frames)[0];
+      // lo scafo si allunga con la classe (solo in lunghezza: il baglio è fisso)
+      const fL = variant === 'sloop' ? 0.82 : (variant === 'galeone' || variant === 'oro') ? 1.16 : 1;
       const shadow = new Graphics();
-      shadow.ellipse(2, 7, 27, 11).fill({ color: 0x061018, alpha: 0.17 });
+      shadow.ellipse(2, 7, 27 * fL, 11).fill({ color: 0x061018, alpha: 0.17 });
       c.addChildAt(shadow, (c.glow ? 1 : 0));
       c.shadow = shadow;
       const spr = new Sprite(this.navi.frames[variant][0]);
       spr.anchor.set(0.5, 0.53);
-      spr.scale.set(79 / this.navi.meta.frame); // stessa stazza a schermo a qualunque risoluzione di cottura
+      spr.scale.set(98.4 / this.navi.meta.frame); // stessa stazza a schermo a qualunque distanza di cottura (79 × D/13)
       if (ghost) spr.alpha = 0.88;
       body.addChild(spr);
       const ports = new Graphics();
@@ -504,14 +518,18 @@ export class Renderer {
       }
       for (let i = 0; i < gp[2]; i++) ports.circle(24, (i - 0.5) * 7, 2.2).fill(0x14100a);
       for (let i = 0; i < gp[3]; i++) ports.circle(-21, (i - 0.5) * 7, 2.2).fill(0x14100a);
+      ports.scale.x = fL;
       body.addChild(ports);
       body.shipSprite = spr;
       body.ports = ports;
       body.variant = variant;
       body.frameIdx = -1;
       body.sails = [];
+      // il galeone dorato si riconosce da lontano: nome d'oro e bagliore anche di giorno
+      if (c.label) c.label.style.fill = variant === 'oro' ? 0xffd98a : c.label.baseFill;
       return;
     }
+    if (c.label) c.label.style.fill = c.label.baseFill;
     const hullCol = ghost ? 0x3d4750 : COL.hull;
     const g = new Graphics();
     // ombra sull'acqua: due strati morbidi, spostati col sole (sud-est)
@@ -596,8 +614,10 @@ export class Renderer {
         },
       });
       label.anchor.set(0.5); label.position.set(0, -38);
+      label.baseFill = label.style.fill;
       const hpBar = new Graphics();
       c.addChild(label, hpBar);
+      c.label = label;
       c.hpBar = hpBar;
       this.shipLayer.addChild(c);
       this.ships.set(s.id, c);
@@ -638,8 +658,14 @@ export class Renderer {
       c.visible = !s.docked;
       const targetAlpha = s.sunk ? 0 : 1;
       c.alpha += (targetAlpha - c.alpha) * Math.min(1, dt * 4);
-      // lanterna di bordo: si accende con la notte
-      c.glow.alpha = s.sunk ? 0 : (this.lightNow ? this.lightNow.night : 0) * (s.id === selfId ? 0.34 : 0.27);
+      // lanterna di bordo: si accende con la notte; il galeone dorato
+      // luccica sempre, e il suo riverbero respira piano
+      const oro = c.body.variant === 'oro';
+      const night = this.lightNow ? this.lightNow.night : 0;
+      c.glow.tint = oro ? 0xffd98a : 0xffc27a;
+      c.glow.alpha = s.sunk ? 0 : Math.max(
+        oro ? 0.13 + 0.05 * Math.sin(this.t * 2.1) : 0,
+        night * (s.id === selfId ? 0.34 : 0.27));
       const scale = s.sunk ? Math.max(0.5, c.body.scale.x - dt * 0.5) : 1;
       c.body.scale.set(scale);
       // vele che respirano col vento e con l'andatura

@@ -24,7 +24,7 @@ async function main() {
   await new Promise(r => setTimeout(r, 2500));
 
   const el = spawn(require('electron'), [path.join(__dirname, 'audit-ui-main.js'), '--ozone-platform=wayland', '--disable-gpu'], {
-    env: { ...process.env, GAME_URL: `http://localhost:${PORT}/?nome=Auditor&ora=0.25` },
+    env: { ...process.env, GAME_URL: `http://localhost:${PORT}/?nome=Auditor&ora=0.25&spia=1&reset=1` },
   });
   el.stdout.on('data', d => process.stdout.write(d));
   el.stderr.on('data', () => {});
