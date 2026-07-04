@@ -21,9 +21,11 @@ app.whenReady().then(async () => {
     const dataUrl = await win.webContents.executeJavaScript('window.__atlas');
     const meta = await win.webContents.executeJavaScript('window.__meta');
     fs.mkdirSync(OUT_DIR, { recursive: true });
-    fs.writeFileSync(path.join(OUT_DIR, 'navi.png'), Buffer.from(dataUrl.split(',')[1], 'base64'));
+    fs.writeFileSync(path.join(OUT_DIR, 'navi.webp'), Buffer.from(dataUrl.split(',')[1], 'base64'));
     fs.writeFileSync(path.join(OUT_DIR, 'navi.json'), meta);
-    console.log('BAKE 📦 game/assets/navi.png + navi.json');
+    const vecchio = path.join(OUT_DIR, 'navi.png');
+    if (fs.existsSync(vecchio)) fs.unlinkSync(vecchio);
+    console.log('BAKE 📦 game/assets/navi.webp + navi.json');
     app.exit(0);
   });
   await win.loadFile(path.join(root, 'game', 'labbake.html'));

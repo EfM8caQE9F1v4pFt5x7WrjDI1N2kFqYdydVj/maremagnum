@@ -224,3 +224,34 @@ vestono il listello giallo, l'oro del solo scafo non bastava più.
 Nota di metodo: il driver d'audit ora attracca col rilevamento vero
 (`?spia=1` espone posizione e porto) invece di veleggiare alla cieca —
 attracco in 6 iterazioni dove prima falliva 2 volte su 3.
+
+---
+
+## Round 6 — il cannocchiale e i cannoni veri
+
+Richiesta dell'utente: tre livelli di zoom, e basta coi "pallini neri" al
+posto dei cannoni.
+
+### Il cannocchiale (Z o rotella)
+Tre scatti: mare aperto (1×), manovra (1.45×), abbordaggio (2×), con
+carrellata morbida (lerp) e scelta salvata nel profilo. Il mondo scala,
+l'interfaccia no; i nomi si contro-scalano (1/z) per restare leggibili.
+L'acqua zooma con il mondo in ENTRAMBI i tier: uniform uZoom nello shader
+(world = uCam + vUV·uScreen/uZoom), tileScale·z + tilePosition·z nella tile
+canvas. Nebbia e lanterna seguono la nave in coordinate schermo riscalate.
+
+### Cannoni con la sagoma dell'arma (drawGun in render.js)
+Lo snapshot ora porta `gw` (iniziale+livello per slot, es. "o3o3"): il
+client disegna affusto + canna VERA, non un pallino — colubrina lunga e
+sottile, cannone con cerchiatura dal lvl 2, carronata corta e tozza,
+mortaio a pentola con la bocca al cielo, organo a TRE canne. Il livello 3
+è di bronzo. Vecchi client: ignorano `gw`, tengono i conteggi.
+
+### Lezioni tecniche pagate col sangue
+- **8192 px è il tetto texture dei renderer software**: l'atlas 256px in
+  colonna singola (1536×9216) diventava un QUADRATO NERO su SwiftShader.
+  Riforma: 12 colonne → 3072×4608. Sempre sotto gli 8k.
+- **PNG 6.8MB → WebP 1.7MB** via canvas.toDataURL('image/webp', 0.92):
+  stessa trasparenza morbida (l'alpha c'è, VP8X+ALPH), un quarto del peso.
+- Il fattore di stazza a schermo ora viaggia in navi.json (`scala` = 79·D/13):
+  cambiare la camera di cottura non richiede più di ricordarsi il client.

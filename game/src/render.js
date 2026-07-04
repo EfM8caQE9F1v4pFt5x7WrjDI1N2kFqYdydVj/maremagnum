@@ -134,12 +134,19 @@ export class Renderer {
     this.dest = null;
     this.shake = 0;
     this.t = 0;
+    this.zoom = 1;
+    this.zoomTarget = 1;
+  }
+
+  // tre livelli di cannocchiale: mare aperto, manovra, abbordaggio
+  setZoom(z) {
+    this.zoomTarget = clamp(z, 1, 2);
   }
 
   async loadNavi() {
     try {
       const meta = await (await fetch('assets/navi.json')).json();
-      const tex = await Assets.load('assets/navi.png');
+      const tex = await Assets.load('assets/navi.webp');
       const frames = {};
       for (const [name, vi] of Object.entries(meta.variants)) {
         const arr = [];
@@ -477,10 +484,38 @@ export class Renderer {
     return s.maxHp >= 180 ? 'brigantino' : 'sloop';
   }
 
+  // Un cannone vero, non un pallino: affusto + canna con la SAGOMA dell'arma
+  // (colubrina sottile, carronata tozza, mortaio a pentola, organo a tre
+  // canne). dir = angolo verso cui spara, nel sistema della nave.
+  drawGun(g, cx, cy, dir, type, lvl) {
+    const cos = Math.cos(dir), sin = Math.sin(dir);
+    const P = (x, y) => [cx + x * cos - y * sin, cy + x * sin + y * cos];
+    const rect = (x0, x1, hw, col) =>
+      g.poly([...P(x0, -hw), ...P(x1, -hw), ...P(x1, hw), ...P(x0, hw)]).fill(col);
+    const ferro = lvl >= 3 ? 0x6e5638 : 0x24272c; // il livello 3 è di bronzo
+    const len = { c: 9, n: 7.5, r: 5.5, m: 4.5, o: 7 }[type] + lvl * 0.6;
+    rect(-3.2, 0.5, 2.6, 0x59401f); // affusto
+    if (type === 'o') {
+      for (const off of [-1.7, 0, 1.7]) {
+        g.poly([...P(-1, off - 0.6), ...P(len, off - 0.55), ...P(len, off + 0.55), ...P(-1, off + 0.6)]).fill(ferro);
+      }
+    } else if (type === 'm') {
+      const [px, py] = P(1.6, 0);
+      g.circle(px, py, 2.6).fill(ferro);
+      g.circle(px, py, 1.3).fill(0x0d0d0f); // la bocca guarda il cielo
+    } else {
+      const hw = type === 'r' ? 1.9 : type === 'n' ? 1.4 : 1.05;
+      g.poly([...P(-1, -hw), ...P(len, -hw * 0.75), ...P(len, hw * 0.75), ...P(-1, hw)]).fill(ferro);
+      const [mx, my] = P(len, 0);
+      g.circle(mx, my, hw * 0.62).fill(0x0d0d0f);
+      if (lvl >= 2) rect(len * 0.45, len * 0.45 + 0.9, hw * 0.95, lvl >= 3 ? 0x8a6f42 : 0x3a3f46); // cerchiatura
+    }
+  }
+
   buildShipBody(c, s, selfId) {
     const mode = this.navi ? 'S' : 'V';
     const classe = this.shipClass(s);
-    const key = mode + '|' + s.k + '|' + classe + '|' + (s.gp || []).join(',') + (s.id === selfId ? '|S' : '');
+    const key = mode + '|' + s.k + '|' + classe + '|' + (s.gp || []).join(',') + '|' + (s.gw || []).join(',') + (s.id === selfId ? '|S' : '');
     if (c.buildKey === key) return;
     c.buildKey = key;
     if (c.body) c.body.destroy({ children: true });
@@ -503,21 +538,35 @@ export class Renderer {
       c.shadow = shadow;
       const spr = new Sprite(this.navi.frames[variant][0]);
       spr.anchor.set(0.5, 0.53);
-      spr.scale.set(98.4 / this.navi.meta.frame); // stessa stazza a schermo a qualunque distanza di cottura (79 × D/13)
+      spr.scale.set((this.navi.meta.scala || 98.4) / this.navi.meta.frame); // la stazza la detta il bake (79 × D/13)
       if (ghost) spr.alpha = 0.88;
       body.addChild(spr);
       const ports = new Graphics();
       const gp = s.gp || [1, 1, 0, 0];
+      // slot d'arma: se il server manda gw usiamo la sagoma vera, altrimenti
+      // cannoni generici dai soli conteggi (client nuovo, server vecchio)
+      const slot = (gi, i) => {
+        const w = s.gw && s.gw[gi];
+        return w && w.length >= (i + 1) * 2 ? [w[i * 2], +w[i * 2 + 1] || 1] : ['n', 1];
+      };
       for (let i = 0; i < gp[0]; i++) {
         const x = gp[0] === 1 ? -3 : -14 + (i / (gp[0] - 1)) * 22;
-        ports.circle(x, -12, 2).fill(0x14100a);
+        const [t, l] = slot(0, i);
+        this.drawGun(ports, x, -9.5, -Math.PI / 2, t, l);
       }
       for (let i = 0; i < gp[1]; i++) {
         const x = gp[1] === 1 ? -3 : -14 + (i / (gp[1] - 1)) * 22;
-        ports.circle(x, 12, 2).fill(0x14100a);
+        const [t, l] = slot(1, i);
+        this.drawGun(ports, x, 9.5, Math.PI / 2, t, l);
       }
-      for (let i = 0; i < gp[2]; i++) ports.circle(24, (i - 0.5) * 7, 2.2).fill(0x14100a);
-      for (let i = 0; i < gp[3]; i++) ports.circle(-21, (i - 0.5) * 7, 2.2).fill(0x14100a);
+      for (let i = 0; i < gp[2]; i++) {
+        const [t, l] = slot(2, i);
+        this.drawGun(ports, 20, (i - (gp[2] - 1) / 2) * 7, 0, t, l);
+      }
+      for (let i = 0; i < gp[3]; i++) {
+        const [t, l] = slot(3, i);
+        this.drawGun(ports, -18, (i - (gp[3] - 1) / 2) * 7, Math.PI, t, l);
+      }
       ports.scale.x = fL;
       body.addChild(ports);
       body.shipSprite = spr;
@@ -656,6 +705,8 @@ export class Renderer {
         c.body.y = 0;
       }
       c.visible = !s.docked;
+      // il nome resta leggibile, non ingigantisce col cannocchiale
+      if (c.label) c.label.scale.set(1 / this.zoom);
       const targetAlpha = s.sunk ? 0 : 1;
       c.alpha += (targetAlpha - c.alpha) * Math.min(1, dt * 4);
       // lanterna di bordo: si accende con la notte; il galeone dorato
@@ -795,13 +846,19 @@ export class Renderer {
     this.shake = Math.max(0, this.shake - dt * 26);
     const shx = (Math.random() - 0.5) * this.shake, shy = (Math.random() - 0.5) * this.shake;
 
-    const cx = clamp(cam.x, w / 2, Math.max(w / 2, (this.W || w) - w / 2));
-    const cy = clamp(cam.y, h / 2, Math.max(h / 2, (this.H || h) - h / 2));
-    this.world.position.set(w / 2 - cx + shx, h / 2 - cy + shy);
+    // zoom del cannocchiale: il mondo scala, l'interfaccia no
+    this.zoom += (this.zoomTarget - this.zoom) * Math.min(1, dt * 6);
+    const z = this.zoom;
+    this.world.scale.set(z);
+    const hw = w / (2 * z), hh = h / (2 * z);
+    const cx = clamp(cam.x, hw, Math.max(hw, (this.W || w) - hw));
+    const cy = clamp(cam.y, hh, Math.max(hh, (this.H || h) - hh));
+    this.world.position.set(w / 2 - cx * z + shx, h / 2 - cy * z + shy);
 
     // luce del ciclo giorno/notte: acqua, tinta del mondo, meteo
     const light = this.lightNow = lightNow();
-    if (!this.noWater) this.water.update(dt, cx - w / 2 - shx, cy - h / 2 - shy, w, h, light);
+    this.water.zoom = z;
+    if (!this.noWater) this.water.update(dt, cx - hw - shx / z, cy - hh - shy / z, w, h, light);
     if (this.tintOverlay) {
       this.tintOverlay.width = w; this.tintOverlay.height = h;
       if (this._tintHex !== light.tintHex) {
@@ -817,13 +874,13 @@ export class Renderer {
 
     if (this.cloudShadows.visible) {
       this.cloudShadows.width = w; this.cloudShadows.height = h;
-      this.cloudShadows.tilePosition.set(-cx * 0.92 + this.t * 10, -cy * 0.92 + this.t * 4.5);
+      this.cloudShadows.tilePosition.set((-cx * 0.92 + this.t * 10) * z, (-cy * 0.92 + this.t * 4.5) * z);
       this.cloudShadows.alpha = 0.22 * light.cloud;
     }
 
     // nebbia e lanterna seguono la nave (in coordinate schermo)
-    const meX = me ? w / 2 - cx + shx + me.x : w / 2;
-    const meY = me ? h / 2 - cy + shy + me.y : h / 2;
+    const meX = me ? w / 2 + (me.x - cx) * z + shx : w / 2;
+    const meY = me ? h / 2 + (me.y - cy) * z + shy : h / 2;
     const cover = Math.max(w, h) * 1.8;
     this.fog.visible = light.fog > 0.01;
     if (this.fog.visible) {

@@ -32,6 +32,7 @@ const FRAG = /* glsl */`
   out vec4 finalColor;
 
   uniform float uTime;
+  uniform float uZoom;    // cannocchiale: 1 = mare aperto, 2 = abbordaggio
   uniform vec2 uCam;      // angolo in alto a sinistra della camera, in coordinate mondo
   uniform vec2 uScreen;   // dimensioni dello schermo in px
   uniform vec3 uDeep;     // colore d'abisso
@@ -65,7 +66,7 @@ const FRAG = /* glsl */`
   }
 
   void main() {
-    vec2 world = uCam + vUV * uScreen;
+    vec2 world = uCam + vUV * uScreen / uZoom;
     vec2 wp = world * 0.008;
     float t = uTime;
 
@@ -131,6 +132,7 @@ export class Water {
     this.uniforms = new UniformGroup({
       uCheap: { value: cheap ? 1 : 0, type: 'f32' },
       uTime: { value: 0, type: 'f32' },
+      uZoom: { value: 1, type: 'f32' },
       uCam: { value: new Float32Array([0, 0]), type: 'vec2<f32>' },
       uScreen: { value: new Float32Array([1440, 900]), type: 'vec2<f32>' },
       uDeep: { value: new Float32Array([0.055, 0.145, 0.208]), type: 'vec3<f32>' },
@@ -164,6 +166,7 @@ export class Water {
   update(dt, camX, camY, w, h, light, pixelW = w, pixelH = h) {
     const u = this.uniforms.uniforms;
     u.uTime += dt;
+    u.uZoom = this.zoom || 1;
     u.uCam[0] = camX; u.uCam[1] = camY;
     u.uScreen[0] = w; u.uScreen[1] = h;
     this.mesh.scale.set(pixelW, pixelH);

@@ -65,6 +65,7 @@ const engage = (ms = 8000) => { battleUntil = Math.max(battleUntil, performance.
 async function boot() {
   renderer = new Renderer();
   await renderer.init(document.getElementById('stage'));
+  initZoom();
   minimap = new Minimap(document.getElementById('minimap'));
   ui = new UI({
     onCourse: setCourse,
@@ -568,6 +569,7 @@ function wireInput() {
       return;
     }
     if (e.code === 'Enter') { document.getElementById('courseInput').focus(); e.preventDefault(); return; }
+    if (e.code === 'KeyZ') { e.preventDefault(); cycleZoom(); return; }
     keys.add(e.code);
     pushInput();
   });
@@ -578,6 +580,38 @@ function wireInput() {
   });
   addEventListener('blur', () => { keys.clear(); pushInput(); });
   addEventListener('beforeunload', saveProfile);
+
+  // cannocchiale: rotella o tasto Z, tre scatti (mare aperto → manovra →
+  // abbordaggio); la scelta resta nel profilo
+  addEventListener('wheel', (e) => {
+    if (ui.typing() || state.docked) return;
+    stepZoom(e.deltaY < 0 ? 1 : -1);
+  }, { passive: true });
+}
+
+const ZOOM_STOPS = [1, 1.45, 2];
+let zoomIdx = 0;
+
+function applyZoom() {
+  renderer.setZoom(ZOOM_STOPS[zoomIdx]);
+  state.profile.zoom = zoomIdx;
+  saveProfile();
+}
+function stepZoom(dir) {
+  const prev = zoomIdx;
+  zoomIdx = Math.max(0, Math.min(ZOOM_STOPS.length - 1, zoomIdx + dir));
+  if (zoomIdx !== prev) applyZoom();
+}
+function cycleZoom() {
+  zoomIdx = (zoomIdx + 1) % ZOOM_STOPS.length;
+  applyZoom();
+}
+function initZoom() {
+  const forced = devParams.get('zoom');
+  zoomIdx = forced != null ? Math.max(0, Math.min(2, forced | 0)) : (state.profile.zoom | 0);
+  zoomIdx = Math.max(0, Math.min(ZOOM_STOPS.length - 1, zoomIdx));
+  renderer.setZoom(ZOOM_STOPS[zoomIdx]);
+  renderer.zoom = ZOOM_STOPS[zoomIdx]; // niente carrellata all'avvio
 }
 
 // --- interpolazione e frame ---

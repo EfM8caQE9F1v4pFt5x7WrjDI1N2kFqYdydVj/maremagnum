@@ -111,9 +111,12 @@ export class CanvasWater {
   update(dt, camX, camY, w, h, light) {
     this.sprite.width = w;
     this.sprite.height = h;
-    // scorre col mondo + una deriva lenta di corrente
+    // scorre col mondo + una deriva lenta di corrente; col cannocchiale
+    // (renderer.zoom) anche l'onda si avvicina, non solo le navi
+    const z = this.zoom || 1;
     this.phaseT = (this.phaseT || 0) + dt;
-    this.sprite.tilePosition.set(-camX + this.phaseT * 6, -camY + Math.sin(this.phaseT * 0.4) * 5);
+    this.sprite.tileScale.set(2 * z);
+    this.sprite.tilePosition.set((-camX + this.phaseT * 6) * z, (-camY + Math.sin(this.phaseT * 0.4) * 5) * z);
 
     // rigenera la tile quando la luce cambia abbastanza (max ~1/s)
     const key = light ? [light.warm.toFixed(2), light.glint.toFixed(2)].join('|') : 'fissa';

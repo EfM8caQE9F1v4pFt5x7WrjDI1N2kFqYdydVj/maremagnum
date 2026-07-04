@@ -9,9 +9,9 @@
 
 import * as THREE from 'three';
 
-const FRAME = 192;
+const FRAME = 256; // col cannocchiale a 2x i 192 andavano stretti
 const STEPS = 36;
-const COLS = 6;
+const COLS = 12; // atlas largo e basso: 9216 px di altezza sforavano il limite texture (8192) dei renderer software
 
 const TINTA = {
   legno: {
@@ -383,7 +383,7 @@ async function main() {
   scene.add(fill);
 
   const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
-  const D = 16.2; // alberatura alta di Monkey Island: il galeone deve starci tutto
+  const D = 17.2; // il bompresso del galeone sfiorava il bordo del fotogramma
   const elev = 58 * Math.PI / 180; // un filo più radente: si vede la fiancata coi listelli
   camera.position.set(0, D * Math.sin(elev), D * Math.cos(elev));
   camera.lookAt(0, 0.9, 0);
@@ -406,9 +406,12 @@ async function main() {
     scene.remove(ship);
   }
 
-  window.__atlas = atlas.toDataURL('image/png');
+  // webp: stessa trasparenza morbida del png, un sesto del peso
+  window.__atlas = atlas.toDataURL('image/webp', 0.92);
   window.__meta = JSON.stringify({
     frame: FRAME, steps: STEPS, cols: COLS, rows,
+    // fattore di scala a schermo: la stazza di gioco non dipende da D o FRAME
+    scala: Math.round(79 * (D / 13) * 10) / 10,
     variants: Object.fromEntries(VARIANTS.map((name, i) => [name, i])),
   });
   console.log('BAKE-DONE');

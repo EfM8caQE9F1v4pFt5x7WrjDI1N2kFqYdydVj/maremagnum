@@ -699,6 +699,9 @@ class Game {
         k: s.npc === 'merc' ? 'm' : s.npc === 'ghost' ? 'g' : 'p',
         sl: s.npc ? 0 : s.sailsLvl,
         gp: [s.mounts.left.length, s.mounts.right.length, s.mounts.bow.length, s.mounts.stern.length],
+        // armi in chiaro (iniziale+livello per slot): il client disegna i
+        // cannoni VERI, non pallini — "n" = cannone, "r" = carronata
+        gw: [encW(s.mounts.left), encW(s.mounts.right), encW(s.mounts.bow), encW(s.mounts.stern)],
       });
     }
     const forts = [];
@@ -732,5 +735,11 @@ function norm(a) {
 
 function r1(n) { return Math.round(n * 10) / 10; }
 function r2(n) { return Math.round(n * 100) / 100; }
+
+function encW(mounts) {
+  let out = '';
+  for (const m of mounts) out += (m.type === 'cannone' ? 'n' : m.type === 'carronata' ? 'r' : m.type[0]) + m.lvl;
+  return out;
+}
 
 module.exports = { Game, shipStats, shipLvlCost };
