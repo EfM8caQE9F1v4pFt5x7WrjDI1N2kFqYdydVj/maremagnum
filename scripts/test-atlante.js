@@ -46,5 +46,64 @@ game.dock(ship);
 assert.strictEqual(registrato, null, 'il porto non deve finire nell\'Atlante');
 ok('il Porto Franco resta fuori dall\'Atlante');
 
+// 5) la semina al risveglio (issue #12): il Game rinasce e le mete condivise
+//    (≥3 approdi) rinascono con lui, in posizioni stabili; sotto soglia no
+atlante.setConteggi({ 'famoso.it': 1000, 'noto.it': 10, 'timido.it': 2 });
+const rinato = new Game(() => {});
+rinato.pausa();
+assert(rinato.archipelago.get('famoso.it'), 'famoso.it non riseminata al risveglio');
+assert(rinato.archipelago.get('noto.it'), 'noto.it non riseminata al risveglio');
+assert(!rinato.archipelago.get('timido.it'), 'sotto soglia (<3) non deve nascere');
+const ancora = new Game(() => {});
+ancora.pausa();
+for (const d of ['famoso.it', 'noto.it']) {
+  assert.strictEqual(rinato.archipelago.get(d).x, ancora.archipelago.get(d).x, `${d}: x instabile tra risvegli`);
+  assert.strictEqual(rinato.archipelago.get(d).y, ancora.archipelago.get(d).y, `${d}: y instabile tra risvegli`);
+}
+ok('al risveglio le isole sopra soglia rinascono, in posizioni stabili');
+
+// 6) il percorso completo della issue #12, come lo vive il MareDO: tre approdi
+//    → il Game si riavvia sugli stessi conteggi → l'isola c'è, e un secondo
+//    giocatore la trova nel welcome
+atlante.setConteggi({});
+const prima = new Game(() => {});
+prima.pausa();
+prima.onApprodo = (d) => atlante.registraApprodo(d); // stesso aggancio del MareDO
+const { island: meta } = prima.archipelago.ensure('meta-condivisa.it');
+const capitano = prima.join(conn, { t: 'join', name: 'Pioniere', profile: {} });
+for (let i = 0; i < 3; i++) {
+  capitano.x = meta.x; capitano.y = meta.y + meta.r + 30; capitano.vel = 0;
+  prima.dock(capitano);
+  assert.strictEqual(capitano.docked, 'meta-condivisa.it', `approdo ${i + 1} fallito`);
+  prima.undock(capitano);
+}
+const dopo = new Game(() => {});
+dopo.pausa();
+assert(dopo.archipelago.get('meta-condivisa.it'), "l'isola è evaporata al riavvio");
+let welcome2 = null;
+const conn2 = { send(s) { const m = JSON.parse(s); if (m.t === 'welcome') welcome2 = m; }, readyState: 1 };
+dopo.join(conn2, { t: 'join', name: 'Secondo', profile: {} });
+assert(welcome2 && welcome2.islands.some(i => i.id === 'meta-condivisa.it'),
+  'il secondo giocatore non vede l\'isola nel welcome');
+ok('approdo ×3 → riavvio del Game → l\'isola resta e il secondo giocatore la vede');
+
+// 7) il cap della semina: mai più di 150 isole riseminate d'un colpo
+const tanti = {};
+for (let i = 0; i < 160; i++) tanti[`dominio-${String(i).padStart(3, '0')}.it`] = 3 + (i % 7);
+atlante.setConteggi(tanti);
+const affollato = new Game(() => {});
+affollato.pausa();
+const seminate = affollato.archipelago.list().filter(i => i.kind === 'site').length;
+assert(seminate === 150, `attese 150 isole seminate, trovate ${seminate}`);
+ok('la semina rispetta il cap (150 su 160 sopra soglia)');
+
+// 8) fusione al rialzo: il merge non perde gli approdi locali più freschi
+atlante.setConteggi({ 'viva.it': 5 });
+atlante.registraApprodo('viva.it'); // 6 locale
+atlante.mergeConteggi({ 'viva.it': 5, 'nuova.it': 4 });
+assert.strictEqual(atlante.approdiDi('viva.it'), 6, 'il merge ha regredito un conteggio locale');
+assert.strictEqual(atlante.approdiDi('nuova.it'), 4, 'il merge non ha portato la novità');
+ok('mergeConteggi fonde al rialzo senza regressioni');
+
 console.log('\nATLANTE VERDE 🗺');
 process.exit(0);

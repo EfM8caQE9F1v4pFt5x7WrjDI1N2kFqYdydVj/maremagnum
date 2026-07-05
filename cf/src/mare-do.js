@@ -21,6 +21,8 @@ export class MareDO {
     this.prontoPromise = null;
     this.equipaggio = new Map(); // ws -> { ship, uid }
     this.saveTimer = null;
+    this.atlanteOk = false;   // il primo caricamento è andato a buon fine?
+    this.riseminando = false; // una guarigione alla volta
   }
 
   // La blocklist arriva da R2 (cache) o dall'origine; il core è lo stesso di Node.
@@ -46,12 +48,31 @@ export class MareDO {
     }
   }
 
+  // Fusione al rialzo (non rimpiazzo): il modulo atlante sopravvive alla
+  // ricreazione del DO nello stesso isolate, e gli approdi registrati nel
+  // frattempo non vanno persi.
   async caricaAtlante() {
     try {
       const atl = this.env.ATLANTE.get(this.env.ATLANTE.idFromName('atlante'));
       const res = await atl.fetch('https://atlante/tutte');
-      if (res.ok) atlante.setConteggi((await res.json()).isole);
-    } catch { /* l'Atlante arriverà al prossimo risveglio */ }
+      if (res.ok) {
+        atlante.mergeConteggi((await res.json()).isole);
+        this.atlanteOk = true;
+      }
+    } catch { /* si ritenta al prossimo risveglio (vedi risemina) */ }
+  }
+
+  // Se al varo l'Atlante non rispose, il mare guarisce quando arriva qualcuno:
+  // ricarica i conteggi e semina le isole mancanti, annunciandole ai presenti.
+  async risemina() {
+    if (this.atlanteOk || this.riseminando) return;
+    this.riseminando = true;
+    try {
+      await this.caricaAtlante();
+      if (this.atlanteOk && this.game) this.game.semina();
+    } finally {
+      this.riseminando = false;
+    }
   }
 
   async pronto() {
@@ -102,6 +123,7 @@ export class MareDO {
     const voce = { ship: null, uid: null };
     this.equipaggio.set(ws, voce);
     this.game.riprendi();
+    this.risemina(); // no-op se l'Atlante è già arrivato
     if (!this.saveTimer) this.saveTimer = setInterval(() => this.salvaTutti(), SALVA_OGNI_MS);
 
     // adattatore: Game si aspetta .send e .readyState come il pacchetto ws

@@ -11,6 +11,25 @@ function setConteggi(obj) {
   conteggi = new Map(Object.entries(obj || {}));
 }
 
+// Fusione al rialzo: i conteggi possono solo crescere, quindi tra locale e
+// remoto vince il più alto — nessun approdo registrato nel frattempo va perso.
+function mergeConteggi(obj) {
+  for (const [d, n] of Object.entries(obj || {})) {
+    const dom = String(d).toLowerCase();
+    if ((conteggi.get(dom) || 0) < n) conteggi.set(dom, n);
+  }
+}
+
+// I domini sopra soglia in ORDINE STABILE (approdi decrescenti, spareggio
+// alfabetico): la risoluzione delle sovrapposizioni in ensure() dipende
+// dall'ordine, e le isole non devono saltellare tra un risveglio e l'altro.
+function sopraSoglia(min = 3) {
+  return [...conteggi]
+    .filter(([, n]) => n >= min)
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+    .map(([d]) => d);
+}
+
 function registraApprodo(dominio) {
   if (!dominio) return 0;
   const d = String(dominio).toLowerCase();
@@ -30,4 +49,4 @@ function crescita(dominio) {
   return Math.min(2.5, 1 + Math.log10(1 + n) * 0.5);
 }
 
-module.exports = { setConteggi, registraApprodo, approdiDi, crescita };
+module.exports = { setConteggi, mergeConteggi, registraApprodo, approdiDi, crescita, sopraSoglia };

@@ -3,6 +3,7 @@
 const { WORLD, PORT, FORT, parseCourse, Archipelago, publicIsland } = require('./world');
 const W = require('./weapons');
 const { Missions } = require('./missions');
+const atlante = require('./atlante-core');
 
 const TICK = 1 / 30;          // simulazione a 30Hz
 const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
@@ -83,6 +84,7 @@ class Game {
   constructor(broadcast) {
     this.broadcast = broadcast;
     this.archipelago = new Archipelago();
+    this.semina();
     this.missions = new Missions(this);
     this.ships = new Map();
     this.shots = new Map();
@@ -100,6 +102,16 @@ class Game {
   }
 
   stop() { clearInterval(this.timer); clearInterval(this.boardTimer); }
+
+  // Al risveglio il mare si ricorda delle sue isole: le mete condivise
+  // dell'Atlante (≥3 approdi) rinascono senza aspettare una nuova rotta,
+  // con un tetto per non affollare la mappa prima dell'espansione del mondo.
+  semina(cap = 150) {
+    for (const dominio of atlante.sopraSoglia().slice(0, cap)) {
+      const { island, isNew } = this.archipelago.ensure(dominio);
+      if (isNew) this.broadcastIsland(island);
+    }
+  }
 
   // --- navi ---
 
