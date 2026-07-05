@@ -7,6 +7,7 @@ import { mulberry32, clamp } from './util.js';
 import { Water } from './water.js';
 import { CanvasWater } from './water-canvas.js';
 import { lightNow } from './daycycle.js';
+import { drawGun as drawGunNuovo } from './guns.js';
 
 // Miscela lineare fra due colori esadecimali (k: 0=a, 1=b).
 function mixHex(a, b, k) {
@@ -125,6 +126,9 @@ export class Renderer {
 
     this.navi = null; // atlas delle navi cotte; finché manca si resta sul vettoriale
     this.loadNavi();
+    // le bocche da fuoco cotte (issue #17); ?armicotte=off forza il
+    // fallback vettoriale (utile per i confronti e per collaudarlo)
+    if (new URLSearchParams(location.search).get('armicotte') !== 'off') this.loadArmi();
 
     this.ships = new Map();
     this.forts = new Map();     // islandId -> Graphics
@@ -169,6 +173,30 @@ export class Renderer {
       for (const c of this.ships.values()) c.buildKey = ''; // ricostruisci con gli sprite
     } catch (e) {
       console.warn('Navi cotte non disponibili, resto sul vettoriale:', e.message);
+    }
+  }
+
+  // prototipo issue #17: atlas delle bocche da fuoco, stesso schema delle navi
+  async loadArmi() {
+    try {
+      const meta = await (await fetch('assets/armi.json')).json();
+      const tex = await Assets.load('assets/armi.webp');
+      const frames = {};
+      for (const [name, vi] of Object.entries(meta.variants)) {
+        const arr = [];
+        for (let k = 0; k < meta.steps; k++) {
+          const col = k % meta.cols, row = ((k / meta.cols) | 0) + vi * meta.rows;
+          arr.push(new Texture({
+            source: tex.source,
+            frame: new Rectangle(col * meta.frame, row * meta.frame, meta.frame, meta.frame),
+          }));
+        }
+        frames[name] = arr;
+      }
+      this.armi = { meta, frames };
+      for (const c of this.ships.values()) c.buildKey = '';
+    } catch (e) {
+      console.warn('Armi cotte non disponibili, resto sul vettoriale:', e.message);
     }
   }
 
@@ -503,33 +531,10 @@ export class Renderer {
     return s.maxHp >= 180 ? 'brigantino' : 'sloop';
   }
 
-  // Un cannone vero, non un pallino: affusto + canna con la SAGOMA dell'arma
-  // (colubrina sottile, carronata tozza, mortaio a pentola, organo a tre
-  // canne, colubrina lunga a spillo, carronata pesante a botte).
-  // dir = angolo verso cui spara, nel sistema della nave.
+  // Un cannone vero, non un pallino: il disegno vive in guns.js (issue #17)
+  // ed è il fallback quando l'atlas delle armi cotte non c'è.
   drawGun(g, cx, cy, dir, type, lvl) {
-    const cos = Math.cos(dir), sin = Math.sin(dir);
-    const P = (x, y) => [cx + x * cos - y * sin, cy + x * sin + y * cos];
-    const rect = (x0, x1, hw, col) =>
-      g.poly([...P(x0, -hw), ...P(x1, -hw), ...P(x1, hw), ...P(x0, hw)]).fill(col);
-    const ferro = lvl >= 3 ? 0x6e5638 : 0x24272c; // il livello 3 è di bronzo
-    const len = { c: 9, n: 7.5, r: 5.5, m: 4.5, o: 7, l: 11.5, p: 6 }[type] + lvl * 0.6;
-    rect(-3.2, 0.5, 2.6, 0x59401f); // affusto
-    if (type === 'o') {
-      for (const off of [-1.7, 0, 1.7]) {
-        g.poly([...P(-1, off - 0.6), ...P(len, off - 0.55), ...P(len, off + 0.55), ...P(-1, off + 0.6)]).fill(ferro);
-      }
-    } else if (type === 'm') {
-      const [px, py] = P(1.6, 0);
-      g.circle(px, py, 2.6).fill(ferro);
-      g.circle(px, py, 1.3).fill(0x0d0d0f); // la bocca guarda il cielo
-    } else {
-      const hw = type === 'p' ? 2.5 : type === 'r' ? 1.9 : type === 'n' ? 1.4 : type === 'l' ? 0.9 : 1.05;
-      g.poly([...P(-1, -hw), ...P(len, -hw * 0.75), ...P(len, hw * 0.75), ...P(-1, hw)]).fill(ferro);
-      const [mx, my] = P(len, 0);
-      g.circle(mx, my, hw * 0.62).fill(0x0d0d0f);
-      if (lvl >= 2) rect(len * 0.45, len * 0.45 + 0.9, hw * 0.95, lvl >= 3 ? 0x8a6f42 : 0x3a3f46); // cerchiatura
-    }
+    drawGunNuovo(g, cx, cy, dir, type, lvl);
   }
 
   buildShipBody(c, s, selfId) {
@@ -570,26 +575,55 @@ export class Renderer {
         const w = s.gw && s.gw[gi];
         return w && w.length >= (i + 1) * 2 ? [w[i * 2], +w[i * 2 + 1] || 1] : ['n', 1];
       };
+      // issue #17: se l'atlas delle armi è carico e ha la sagoma, sprite
+      // cotto (posa scelta a ogni frame); altrimenti fallback vettoriale.
+      // Il pezzo cotto è un affusto intero: lo si arretra di qualche passo
+      // verso l'interno (INBOARD, contro il verso di fuoco) e gli si dà
+      // un'ombra di contatto, così siede sul ponte invece di fluttuare.
+      const INBOARD = 2.2;
+      const gunLayer = new Container();
+      body.gunSprites = [];
+      const mkGun = (x, y, dir, t, l) => {
+        const key = t + l;
+        if (this.armi && this.armi.frames[key]) {
+          const ombra = new Graphics();
+          ombra.ellipse(0, 0, 5.6, 2.3).fill({ color: 0x061018, alpha: 0.18 });
+          gunLayer.addChild(ombra);
+          const spr = new Sprite(this.armi.frames[key][0]);
+          spr.anchor.set(0.5);
+          spr.scale.set(this.armi.meta.scala / this.armi.meta.frame);
+          body.gunSprites.push({
+            spr, ombra, key,
+            lx: x - Math.cos(dir) * INBOARD,
+            ly: y - Math.sin(dir) * INBOARD,
+            dir,
+          });
+          gunLayer.addChild(spr);
+          return;
+        }
+        this.drawGun(ports, x, y, dir, t, l);
+      };
       for (let i = 0; i < gp[0]; i++) {
         const x = gp[0] === 1 ? -3 : -14 + (i / (gp[0] - 1)) * 22;
         const [t, l] = slot(0, i);
-        this.drawGun(ports, x, -9.5, -Math.PI / 2, t, l);
+        mkGun(x, -9.5, -Math.PI / 2, t, l);
       }
       for (let i = 0; i < gp[1]; i++) {
         const x = gp[1] === 1 ? -3 : -14 + (i / (gp[1] - 1)) * 22;
         const [t, l] = slot(1, i);
-        this.drawGun(ports, x, 9.5, Math.PI / 2, t, l);
+        mkGun(x, 9.5, Math.PI / 2, t, l);
       }
       for (let i = 0; i < gp[2]; i++) {
         const [t, l] = slot(2, i);
-        this.drawGun(ports, 20, (i - (gp[2] - 1) / 2) * 7, 0, t, l);
+        mkGun(20, (i - (gp[2] - 1) / 2) * 7, 0, t, l);
       }
       for (let i = 0; i < gp[3]; i++) {
         const [t, l] = slot(3, i);
-        this.drawGun(ports, -18, (i - (gp[3] - 1) / 2) * 7, Math.PI, t, l);
+        mkGun(-18, (i - (gp[3] - 1) / 2) * 7, Math.PI, t, l);
       }
       ports.scale.x = fL;
       body.addChild(ports);
+      body.addChild(gunLayer);
       body.shipSprite = spr;
       body.ports = ports;
       body.variant = variant;
@@ -718,6 +752,26 @@ export class Renderer {
         }
         c.body.rotation = 0;
         c.body.ports.rotation = s.rot;
+        // armi cotte: la posa segue l'angolo assoluto della bocca, la
+        // posizione ruota col continuo (come i portelli vettoriali).
+        // ALZO: il ponte sta sopra la linea d'acqua, e con la camera a 58°
+        // un rialzo si proietta verso l'alto dello schermo — senza questo
+        // scarto i pezzi sembrano galleggiare di fianco allo scafo.
+        if (this.armi && c.body.gunSprites && c.body.gunSprites.length) {
+          const ALZO = 2.6;
+          const stepsA = this.armi.meta.steps, stepA = (2 * Math.PI) / stepsA;
+          const cosR = Math.cos(s.rot), sinR = Math.sin(s.rot);
+          const fL = c.body.ports.scale.x;
+          for (const gs of c.body.gunSprites) {
+            let fa = Math.round(-(s.rot + gs.dir) / stepA) % stepsA;
+            if (fa < 0) fa += stepsA;
+            gs.spr.texture = this.armi.frames[gs.key][fa];
+            const px = gs.lx * fL * cosR - gs.ly * sinR;
+            const py = gs.lx * fL * sinR + gs.ly * cosR;
+            gs.spr.position.set(px, py - ALZO);
+            gs.ombra.position.set(px, py + 0.6);
+          }
+        }
         // beccheggio: lo scafo danza, l'ombra resta al pelo dell'acqua
         c.body.y = Math.sin(this.t * 1.7 + (s.x + s.y) * 0.011) * 1.7;
         c.body.shipSprite.rotation = Math.sin(this.t * 1.3 + s.x * 0.013) * 0.028;
