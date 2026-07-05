@@ -121,8 +121,8 @@ async function main() {
     ok(C.welcome.you.mounts.right[0].type === 'colubrina', 'la Colubrina Lunga di contrabbando è rifiutata al join');
     await sleep(500);
     const cGaleone = C.me();
-    ok(cGaleone && cGaleone.tp === 3 && cGaleone.maxHp === 120,
-      `lo snapshot veste il tipo: Galeone corazzato (tp=3, ${cGaleone && cGaleone.maxHp}/120 HP)`);
+    ok(cGaleone && cGaleone.tp === 3 && cGaleone.maxHp === 240,
+      `lo snapshot veste il tipo: Galeone corazzato (tp=3, ${cGaleone && cGaleone.maxHp}/240 HP)`);
 
     console.log('— Ciurma al completo: ricarica misurata —');
     // colubrina L1: 2.0s di base; con Ciurma 4 (−28%) attesi ~1440ms fra le bordate
@@ -198,8 +198,8 @@ async function main() {
     O.ws.close();
     await sleep(500);
     const cGoletta = C.me();
-    ok(cGoletta && cGoletta.tp === 1 && cGoletta.maxHp === 85,
-      `snapshot rivestito: Goletta (tp=1, ${cGoletta && cGoletta.maxHp}/85 HP)`);
+    ok(cGoletta && cGoletta.tp === 1 && cGoletta.maxHp === 170,
+      `snapshot rivestito: Goletta (tp=1, ${cGoletta && cGoletta.maxHp}/170 HP)`);
     C.ws.close();
 
     console.log('— Abilità di tipo (tasto R) —');
@@ -257,7 +257,7 @@ async function main() {
       const tRam = Date.now();
       while (Date.now() - tRam < 4500 && !speronato) {
         const me = D.me(), tgt = eShip();
-        if (tgt && tgt.hp <= 58) { speronato = true; break; }
+        if (tgt && tgt.hp <= 160) { speronato = true; break; } // una speronata (42) su scafo da 200
         if (me && tgt) {
           const turn = norm(Math.atan2(tgt.y - me.y, tgt.x - me.x) - me.rot);
           D.input({ up: true, left: turn < -0.08, right: turn > 0.08 });
@@ -267,8 +267,8 @@ async function main() {
       D.input({});
     }
     ok(ackRam, 'Speronamento attivato');
-    ok(speronato, `speronato: il bersaglio incassa la prua (${eShip() && eShip().hp}/100)`);
-    ok(speronato && D.me() && D.me().hp <= 76, `lo speronatore paga il pegno di legno (${D.me() && D.me().hp}/85)`);
+    ok(speronato, `speronato: il bersaglio incassa la prua (${eShip() && eShip().hp}/200)`);
+    ok(speronato && D.me() && D.me().hp <= 161, `lo speronatore paga il pegno di legno (${D.me() && D.me().hp}/170)`);
     D.ws.close(); E.ws.close();
 
     console.log('— Isole effimere sotto soglia (issue #26bis) —');
@@ -300,7 +300,7 @@ async function main() {
     ok(S.welcome.you.mounts.left[0].type === 'falconetto', 'il Falconetto sullo sciabecco è di casa');
     await sleep(500);
     const sMe = S.me();
-    ok(sMe && sMe.tp === 4 && sMe.maxHp === 90, `snapshot vestito: tp=4, scafo agile (${sMe && sMe.maxHp}/90 HP)`);
+    ok(sMe && sMe.tp === 4 && sMe.maxHp === 180, `snapshot vestito: tp=4, scafo agile (${sMe && sMe.maxHp}/180 HP)`);
     ok(sMe && sMe.gw && sMe.gw[0] === 'f1', `il falconetto viaggia in chiaro (gw "${sMe && sMe.gw && sMe.gw[0]}")`);
     S.send({ t: 'abilita' });
     ok(!!await S.wait(m => m.t === 'abilita' && m.nome === 'Colpo di Vento' && m.cd === 30, 3000),
@@ -500,8 +500,8 @@ async function main() {
     await A.wait(m => m.t === 'undocked');
     await sleep(500);
     const aGoletta = A.me();
-    ok(aGoletta && aGoletta.tp === 1 && aGoletta.maxHp === 85,
-      `Barbanera in mare da Goletta (tp=1, ${aGoletta && aGoletta.maxHp}/85 HP)`);
+    ok(aGoletta && aGoletta.tp === 1 && aGoletta.maxHp === 170,
+      `Barbanera in mare da Goletta (tp=1, ${aGoletta && aGoletta.maxHp}/170 HP)`);
 
     console.log('— Battaglia: fiancate indipendenti —');
     let killed = false;

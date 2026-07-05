@@ -667,15 +667,16 @@ export class Renderer {
     // la scala visiva DENTRO ogni tipo (issue #11): con scafo e vele al
     // massimo si diventa VETERANI — castello in più e pomi d'oro in testa
     // d'albero. Le soglie sono i maxHp a scafo 4 col moltiplicatore di tipo.
+    // soglie raddoppiate col +100% vita: maxHp a scafo 4 = (200+320)×hpMul
     const vet = (s.sl | 0) >= 4;
-    if (s.tp === 1) return vet && s.maxHp >= 221 ? 'golettavet' : 'goletta';
-    if (s.tp === 2) return vet && s.maxHp >= 260 ? 'guerravet' : 'guerra';
-    // tipo galeone: hp ×1.2, quindi il dorato scatta a 312 (260 × 1.2);
+    if (s.tp === 1) return vet && s.maxHp >= 442 ? 'golettavet' : 'goletta';
+    if (s.tp === 2) return vet && s.maxHp >= 520 ? 'guerravet' : 'guerra';
+    // tipo galeone: hp ×1.2, quindi il dorato scatta a 624 (520 × 1.2);
     // sotto il dorato veste il blu regale, distinto dal galeone di leva
-    if (s.tp === 3) return vet && s.maxHp >= 312 ? 'oro' : 'galeonetipo';
+    if (s.tp === 3) return vet && s.maxHp >= 624 ? 'oro' : 'galeonetipo';
     if (s.tp === 4) return 'sciabecco';
-    if (s.maxHp >= 260) return vet ? 'oro' : 'galeone';
-    return s.maxHp >= 180 ? 'brigantino' : 'sloop';
+    if (s.maxHp >= 520) return vet ? 'oro' : 'galeone';
+    return s.maxHp >= 360 ? 'brigantino' : 'sloop';
   }
 
   // Un cannone vero, non un pallino: il disegno vive in guns.js (issue #17)

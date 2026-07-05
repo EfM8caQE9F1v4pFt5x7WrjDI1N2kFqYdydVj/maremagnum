@@ -82,8 +82,7 @@ const GROUP_DIR = { left: -Math.PI / 2, right: Math.PI / 2, bow: 0, stern: Math.
 // SENZA_T0=1 lascia il mare spoglio: i test end-to-end usano un autopilota
 // ingenuo che si impiglia tra troppe isole.
 const ISOLE_T0 = (typeof process !== 'undefined' && process.env.SENZA_T0) ? [] : [
-  'wikipedia.org', 'github.com', 'youtube.com', 'reddit.com',
-  'openstreetmap.org', 'archive.org',
+  'booost.network', 'cumino.com', 'sending.dev', 'toranoai.com', 'hyperuranios.com',
 ];
 
 // Le linee di punti nave in vendita al Cantiere: stat pubblica → campo della nave.
@@ -139,7 +138,9 @@ const NPCS = { merc: 3, ghost: 2 };
 function shipStats(ship) {
   const t = TIPI[ship.tipo];
   return {
-    maxHp: Math.round((100 + ship.hullLvl * 40) * (t ? t.hpMul : 1)),
+    // scafi più duri (+100%): le battaglie duravano troppo poco e una sola
+    // bordata poteva uccidere — ora 200 base + 80 a punto (hull 4 = 520 base)
+    maxHp: Math.round((200 + ship.hullLvl * 80) * (t ? t.hpMul : 1)),
     speed: (135 + ship.sailsLvl * 20) * (t ? t.speedMul : 1),
     turnRate: 2.3 * (1 + 0.08 * ship.helmLvl) * (t ? t.turnMul : 1), // timone: virate più strette
     reloadMul: 1 - 0.07 * ship.crewLvl,         // ciurma: ricarica −7% a punto (−28% al tetto)
@@ -269,7 +270,7 @@ class Game {
     return ship;
   }
 
-  npcMaxHp(ship) { return ship.npc === 'merc' ? 70 : 160; }
+  npcMaxHp(ship) { return ship.npc === 'merc' ? 140 : 320; } // +100% come le navi vere
 
   syncReady(ship) {
     for (const g of Object.keys(W.GROUPS)) {
