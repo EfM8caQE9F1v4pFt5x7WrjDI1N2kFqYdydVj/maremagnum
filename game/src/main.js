@@ -176,6 +176,9 @@ async function boot() {
   document.body.classList.add('benvenuto');
   avviaFrame();
   state.spawn = await scegliSpawn();
+  // ?salpada=dominio (sviluppo): si spawna accanto a quell'isola
+  const salpada = new URLSearchParams(location.search).get('salpada');
+  if (salpada) state.spawn = salpada;
   document.body.classList.remove('benvenuto');
   ui.setShipName(state.profile.name);
   saveProfile();
@@ -711,6 +714,10 @@ function wireNet() {
     ui.showShop(m);
   });
 
+  net.on('cartellone', (m) => {
+    if (typeof m.dominio === 'string') cartelloni.set(m.dominio, m.og || {});
+  });
+
   net.on('gold', (m) => {
     state.gold = m.gold;
     state.profile.gold = m.gold;
@@ -1016,6 +1023,7 @@ function frame(now) {
       ability: state.ability.at > now ? 1 - (state.ability.at - now) / (state.ability.cd * 1000) : 1,
     });
     updateDockHint(rawMe);
+    aggiornaCartellone(rawMe);
   }
 
   if (now > minimapAt) {
@@ -1024,6 +1032,36 @@ function frame(now) {
   }
   music.setMood(now < battleUntil ? 'battaglia' : 'calma');
   requestAnimationFrame(frame);
+}
+
+// Il Cartellone dell'isola (issue #27): come la nave si ACCOSTA parecchio
+// a un'isola-sito, dal centro spunta l'anteprima Open Graph — senza F.
+// La risposta si chiede una volta e si tiene; il server rifiuta comunque
+// le richieste da lontano e non parla mai delle fortezze.
+const cartelloni = new Map(); // dominio → og ricevuto ({} = sito muto)
+let cartelloneChiesto = 0;
+function aggiornaCartellone(me) {
+  if (state.docked || me.sunk) { renderer.setCartellone(null); return; }
+  let best = null, bestD = Infinity;
+  for (const i of state.islands.values()) {
+    const d = Math.hypot(i.x - me.x, i.y - me.y);
+    if (d < bestD) { best = i; bestD = d; }
+  }
+  const vicino = best && best.kind === 'site' && !best.fortress && bestD <= best.r + 180;
+  if (!vicino) { renderer.setCartellone(null); return; }
+  const og = cartelloni.get(best.domain);
+  if (og && og !== 'attesa') {
+    renderer.setCartellone(best, og);
+    return;
+  }
+  renderer.setCartellone(null);
+  const ora = performance.now();
+  // 'attesa' scade dopo 8s: se la risposta si è persa, si riprova
+  if ((og !== 'attesa' || ora - cartelloneChiesto > 8000) && ora - cartelloneChiesto > 800) {
+    cartelloni.set(best.domain, 'attesa');
+    cartelloneChiesto = ora;
+    net.send({ t: 'cartellone', dominio: best.domain });
+  }
 }
 
 function updateDockHint(me) {

@@ -99,6 +99,41 @@ export default {
       });
     }
 
+    // Il proxy delle immagini del Cartellone (issue #27): serve SOLO i
+    // domini col lasciapassare 'og-ok/' scritto dal Mare per prossimità
+    // reale (mai un proxy aperto), con cache su R2 per una settimana.
+    const ogImg = url.pathname.match(/^\/og-img\/([a-z0-9.-]{3,100})$/i);
+    if (ogImg && req.method === 'GET') {
+      const dominio = ogImg[1].toLowerCase();
+      const inCache = await env.DEPOSITO.get('og-img/' + dominio);
+      if (inCache) {
+        const eta = Date.now() - new Date(inCache.uploaded).getTime();
+        if (eta < 7 * 24 * 3600 * 1000) {
+          return new Response(inCache.body, {
+            headers: {
+              'content-type': inCache.httpMetadata?.contentType || 'image/jpeg',
+              'cache-control': 'public, max-age=604800',
+            },
+          });
+        }
+      }
+      const lascia = await env.DEPOSITO.get('og-ok/' + dominio);
+      if (!lascia) return new Response('', { status: 404 });
+      try {
+        const r = await fetch(await lascia.text(), { redirect: 'follow', signal: AbortSignal.timeout(8000) });
+        const tipo = r.headers.get('content-type') || '';
+        if (!r.ok || !tipo.startsWith('image/')) throw new Error('niente immagine');
+        const dati = await r.arrayBuffer();
+        if (dati.byteLength > 3 * 1024 * 1024) throw new Error('troppo pesante');
+        await env.DEPOSITO.put('og-img/' + dominio, dati, { httpMetadata: { contentType: tipo } });
+        return new Response(dati, {
+          headers: { 'content-type': tipo, 'cache-control': 'public, max-age=604800' },
+        });
+      } catch {
+        return new Response('', { status: 404 });
+      }
+    }
+
     // Il riscatto delle isole: i proprietari dei siti veri si mettono in rada
     // per l'Editor dell'Isola (in cantiere). Solo una lista d'attesa, per ora.
     if (url.pathname === '/riscatto' && req.method === 'POST') {

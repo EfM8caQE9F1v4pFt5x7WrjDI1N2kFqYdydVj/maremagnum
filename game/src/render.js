@@ -144,6 +144,7 @@ export class Renderer {
     this.lightNow = lightNow();
 
     this.navi = null; // atlas delle navi cotte; finché manca si resta sul vettoriale
+    this.cartellone = null; // l'insegna OG dell'isola accostata (issue #27)
     this.livree = {}; // atlanti delle livree (issue #25), caricati solo se qualcuno le indossa
     this._bandTex = {}; // texture dei vessilli personali, per chiave bf
     this.loadNavi();
@@ -220,6 +221,88 @@ export class Renderer {
       this.livree[id] = { meta, frames };
       for (const c of this.ships.values()) c.buildKey = ''; // rivesti chi la indossa
     } catch { /* la nave resta di legno: pazienza */ }
+  }
+
+  // --- il Cartellone dell'isola (issue #27) ---
+  // L'anteprima OG su un'insegna di pergamena al centro dell'isola: appare
+  // in dissolvenza quando la nave si accosta, sparisce allontanandosi.
+  // Chiamata ogni frame: (island, og) per mostrare, (null) per spegnere.
+  setCartellone(island, og) {
+    if (!island) {
+      if (this.cartellone) {
+        this.cartellone.alpha += (0 - this.cartellone.alpha) * 0.12;
+        if (this.cartellone.alpha < 0.02) { this.cartellone.destroy({ children: true }); this.cartellone = null; }
+      }
+      return;
+    }
+    if (!this.cartellone || this.cartellone.perIsola !== island.id) {
+      if (this.cartellone) this.cartellone.destroy({ children: true });
+      this.cartellone = this.buildCartellone(island, og);
+      this.world.addChild(this.cartellone);
+    }
+    this.cartellone.alpha += (1 - this.cartellone.alpha) * 0.12;
+    this.cartellone.scale.set(1 / this.zoom); // leggibile a ogni cannocchiale
+  }
+
+  buildCartellone(island, og) {
+    const c = new Container();
+    c.perIsola = island.id;
+    c.alpha = 0;
+    c.position.set(island.x, island.y);
+    const LARGO = 240;
+    // i testi crescono verso il BASSO da y=0; l'immagine (quando attracca
+    // dal proxy di bordo, stessa origine: niente CORS) vive sopra, in y<0
+    const fondo = new Graphics();
+    c.addChild(fondo);
+    let y = 0;
+    const aggiungi = (testo, style) => {
+      const t = new Text({ text: testo, style });
+      t.anchor.set(0.5, 0);
+      t.position.set(0, y);
+      c.addChild(t);
+      y += t.height + 5;
+    };
+    if (og.titolo) {
+      aggiungi(og.titolo, {
+        fontFamily: 'Georgia, serif', fontSize: 14.5, fontWeight: 'bold', fill: 0x2b1c08,
+        wordWrap: true, wordWrapWidth: LARGO - 26, align: 'center',
+      });
+    }
+    if (og.descrizione) {
+      aggiungi(og.descrizione, {
+        fontFamily: 'Georgia, serif', fontSize: 11.5, fill: 0x4a3620, lineHeight: 15,
+        wordWrap: true, wordWrapWidth: LARGO - 26, align: 'center',
+      });
+    }
+    aggiungi('⚓ ' + island.domain, { fontFamily: 'Georgia, serif', fontSize: 10.5, fontStyle: 'italic', fill: 0x7a4a12 });
+    let imgH = 0; // spazio occupato dall'immagine sopra i testi
+    const disegnaFondo = () => {
+      const cima = -imgH - 12, basso = y + 6;
+      fondo.clear()
+        .roundRect(-LARGO / 2 - 3, cima - 3, LARGO + 6, basso - cima + 6, 8).fill(0x6d4c22)
+        .roundRect(-LARGO / 2, cima, LARGO, basso - cima, 6).fill(0xefe3c2);
+      fondo.rect(-LARGO / 2 + 18, basso, 7, 26).fill(0x54401f);
+      fondo.rect(LARGO / 2 - 25, basso, 7, 26).fill(0x54401f);
+      c.pivot.set(0, basso + 26); // i piedi dell'insegna al centro dell'isola
+    };
+    disegnaFondo();
+    if (og.img) {
+      const img = new Image();
+      img.src = '/og-img/' + island.domain;
+      img.onload = () => {
+        if (this.cartellone !== c) return; // nel frattempo si è voltato pagina
+        const tex = Texture.from(img);
+        const sc = Math.min((LARGO - 24) / tex.width, 110 / tex.height);
+        const spr = new Sprite(tex);
+        spr.scale.set(sc);
+        spr.anchor.set(0.5, 0);
+        imgH = tex.height * sc + 10;
+        spr.position.set(0, -imgH + 4);
+        disegnaFondo();
+        c.addChild(spr);
+      };
+    }
+    return c;
   }
 
   // il vessillo personale (issue #25): canvas → texture, memoizzato

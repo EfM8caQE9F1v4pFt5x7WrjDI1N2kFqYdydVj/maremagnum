@@ -140,6 +140,10 @@ export class MareDO {
             body: JSON.stringify(voce),
           }).catch(() => { /* la notizia resta almeno in memoria */ });
         };
+        // il Cartellone (issue #27): l'immagine approvata si annota su R2 —
+        // il proxy /og-img serve SOLO domini con questo lasciapassare
+        this.game.onCartellone = (dominio, urlImmagine) =>
+          this.env.DEPOSITO.put('og-ok/' + dominio, urlImmagine);
         // ogni approdo fa crescere l'isola per tutto il Maremagnum
         this.game.onApprodo = (dominio) => {
           atlante.registraApprodo(dominio); // effetto immediato su questo mare

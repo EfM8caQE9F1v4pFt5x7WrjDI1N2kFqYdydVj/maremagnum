@@ -20,9 +20,10 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 function norm(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
 
 class Player {
-  constructor(name, profile) {
+  constructor(name, profile, spawn) {
     this.name = name;
     this.profile = profile || {};
+    this.spawn = spawn;
     this.msgs = [];
     this.snap = null;
     this.id = null;
@@ -38,7 +39,7 @@ class Player {
     this.opened = new Promise(res => this.ws.addEventListener('open', res));
   }
   send(o) { this.ws.send(JSON.stringify(o)); }
-  async join() { await this.opened; this.send({ t: 'join', name: this.name, profile: this.profile }); await this.wait(m => m.t === 'welcome'); }
+  async join() { await this.opened; this.send({ t: 'join', name: this.name, profile: this.profile, spawn: this.spawn }); await this.wait(m => m.t === 'welcome'); }
   async wait(pred, timeout = 20000) {
     const t0 = Date.now();
     while (Date.now() - t0 < timeout) {
@@ -75,7 +76,7 @@ class Player {
 async function main() {
   console.log('— Avvio server di test (WEAK_FORTS) —');
   const server = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
-    env: { ...process.env, PORT, WEAK_FORTS: '1', DEV_UID_OK: '1' }, stdio: 'ignore',
+    env: { ...process.env, PORT, WEAK_FORTS: '1', DEV_UID_OK: '1', OG_FINTO: '1' }, stdio: 'ignore',
   });
   for (let i = 0; i < 40; i++) {
     try { const r = await fetch(`http://localhost:${PORT}/health`); if (r.ok) break; } catch { /* riprova */ }
@@ -180,6 +181,21 @@ async function main() {
     cneg = await C.wait(m => m.t === 'shop' && m.negozio
       && m.negozio.livrea === null && m.negozio.possedute.includes('scarlatta'), 3000);
     ok(!!cneg, 'riposta nel guardaroba: si torna al legno nudo');
+
+    console.log('— Il Cartellone dell\'isola (issue #27) —');
+    // lo spawn all'approdo mette la nave a r+100 dal centro: già accostata
+    const O = new Player('Accostatore', { gold: 100 }, 'collaudo-og.example');
+    await O.join();
+    O.send({ t: 'cartellone', dominio: 'collaudo-og.example' });
+    const cart = await O.wait(m => m.t === 'cartellone' && m.dominio === 'collaudo-og.example', 4000);
+    ok(!!cart, 'accostandosi il cartellone arriva');
+    ok(cart && cart.og.titolo === 'Il Sito Finto & Collaudato', `og:title servito e decodificato ("${cart && cart.og.titolo}")`);
+    ok(cart && /collaudo/.test(cart.og.descrizione), 'og:description servita');
+    ok(cart && cart.og.img === true, 'l\'immagine è annunciata (la serve il proxy /og-img)');
+    // il porto non è un sito: il server tace
+    O.send({ t: 'cartellone', dominio: 'porto' });
+    ok(!await O.wait(m => m.t === 'cartellone' && m.dominio === 'porto', 1200), 'il Porto Franco non fa pubblicità (silenzio)');
+    O.ws.close();
     await sleep(500);
     const cGoletta = C.me();
     ok(cGoletta && cGoletta.tp === 1 && cGoletta.maxHp === 85,

@@ -30,12 +30,35 @@ const MIME = {
   '.ico': 'image/x-icon',
 };
 
+// Il proxy delle immagini del Cartellone (issue #27): serve SOLO i domini
+// che il gioco ha approvato per prossimità reale (mai un proxy aperto).
+// dominio → { url } oppure { url, tipo, dati } una volta scaricata.
+const ogImmagini = new Map();
+async function serviOgImg(dominio, res) {
+  const voce = ogImmagini.get(dominio);
+  if (!voce) { res.writeHead(404); res.end(); return; }
+  if (!voce.dati) {
+    try {
+      const r = await fetch(voce.url, { signal: AbortSignal.timeout(8000), redirect: 'follow' });
+      const tipo = r.headers.get('content-type') || '';
+      if (!r.ok || !tipo.startsWith('image/')) throw new Error('niente immagine');
+      const dati = Buffer.from(await r.arrayBuffer());
+      if (dati.length > 3 * 1024 * 1024) throw new Error('troppo pesante');
+      voce.tipo = tipo; voce.dati = dati;
+    } catch { ogImmagini.delete(dominio); res.writeHead(404); res.end(); return; }
+  }
+  res.writeHead(200, { 'content-type': voce.tipo, 'cache-control': 'public, max-age=604800' });
+  res.end(voce.dati);
+}
+
 const server = http.createServer((req, res) => {
   if (req.url === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ ok: true, ships: game.ships.size, islands: game.archipelago.list().length, blocklist: blocklist.size() }));
     return;
   }
+  const og = (req.url || '').match(/^\/og-img\/([a-z0-9.-]{3,100})$/i);
+  if (og) { serviOgImg(og[1].toLowerCase(), res); return; }
   let rel = decodeURIComponent((req.url || '/').split('?')[0]);
   if (rel === '/') rel = '/index.html';
   const file = path.normalize(path.join(GAME_DIR, rel));
@@ -75,6 +98,8 @@ wss.on('connection', (ws) => {
 async function main() {
   await blocklist.init(); // la blocklist decide quali isole nascono fortificate
   game = new Game(broadcast);
+  // il gioco annota l'immagine approvata; il proxy la scarica al primo sguardo
+  game.onCartellone = (dominio, url) => { ogImmagini.set(dominio, { url }); };
   server.on('error', (e) => {
     // porto già occupato (es. server di sviluppo attivo): il guscio userà quello
     console.error('⚓ Porto occupato:', e.code || e.message);

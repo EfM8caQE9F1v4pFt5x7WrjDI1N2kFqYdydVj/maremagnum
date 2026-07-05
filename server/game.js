@@ -8,6 +8,7 @@ const gazzetta = require('./gazzetta-core');
 const campagna = require('./campagna-core');
 const gilde = require('./gilde-core');
 const livree = require('./livree');
+const og = require('./og-core');
 
 const TICK = 1 / 30;          // simulazione a 30Hz
 const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
@@ -25,6 +26,29 @@ const BLOCCO = { durata: 18, immunita: 30, quotaSubito: 0.25, hpRitorno: 0.5, to
 const PREFERITI_MAX = 8;
 const DOMINIO_OK = /^[a-z0-9][a-z0-9.-]{2,99}$/i;
 const WEAK_FORTS = !!(typeof process !== 'undefined' ? process.env.WEAK_FORTS : undefined); // knob per i test: difese di cartapesta
+// Il Cartellone dell'isola (issue #27): quanto vicino per vederlo, quanto
+// vive la cache (una lettura del sito a settimana), quanti in memoria.
+const CARTELLONE = { raggio: 220, ttl: 7 * 24 * 3600 * 1000, maxCache: 300 };
+const OG_FINTO = !!(typeof process !== 'undefined' ? process.env.OG_FINTO : undefined); // knob per i test: niente rete
+
+// Legge la home del sito per l'anteprima: timeout stretto, solo HTML,
+// solo l'inizio (i meta stanno in <head>).
+async function leggiSito(dominio) {
+  if (OG_FINTO) {
+    return `<html><head><title>Finto</title>
+      <meta property="og:title" content="Il Sito Finto &amp; Collaudato"/>
+      <meta property="og:description" content="Una descrizione da collaudo, scritta apposta."/>
+      <meta property="og:image" content="https://finto.example/anteprima.png"/>
+      </head></html>`;
+  }
+  const r = await fetch('https://' + dominio + '/', {
+    redirect: 'follow',
+    signal: AbortSignal.timeout(6000),
+    headers: { 'user-agent': 'Maremagnum/1.0 (+https://maremagnum.maremagnum.workers.dev)', accept: 'text/html' },
+  });
+  if (!r.ok || !/text\/html/.test(r.headers.get('content-type') || '')) throw new Error('niente html');
+  return (await r.text()).slice(0, 200000);
+}
 
 const GROUP_DIR = { left: -Math.PI / 2, right: Math.PI / 2, bow: 0, stern: Math.PI };
 
@@ -108,6 +132,8 @@ class Game {
     this.ships = new Map();
     this.shots = new Map();
     this.smokes = [];
+    this.cartelloni = new Map(); // dominio → { og, at }: la cache dei Cartelloni (issue #27)
+    this.cartelloniInCorso = new Map(); // dominio → Promise: un fetch solo per dominio
     this.nextId = 1;
     this.nextShotId = 1;
     this.now = Date.now() / 1000;
@@ -541,6 +567,7 @@ class Game {
       case 'compraLivrea': this.compraLivrea(ship, msg.id); break;
       case 'indossaLivrea': this.indossaLivrea(ship, msg.id, msg.genere); break;
       case 'bandiera': this.bandieraPersonale(ship, msg.bandiera); break;
+      case 'cartellone': this.cartellone(ship, msg.dominio); break;
       case 'upgradeWeapon': this.upgradeWeapon(ship, msg.group, msg.slot); break;
       case 'replaceWeapon': this.replaceWeapon(ship, msg.group, msg.slot); break;
       case 'assedio': this.missions.assedioJoin(ship, msg.role); break;
@@ -760,6 +787,54 @@ class Game {
     // identità, non merce: si issa (o si ammaina con null) anche in mare
     ship.bandiera = livree.sanificaBandiera(b);
     if (ship.docked === 'porto') this.sendShop(ship);
+  }
+
+  // --- il Cartellone dell'isola (issue #27) ---
+  // L'anteprima OG del sito quando la nave si ACCOSTA davvero (la distanza
+  // la verifica il server: il protocollo non è un raschietto). Le fortezze
+  // non fanno pubblicità: sono la blocklist, né visitarle né decantarle.
+
+  async cartellone(ship, dominio) {
+    if (ship.npc || typeof dominio !== 'string') return;
+    const island = this.archipelago.get(dominio);
+    if (!island || island.kind !== 'site' || island.fortress) return;
+    if (Math.hypot(ship.x - island.x, ship.y - island.y) > island.r + CARTELLONE.raggio) return;
+    const ora = Date.now();
+    const pronto = this.cartelloni.get(dominio);
+    if (pronto && ora - pronto.at < CARTELLONE.ttl) {
+      this.sendTo(ship, { t: 'cartellone', dominio, og: pronto.og });
+      return;
+    }
+    if (ship.cartelloneAt && this.now - ship.cartelloneAt < 1) return; // freno per nave
+    ship.cartelloneAt = this.now;
+    let corsa = this.cartelloniInCorso.get(dominio);
+    if (!corsa) {
+      corsa = this.scaricaCartellone(dominio, ora);
+      this.cartelloniInCorso.set(dominio, corsa);
+      corsa.finally(() => this.cartelloniInCorso.delete(dominio));
+    }
+    const dati = await corsa;
+    // anche il cartellone bianco si consegna: il client smette di chiedere
+    this.sendTo(ship, { t: 'cartellone', dominio, og: dati });
+  }
+
+  async scaricaCartellone(dominio, ora) {
+    let dati = { titolo: '', descrizione: '', img: false };
+    try {
+      const html = await leggiSito(dominio);
+      const e = og.estraiOG(html, 'https://' + dominio + '/');
+      dati = { titolo: e.titolo, descrizione: e.descrizione, img: !!e.immagine };
+      // il traghetto verso il proxy delle immagini: chi ha lo storage
+      // (MareDO/R2 o il server di sviluppo) annota l'URL approvato
+      if (e.immagine && this.onCartellone) {
+        try { await this.onCartellone(dominio, e.immagine); } catch { dati.img = false; }
+      }
+    } catch { /* sito muto o lento: il cartellone resta bianco */ }
+    this.cartelloni.set(dominio, { og: dati, at: ora });
+    if (this.cartelloni.size > CARTELLONE.maxCache) {
+      this.cartelloni.delete(this.cartelloni.keys().next().value);
+    }
+    return dati;
   }
 
   // Il varo: si sceglie (o si cambia) il tipo di nave. Le esclusive
