@@ -18,9 +18,13 @@ export { MareDO, ContiDO, AtlanteDO, GazzettaDO, CampagneDO };
 async function generaCampagna(env) {
   const settimana = campagna.settimanaDi();
   const c = campagna.genera(settimana);
+  let esitoAI = 'saltata (binding assente)';
   try {
     if (env.AI) {
-      const risposta = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      esitoAI = 'vestito procedurale (risposta non usabile)';
+      // una sola chiamata a settimana: conta la qualità dell'italiano, non
+      // il risparmio di neuron (modello verificato sull'account: 2026-07)
+      const risposta = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
         messages: [{
           role: 'user',
           content: 'Sei il Mastro di Rotte di un gioco piratesco italiano. Rispondi SOLO con JSON ' +
@@ -31,7 +35,13 @@ async function generaCampagna(env) {
         }],
         max_tokens: 300,
       });
-      const testo = (risposta && (risposta.response || risposta.result)) || '';
+      // i modelli cambiano vestito più dei corsari: stringa, oggetto o
+      // formato OpenAI-compat — si normalizza tutto a testo
+      let testo = risposta && (risposta.response ?? risposta.result ??
+        (risposta.choices && risposta.choices[0] && risposta.choices[0].message
+          && risposta.choices[0].message.content));
+      if (testo && typeof testo !== 'string') testo = JSON.stringify(testo);
+      testo = testo || '';
       const match = testo.match(/\{[\s\S]*\}/);
       const vestito = match ? JSON.parse(match[0]) : null;
       if (vestito && typeof vestito.nome === 'string' && vestito.nome.trim()) {
@@ -42,13 +52,19 @@ async function generaCampagna(env) {
             if (c.tappe[i] && typeof l === 'string' && l.trim()) c.tappe[i].lore = l.trim().slice(0, 120);
           });
         }
+        esitoAI = 'lore AI';
       }
     }
-  } catch { /* niente neuron? pazienza: si salpa col vestito procedurale */ }
+  } catch (e) {
+    // niente neuron? pazienza: si salpa col vestito procedurale
+    esitoAI = 'vestito procedurale (' + (e && e.message ? String(e.message).slice(0, 120) : 'errore') + ')';
+    console.warn('Mastro di Rotte, lore AI non disponibile: ' + esitoAI);
+  }
 
   const reg = env.CAMPAGNE.get(env.CAMPAGNE.idFromName('campagne'));
+  const { __esitoAI, ...daPersistere } = c;
   await reg.fetch('https://campagne/pubblica', {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(c),
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(daPersistere),
   });
   // una campagna non annunciata non esiste: la Gazzetta la proclama
   const gaz = env.GAZZETTA.get(env.GAZZETTA.idFromName('gazzetta'));
@@ -59,6 +75,7 @@ async function generaCampagna(env) {
       testo: `⚔ Il Mastro di Rotte proclama la campagna della settimana: "${c.nome}" — ${c.tappe.length} tappe, ${c.premio} 🪙 a chi la compie.`,
     }),
   });
+  c.__esitoAI = esitoAI; // solo per la risposta dell'Ammiragliato, non persiste
   return c;
 }
 
