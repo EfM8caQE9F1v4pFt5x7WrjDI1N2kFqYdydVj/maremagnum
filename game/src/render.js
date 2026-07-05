@@ -122,6 +122,24 @@ export class Renderer {
 
     this.vignette = new Sprite(this.makeVignette());
     this.app.stage.addChild(this.vignette);
+
+    // la bussola della rotta (issue #22): quando la meta è fuori schermo,
+    // una freccia al bordo con la distanza in leghe — sopra la vignetta,
+    // fuori dalla tinta del mondo (è interfaccia, non mare)
+    this.bussola = new Container();
+    this.bussolaFreccia = new Graphics();
+    this.bussolaFreccia.poly([16, 0, -10, -9, -5, 0, -10, 9]).fill(0xe8c268)
+      .poly([16, 0, -10, -9, -5, 0, -10, 9]).stroke({ width: 1.5, color: 0x2a1a0c });
+    this.bussolaTesto = new Text({
+      text: '', style: {
+        fontFamily: 'Georgia, serif', fontSize: 13, fill: 0xf0e2b8,
+        stroke: { color: 0x1a1208, width: 3 },
+      },
+    });
+    this.bussolaTesto.anchor.set(0.5);
+    this.bussola.addChild(this.bussolaFreccia, this.bussolaTesto);
+    this.bussola.visible = false;
+    this.app.stage.addChild(this.bussola);
     this.lightNow = lightNow();
 
     this.navi = null; // atlas delle navi cotte; finché manca si resta sul vettoriale
@@ -1132,6 +1150,29 @@ export class Renderer {
           this.smokeGfx.circle(s.x + Math.cos(a) * d, s.y + Math.sin(a) * d, rr)
             .fill({ color: i % 2 ? 0x8e99a3 : 0x76818b, alpha: alpha * 0.5 });
         }
+      }
+    }
+
+    // la bussola della rotta (issue #22): meta fuori schermo → freccia al
+    // bordo dello schermo, orientata verso la meta, con le leghe che scalano
+    this.bussola.visible = false;
+    if (this.dest && me && !me.docked) {
+      const sx = this.dest.x * z + this.world.position.x;
+      const sy = this.dest.y * z + this.world.position.y;
+      if (sx < 0 || sy < 0 || sx > w || sy > h) {
+        const vx = sx - w / 2, vy = sy - h / 2;
+        const k = Math.min((w / 2 - 46) / Math.abs(vx || 1e-9), (h / 2 - 46) / Math.abs(vy || 1e-9));
+        // margini asimmetrici: la topbar in alto e la legenda in basso coprono
+        this.bussola.position.set(
+          clamp(w / 2 + vx * k, 46, w - 46),
+          clamp(h / 2 + vy * k, 78, h - 66));
+        const ang = Math.atan2(vy, vx);
+        this.bussolaFreccia.rotation = ang;
+        const leghe = Math.max(1, Math.round(Math.hypot(this.dest.x - me.x, this.dest.y - me.y) / 100));
+        const testo = `${leghe} leghe`;
+        if (this.bussolaTesto.text !== testo) this.bussolaTesto.text = testo;
+        this.bussolaTesto.position.set(-Math.cos(ang) * 36, -Math.sin(ang) * 36);
+        this.bussola.visible = true;
       }
     }
 

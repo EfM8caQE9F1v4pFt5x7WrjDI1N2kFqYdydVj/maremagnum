@@ -860,7 +860,15 @@ function updateDockHint(me) {
     const d = Math.hypot(i.x - me.x, i.y - me.y);
     if (d < bestD) { best = i; bestD = d; }
   }
-  if (!best || bestD > best.r + 150) { ui.setDockHint(''); return; }
+  if (!best || bestD > best.r + 150) {
+    // in mare aperto il timone parla della META, non del porto alle spalle
+    if (state.dest && state.dest.island) {
+      const d = state.dest.island;
+      const leghe = Math.max(1, Math.round(Math.hypot(d.x - me.x, d.y - me.y) / 100));
+      ui.setDockHint(`⛵ Rotta per ${d.name}: ${leghe} leghe`);
+    } else ui.setDockHint('');
+    return;
+  }
   const conquered = (state.profile.conquered || []).includes(best.id);
   if (best.fortress && !conquered) {
     ui.setDockHint(`🏰 ${best.name}: l'approdo è sbarrato finché le difese sono in piedi`);

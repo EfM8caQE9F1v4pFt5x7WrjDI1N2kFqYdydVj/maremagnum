@@ -214,7 +214,10 @@ class Game {
       you: this.youFor(ship),
       arsenal: W.publicConfig(),
     });
-    this.missions.assign(ship);
+    // il primo minuto ha UN obiettivo (issue #22): al profilo vergine la
+    // missione arriva col primo attracco, non al secondo zero
+    if (p.gold == null) ship.senzaMissione = true;
+    else this.missions.assign(ship);
     this.missions.broadcastState();
     this.broadcast({ t: 'feed', msg: `⚓ ${name} è salpato nel Mare dell'Internet` });
     return ship;
@@ -367,6 +370,11 @@ class Game {
       if (best.kind === 'site' && this.onApprodo) this.onApprodo(best.domain);
     }
     this.missions.onDock(ship, best, firstVisit);
+    // il novellino ha attraccato: ora la Bacheca gli parla (issue #22)
+    if (ship.senzaMissione) {
+      ship.senzaMissione = false;
+      this.missions.assign(ship);
+    }
   }
 
   undock(ship) {
