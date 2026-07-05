@@ -829,7 +829,27 @@ export class UI {
   }
   hideDockbar() { this.hide('dockbar'); document.body.classList.remove('attraccato'); }
 
-  showDeath(seconds) {
+  showDeath(seconds, dettagli = {}) {
+    // la morte racconta (issue #23): chi, quanto perso, quanto in salvo
+    const conto = $('deathConto');
+    const consiglio = $('deathConsiglio');
+    if (dettagli.da) {
+      let testo = dettagli.da === 'Il Mare'
+        ? 'Il mare si è preso la tua nave.' : `Affondato da ${dettagli.da}.`;
+      if (dettagli.perso > 0) {
+        testo += ` Il forziere in gioco è passato al vincitore: −${dettagli.perso} 🪙` +
+          (dettagli.salvo > 0 ? ` — il doppiofondo della Stiva ne ha salvati ${dettagli.salvo}.` : '.');
+      } else {
+        testo += ' Il forziere è rimasto a bordo: gli abissi non fanno bottino.';
+      }
+      conto.textContent = testo;
+      const stivaPiena = (dettagli.holdLvl | 0) >= 4;
+      consiglio.textContent = 'Ogni punto di Stiva mette al riparo un 10% in più del forziere.';
+      consiglio.classList.toggle('hidden', !(dettagli.perso > 0) || stivaPiena);
+    } else {
+      conto.textContent = '';
+      consiglio.classList.add('hidden');
+    }
     let left = seconds;
     $('deathCount').textContent = left;
     this.show('deathOverlay');

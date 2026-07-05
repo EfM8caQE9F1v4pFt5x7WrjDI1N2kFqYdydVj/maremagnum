@@ -1098,6 +1098,7 @@ class Game {
     vittima.bloccoSalvo = Math.round(vittima.gold * 0.10 * vittima.holdLvl);
     const inGioco = vittima.gold - vittima.bloccoSalvo;
     const subito = Math.round(inGioco * BLOCCO.quotaSubito);
+    vittima.bloccoPerso = subito; // il conto della morte lo racconterà (#23)
     vittima.gold -= subito;
     predatore.gold += subito;
     predatore.kills++;
@@ -1146,7 +1147,13 @@ class Game {
     vittima.blockedBy = null;
     vittima.sunkUntil = this.now + RESPAWN_S;
     this.fxQueue.push({ k: 'sink', x: r1(vittima.x), y: r1(vittima.y) });
-    this.sendTo(vittima, { t: 'dead', respawn: RESPAWN_S });
+    // la morte racconta (issue #23, campi ADDITIVI): chi, quanto, quanto salvo
+    this.sendTo(vittima, {
+      t: 'dead', respawn: RESPAWN_S,
+      da: predatore ? predatore.name : 'Il mare',
+      perso: (vittima.bloccoPerso || 0) + resto,
+      salvo: vittima.bloccoSalvo || 0,
+    });
   }
 
   // Il timeout: nessuno ha osato — la vittima si svincola col 75% del forziere
@@ -1195,13 +1202,21 @@ class Game {
       killerName = killer.name;
     }
     this.broadcast({ t: 'kill', killer: killerName, victim: ship.name, bounty });
-    if (!ship.npc) this.sendTo(ship, { t: 'dead', respawn: RESPAWN_S });
+    // per mano di NPC o fortezze il forziere resta a bordo: si racconta anche
+    // questo — il sollievo è metà del racconto (issue #23)
+    if (!ship.npc) {
+      this.sendTo(ship, {
+        t: 'dead', respawn: RESPAWN_S, da: killerName,
+        perso: bounty && !ship.npc && killer && !killer.npc ? bounty : 0,
+        salvo: ship.gold,
+      });
+    }
   }
 
   respawn(ship) {
     ship.sunkUntil = 0;
     ship.lastHitBy = null;
-    ship.blockedUntil = 0; ship.blockedBy = null; ship.bloccoSalvo = 0; ship.immuneUntil = 0;
+    ship.blockedUntil = 0; ship.blockedBy = null; ship.bloccoSalvo = 0; ship.bloccoPerso = 0; ship.immuneUntil = 0;
     if (ship.npc) {
       ship.x = 400 + Math.random() * (WORLD.W - 800);
       ship.y = 400 + Math.random() * (WORLD.H - 800);

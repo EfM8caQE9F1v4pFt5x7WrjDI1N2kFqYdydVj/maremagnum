@@ -720,7 +720,11 @@ function wireNet() {
     if (m.victim === state.profile.name) { state.profile.deaths = (state.profile.deaths || 0) + 1; saveProfile(); }
   });
 
-  net.on('dead', (m) => { ui.showDeath(m.respawn); sfx.sink(); battleUntil = performance.now() + 3000; });
+  net.on('dead', (m) => {
+    ui.showDeath(m.respawn, { da: m.da, perso: m.perso, salvo: m.salvo, holdLvl: state.profile.holdLvl });
+    sfx.sink();
+    battleUntil = performance.now() + 3000;
+  });
   net.on('respawned', () => { ui.hideDeath(); ui.toast('Nave riparata a nuovo. Il mare ti aspetta.'); });
   net.on('board', (m) => ui.setBoard(m.rows));
   net.on('gilda', (m) => {
@@ -921,7 +925,7 @@ function latestMe() {
 
 // ?spia=1 (sviluppo): espone posizione e porto ai driver di audit, che così
 // governano col rilevamento vero invece di veleggiare alla cieca
-if (devParams.get('spia')) window.__spia = { state, latestMe, renderer: () => renderer };
+if (devParams.get('spia')) window.__spia = { state, latestMe, renderer: () => renderer, ui: () => ui };
 
 function interpolatedShips() {
   const snaps = state.snaps;

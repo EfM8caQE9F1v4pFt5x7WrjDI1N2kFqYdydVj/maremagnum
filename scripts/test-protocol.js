@@ -433,7 +433,11 @@ async function main() {
     A.input({});
     ok(abbordo && abbordo.gold === Math.round(pre * 0.2),
       `arrembaggio col tocco: alla vittima resta il doppiofondo (${abbordo && abbordo.gold}/${pre} 🪙)`);
-    ok(!!await B.wait(m => m.t === 'dead', 6000), 'la vittima abbordata affonda');
+    const morte = await B.wait(m => m.t === 'dead', 6000);
+    ok(!!morte, 'la vittima abbordata affonda');
+    // la morte racconta (issue #23): chi, il totale perso, il doppiofondo
+    ok(morte && morte.da === 'Barbanera' && morte.perso === inGioco && morte.salvo === Math.round(pre * 0.2),
+      `…e il conto è servito: da ${morte && morte.da}, −${morte && morte.perso} 🪙, salvati ${morte && morte.salvo}`);
     ok(!!await B.wait(m => m.t === 'respawned', 12000), 'la vittima rispunta al porto');
 
     console.log('— La Fortezza Proibita: blocco reale, poi espugnazione —');

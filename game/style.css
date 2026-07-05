@@ -230,6 +230,9 @@ body.conPannello #hint { opacity: 0; }
 }
 .linkish { background: none; border: none; font-style: italic; text-decoration: underline; font-weight: normal; min-height: 24px; }
 .panel.death { background: #241708; color: #f3e6c2; border-color: #a1261a; }
+/* la morte racconta (issue #23): il conto e il consiglio della Stiva */
+.deathConto { margin: 2px 0 4px; font-size: 15px; }
+.panel.death .sub { color: #d8c49a; }
 #deathCount { font-size: 56px; font-weight: bold; color: #e8c268; margin-top: 6px; }
 
 /* ---- mappa del tesoro ---- */
