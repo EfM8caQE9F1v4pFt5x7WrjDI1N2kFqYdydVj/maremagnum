@@ -778,7 +778,7 @@ function latestMe() {
 
 // ?spia=1 (sviluppo): espone posizione e porto ai driver di audit, che così
 // governano col rilevamento vero invece di veleggiare alla cieca
-if (devParams.get('spia')) window.__spia = { state, latestMe };
+if (devParams.get('spia')) window.__spia = { state, latestMe, renderer: () => renderer };
 
 function interpolatedShips() {
   const snaps = state.snaps;

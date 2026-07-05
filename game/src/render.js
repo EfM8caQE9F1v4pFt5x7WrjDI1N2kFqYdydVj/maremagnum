@@ -709,18 +709,28 @@ export class Renderer {
         c.addChild(ring);
         c.ring = ring;
       }
+      // la targhetta del nome (issue #20): fondino scuro + orlo, leggibile
+      // anche sopra le vele bianche; il Fantasma si annuncia in tinta ostile
       const label = new Text({
         text: s.name,
         style: {
           fontFamily: 'Georgia, serif', fontSize: 13,
-          fill: s.id === selfId ? 0xbfe8a8 : (s.k === 'g' ? 0xa8c4d4 : s.k === 'm' ? 0xcfd6d9 : 0xffc9b0),
+          fill: s.id === selfId ? 0xbfe8a8 : (s.k === 'g' ? 0xf0937b : s.k === 'm' ? 0xcfd6d9 : 0xffc9b0),
           stroke: { color: 0x1a1208, width: 3 },
         },
       });
-      label.anchor.set(0.5); label.position.set(0, -38);
+      label.anchor.set(0.5);
       label.baseFill = label.style.fill;
+      const tag = new Container();
+      const fondino = new Graphics();
+      fondino.roundRect(-label.width / 2 - 6, -10, label.width + 12, 20, 9)
+        .fill({ color: 0x0c141c, alpha: 0.42 });
+      tag.addChild(fondino, label);
+      tag.position.set(0, -44);
+      tag.baseY = -44;
       const hpBar = new Graphics();
-      c.addChild(label, hpBar);
+      c.addChild(tag, hpBar);
+      c.tag = tag;
       c.label = label;
       c.hpBar = hpBar;
       this.shipLayer.addChild(c);
@@ -781,7 +791,7 @@ export class Renderer {
       }
       c.visible = !s.docked;
       // il nome resta leggibile, non ingigantisce col cannocchiale
-      if (c.label) c.label.scale.set(1 / this.zoom);
+      if (c.tag) c.tag.scale.set(1 / this.zoom);
       const targetAlpha = s.sunk ? 0 : 1;
       c.alpha += (targetAlpha - c.alpha) * Math.min(1, dt * 4);
       // lanterna di bordo: si accende con la notte; il galeone dorato
@@ -814,6 +824,22 @@ export class Renderer {
       }
     }
     for (const id of this.ships.keys()) if (!seen.has(id)) this.removeShip(id);
+
+    // anti-collisione delle targhette (issue #20): navi vicine = nomi che si
+    // pestano; il più alto sale di un gradino finché non respirano (le
+    // distanze si misurano in px di schermo: le targhette non zoomano)
+    const targhe = [...this.ships.values()].filter(c => c.visible && c.tag);
+    for (const c of targhe) c.tag.y = c.tag.baseY;
+    targhe.sort((a, b) => (a.position.y + a.tag.y) - (b.position.y + b.tag.y));
+    for (let i = 1; i < targhe.length; i++) {
+      for (let j = 0; j < i; j++) {
+        const A = targhe[j], B = targhe[i]; // A è (partiva) più in alto
+        const mezzo = (A.label.width + B.label.width) / 2 + 10;
+        if (Math.abs(A.position.x - B.position.x) * this.zoom > mezzo) continue;
+        const dy = ((B.position.y + B.tag.y) - (A.position.y + A.tag.y)) * this.zoom;
+        if (Math.abs(dy) < 22) A.tag.y -= (22 - dy) / this.zoom;
+      }
+    }
   }
 
   // --- difese delle fortezze ---
@@ -948,6 +974,20 @@ export class Renderer {
     const cx = clamp(cam.x, hw, Math.max(hw, (this.W || w) - hw));
     const cy = clamp(cam.y, hh, Math.max(hh, (this.H || h) - hh));
     this.world.position.set(w / 2 - cx * z + shx, h / 2 - cy * z + shy);
+
+    // le etichette del mondo non si perdono sotto l'HUD (issue #20, F17):
+    // dove il pannello di bordo o la minimappa coprono, la scritta si
+    // dissolve invece di sparire tagliata
+    this._hudFadeT = (this._hudFadeT || 0) - dt;
+    if (this._hudFadeT <= 0) {
+      this._hudFadeT = 0.12;
+      const wx = this.world.position.x, wy = this.world.position.y;
+      for (const label of this.labels.values()) {
+        const sx = label.x * z + wx, sy = label.y * z + wy;
+        const sotto = (sx < 300 && sy > h - 175) || (sx > w - 275 && sy > h - 275) || sy < 60;
+        label.alpha += ((sotto ? 0.15 : 1) - label.alpha) * 0.45;
+      }
+    }
 
     // luce del ciclo giorno/notte: acqua, tinta del mondo, meteo
     const light = this.lightNow = lightNow();
