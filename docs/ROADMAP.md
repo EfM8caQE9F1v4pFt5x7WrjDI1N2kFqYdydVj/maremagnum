@@ -47,11 +47,11 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 | #6 | Arrembaggio completo: il tocco di #15 apre il duello | Dopo #7 |
 | #10 | Il tesoro nell'entroterra (platform da URL profondi + premio) | Riusa #16; il bivio d'attracco disegnato secondo l'audit #8 |
 
-**Mentre si aspettano i file** (ordine consigliato): #23 (morte racconta) → #24 (Cantiere con gerarchia) → #11 (flotta più ricca) → #25 (collezioni e livree).
+**Mentre si aspettano i file** (ordine consigliato): #23 ✓ → #24 ✓ → #11 ✓ (flotta più ricca, +Sciabecco) → **#25** (collezioni e livree, prossimo).
 
 ### Fase 6 — L'orizzonte largo
 | #14 | Espansione del mondo | **A dati, non a calendario**: quando l'Atlante sopra soglia supera ~60-80 isole |
-| #11 | Flotta più ricca + armi ridistribuite per tipo (tappe 1-2) | Riscatto pieno obbligatorio per le armi tolte (precedente del varo) |
+| #11 | ✓ CHIUSA — Flotta più ricca + matrice armi per tipo + Sciabecco (4° tipo) | Riscatto pieno onorato; grandfathering slot |
 | #25 | Collezioni e Negozio delle Livree: **pay to show, mai pay to win** (modello CS) | Dopo #11 e #24; niente casse cieche (loot box = gambling in mezza UE); stessa infrastruttura di pagamento della #1 |
 | #1 | Editor dell'Isola (riscatto a pagamento) | Richiede #12 (persistenza ✓); può essere ANTICIPATA per decisione di business |
 
@@ -59,7 +59,7 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 
 - **#9 — Il mare è uno solo** → #12 (F0), #13 (F2), #14 (F6). Si chiude con le figlie.
 - **#6 — L'arrembaggio** → #15 (F2, economia) + #6 (F5, duello).
-- **#11 — La flotta cresce** → #17 (F0, cannoni) + #11 (F6, scafi e armi).
+- **#11 — La flotta cresce** → #17 (F0, cannoni ✓) + #11 (F6, scafi e armi ✓). Chiusa.
 - **La carne dei pirati** → #16 → #7 → #6 → #10 (tutta Fase 5).
 
 ## Dipendenze dure (da non violare)
