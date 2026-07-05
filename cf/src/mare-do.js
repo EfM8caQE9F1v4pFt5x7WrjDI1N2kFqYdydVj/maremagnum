@@ -192,6 +192,7 @@ export class MareDO {
       vari: ship.vari,
       mounts: ship.mounts,
       conquered: [...(ship.conquered || [])],
+      preferiti: [...(ship.preferiti || [])],
       kills: ship.kills,
       deaths: ship.deaths,
     };

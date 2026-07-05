@@ -242,6 +242,38 @@ async function main() {
     const fort = A.fort('pornhub.com');
     ok(fort && fort.d.length === 11, `arsenale completo: ${fort ? fort.d.length : 0}/11 difese (8 torri, 2 bombarde, 1 specchio)`);
     ok(fort && fort.d.some(d => d[0] === 's'), 'lo Specchio Ustorio è sul mastio');
+
+    console.log('— Approdi preferiti (issue #13) —');
+    // spawn scelto al join: l'isola nasce al volo e si salpa dal suo anello
+    const P = new Player('Pellegrino', { gold: 500 });
+    await P.opened;
+    P.send({ t: 'join', name: 'Pellegrino', profile: { gold: 500 }, spawn: 'archive.org' });
+    await P.wait(m => m.t === 'welcome');
+    const meta = P.welcome.islands.find(i => i.domain === 'archive.org');
+    ok(!!meta, "l'approdo scelto nasce al volo (archive.org)");
+    await sleep(600);
+    const pMe = P.me();
+    const dMeta = pMe && meta ? Math.hypot(pMe.x - meta.x, pMe.y - meta.y) : 9e9;
+    ok(dMeta < (meta ? meta.r : 0) + 160, `si salpa dall'anello dell'approdo scelto (${dMeta | 0}px)`);
+    // fortezza non conquistata: lo spawn ripiega sul Porto
+    const FZ = new Player('Temerario', { gold: 100 });
+    await FZ.opened;
+    FZ.send({ t: 'join', name: 'Temerario', profile: { gold: 100 }, spawn: 'pornhub.com' });
+    await FZ.wait(m => m.t === 'welcome');
+    await sleep(600);
+    const fMe = FZ.me();
+    const dPorto = fMe ? Math.hypot(fMe.x - PORTO.x, fMe.y - PORTO.y) : 9e9;
+    ok(dPorto < 400, `spawn su fortezza negato: si parte dal Porto (${dPorto | 0}px)`);
+    // la stella si segna solo da attraccati, e si può ripensare
+    ok(await P.goto(meta.x, meta.y, meta.r + 40, 60000), "Pellegrino sotto costa all'approdo scelto");
+    P.send({ t: 'dock' });
+    ok(!!await P.wait(m => m.t === 'docked', 5000), "attraccato all'approdo scelto");
+    P.send({ t: 'preferisci', dominio: 'archive.org', on: true });
+    const stella = await P.wait(m => m.t === 'toast' && /approdi preferiti/.test(m.msg), 3000);
+    ok(!!stella, `la stella segna l'approdo ("${stella && stella.msg}")`);
+    P.send({ t: 'preferisci', dominio: 'archive.org', on: false });
+    ok(!!await P.wait(m => m.t === 'toast' && /tolta/.test(m.msg), 3000), 'la stella si può togliere');
+    P.send({ t: 'undock' });
     A.send({ t: 'course', q: 'chi era barbanera' });
     c = await A.wait(m => m.t === 'course');
     ok(c && c.ok && c.island.id === 'oracolo', 'ricerca → Oracolo');

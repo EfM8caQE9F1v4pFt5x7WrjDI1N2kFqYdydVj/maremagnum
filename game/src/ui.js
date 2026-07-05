@@ -8,7 +8,7 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
 
 // ordine di priorità degli overlay quando sono impilati (es. Manuale sul Cantiere)
 const OVERLAY_ORDINE = ['helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay',
-  'shopOverlay', 'searchOverlay', 'siteOverlay', 'deathOverlay', 'nameOverlay'];
+  'shopOverlay', 'searchOverlay', 'siteOverlay', 'deathOverlay', 'salpaOverlay', 'nameOverlay'];
 
 // La disciplina dei pannelli (issue #18): i fluttuanti si ESCLUDONO a vicenda
 // (aprirne uno chiude l'altro), quelli di banchina si SOSPENDONO sotto e
@@ -41,6 +41,8 @@ export class UI {
       const q = $('searchInput').value.trim();
       if (q) { this.hide('searchOverlay'); this.h.onSearch(q); }
     });
+    $('favBtn').addEventListener('click', () => this.h.onFav());
+    $('favBtnSito').addEventListener('click', () => this.h.onFav());
     $('navBack').addEventListener('click', () => this.h.onNavBack());
     $('navFwd').addEventListener('click', () => this.h.onNavFwd());
     $('navReload').addEventListener('click', () => this.h.onNavReload());
@@ -539,6 +541,14 @@ export class UI {
     document.body.classList.add('attraccato'); // le pillole HUD scendono
   }
   setDockUrl(url) { $('dockUrl').textContent = url; }
+
+  // la stella dell'approdo preferito (issue #13), su dockbar e pannello sito
+  setFav(on) {
+    $('favBtn').textContent = on ? '★' : '☆';
+    $('favBtn').setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('favBtnSito').textContent = on ? '★ Approdo preferito' : '☆ Segna come approdo preferito';
+    $('favBtnSito').setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
   hideDockbar() { this.hide('dockbar'); document.body.classList.remove('attraccato'); }
 
   showDeath(seconds) {

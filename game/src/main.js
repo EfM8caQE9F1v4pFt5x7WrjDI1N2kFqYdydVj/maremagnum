@@ -121,6 +121,7 @@ async function boot() {
       ui.showHelp(dominio);
     },
     onRiscatto: riscattaIsola,
+    onFav: toggleFav,
     onSettings: applySettings,
     onRebind: (azione) => { state.rebind = azione; refreshTimoneria(); },
     onNavBack: () => shell && shell.navBack(),
@@ -141,8 +142,14 @@ async function boot() {
     document.body.classList.add('benvenuto');
     avviaFrame();
     await benvenuto(); // nome → ancoraggio (QR+chiave) | login | salpa senz'ancora
-    document.body.classList.remove('benvenuto');
   }
+  // la scelta del punto di partenza (issue #13): chi ha approdi preferiti
+  // sceglie da dove salpare; gli altri partono dal Porto senza domande.
+  // L'HUD resta a sipario chiuso (body.benvenuto) finché non si è scelto.
+  document.body.classList.add('benvenuto');
+  avviaFrame();
+  state.spawn = await scegliSpawn();
+  document.body.classList.remove('benvenuto');
   ui.setShipName(state.profile.name);
   saveProfile();
 
@@ -199,6 +206,41 @@ function avviaFrame() {
 
 function setCourse(q) { net.send({ t: 'course', q }); }
 function undock() { net.send({ t: 'undock' }); }
+
+// Da dove salpiamo? (issue #13) Porto Franco o un approdo preferito.
+function scegliSpawn() {
+  const prefs = state.profile.preferiti || [];
+  if (!prefs.length) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const box = document.getElementById('salpaScelte');
+    box.innerHTML = '';
+    const scegli = (d) => { ui.hide('salpaOverlay'); resolve(d); };
+    const porto = document.createElement('button');
+    porto.textContent = '⚓ Porto Franco';
+    porto.addEventListener('click', () => scegli(null));
+    box.appendChild(porto);
+    for (const d of prefs.slice(0, 8)) {
+      const b = document.createElement('button');
+      b.textContent = '⭐ ' + d;
+      b.addEventListener('click', () => scegli(d));
+      box.appendChild(b);
+    }
+    ui.show('salpaOverlay');
+  });
+}
+
+// La stella dell'approdo (issue #13): segna/dimentica l'isola dove siamo.
+function toggleFav() {
+  const d = state.docked && state.docked.domain;
+  if (!d) return;
+  const list = state.profile.preferiti || [];
+  const on = !list.includes(d);
+  if (on && list.length >= 8) { ui.toast('⭐ Hai già 8 approdi preferiti: togline uno prima'); return; }
+  net.send({ t: 'preferisci', dominio: d, on });
+  state.profile.preferiti = on ? [...list, d] : list.filter(x => x !== d);
+  saveProfile();
+  ui.setFav(on);
+}
 
 // --- Benvenuto: nome → ancoraggio (signup) | login | senza ancora ---
 
@@ -459,6 +501,7 @@ function applyYou(you) {
     tipo: you.tipo !== undefined ? you.tipo : state.profile.tipo,
     vari: you.vari !== undefined ? you.vari : state.profile.vari,
     mounts: you.mounts, conquered: you.conquered ?? state.profile.conquered ?? [],
+    preferiti: you.preferiti ?? state.profile.preferiti ?? [],
     kills: you.kills ?? state.profile.kills, deaths: you.deaths ?? state.profile.deaths,
   });
   saveProfile();
@@ -471,6 +514,7 @@ function wireNet() {
   net.on('_open', () => net.send({
     t: 'join', name: state.profile.name, profile: state.profile,
     token: state.profile.ancora ? state.profile.ancora.token : undefined,
+    spawn: state.spawn || undefined, // approdo preferito scelto al varo (#13)
   }));
   net.on('_close', () => ui.toast('⚠ Il mare si è chiuso: connessione perduta. Ricarica per salpare di nuovo.', 60000));
 
@@ -635,6 +679,7 @@ function openSite(island, url) {
   } else {
     ui.showSiteFallback(island, url);
   }
+  ui.setFav((state.profile.preferiti || []).includes(island.domain));
 }
 
 function wireShell() {

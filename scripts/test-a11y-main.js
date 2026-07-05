@@ -74,6 +74,20 @@ app.whenReady().then(async () => {
   await axeState('benvenuto-entra');
   await J(`document.getElementById('benvenutoEntra').classList.add('hidden')`);
 
+  // 2b. la pergamena del punto di partenza (issue #13), in scena coi bottoni
+  await J(`(() => {
+    const box = document.getElementById('salpaScelte');
+    box.innerHTML = '';
+    for (const label of ['⚓ Porto Franco', '⭐ wikipedia.org']) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      box.appendChild(b);
+    }
+    document.getElementById('salpaOverlay').classList.remove('hidden');
+  })()`);
+  await axeState('salpa-da');
+  await J(`document.getElementById('salpaOverlay').classList.add('hidden')`);
+
   // si salpa: nome e via
   await J(`
     document.getElementById('nameInput').value = 'Auditor';

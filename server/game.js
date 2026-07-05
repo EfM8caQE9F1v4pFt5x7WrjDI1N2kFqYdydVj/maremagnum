@@ -17,6 +17,9 @@ const PVE_BOUNTY = { merc: 25, ghost: 60 }; // taglie magre e fisse per tipologi
 // SEMPRE protetto; il resto è "il forziere in gioco": 25% subito al vincitore,
 // il tocco prende il resto, il timeout libera col 75% e l'immunità.
 const BLOCCO = { durata: 18, immunita: 30, quotaSubito: 0.25, hpRitorno: 0.5, tocco: 46 };
+// Approdi preferiti (issue #13): i segnalibri del corsaro
+const PREFERITI_MAX = 8;
+const DOMINIO_OK = /^[a-z0-9][a-z0-9.-]{2,99}$/i;
 const WEAK_FORTS = !!(typeof process !== 'undefined' ? process.env.WEAK_FORTS : undefined); // knob per i test: difese di cartapesta
 
 const GROUP_DIR = { left: -Math.PI / 2, right: Math.PI / 2, bow: 0, stern: Math.PI };
@@ -139,7 +142,7 @@ class Game {
       docked: null, sunkUntil: 0, lastHitBy: null, lastDamageAt: 0,
       blockedUntil: 0, blockedBy: null, bloccoSalvo: 0, immuneUntil: 0,
       abilityAt: 0, ramUntil: 0, doubleUntil: 0,
-      visited: new Set(), conquered: new Set(),
+      visited: new Set(), conquered: new Set(), preferiti: new Set(),
       mission: null, wp: null, fleeUntil: 0,
     };
   }
@@ -211,8 +214,27 @@ class Game {
     if (Array.isArray(p.conquered)) {
       for (const d of p.conquered.slice(0, 500)) if (typeof d === 'string') ship.conquered.add(d.slice(0, 100));
     }
+    // approdi preferiti (issue #13): lista sanificata, con tetto
+    ship.preferiti = new Set();
+    if (Array.isArray(p.preferiti)) {
+      for (const d of p.preferiti.slice(0, PREFERITI_MAX)) {
+        if (typeof d === 'string' && DOMINIO_OK.test(d)) ship.preferiti.add(d.toLowerCase().slice(0, 100));
+      }
+    }
     this.syncReady(ship);
     ship.hp = shipStats(ship).maxHp;
+    // la scelta del punto di partenza (issue #13, campo ADDITIVO nel join):
+    // isola esistente o seminata al volo, mai una fortezza non conquistata
+    if (typeof msg.spawn === 'string' && DOMINIO_OK.test(msg.spawn)) {
+      const dominio = msg.spawn.toLowerCase();
+      const { island } = this.archipelago.ensure(dominio);
+      if (!island.fortress || ship.conquered.has(dominio)) {
+        const a = Math.random() * Math.PI * 2;
+        ship.x = island.x + Math.cos(a) * (island.r + 100);
+        ship.y = island.y + Math.sin(a) * (island.r + 100);
+        ship.rot = a;
+      }
+    }
     this.ships.set(id, ship);
     this.sendTo(ship, {
       t: 'welcome', id, world: WORLD, port: PORT,
@@ -235,6 +257,7 @@ class Game {
       helmLvl: ship.helmLvl, crewLvl: ship.crewLvl, holdLvl: ship.holdLvl,
       tipo: ship.tipo, vari: ship.vari,
       mounts: ship.mounts, conquered: [...ship.conquered],
+      preferiti: [...ship.preferiti],
       kills: ship.kills, deaths: ship.deaths,
     };
   }
@@ -267,6 +290,7 @@ class Game {
       case 'fire': this.fire(ship, msg.group); break;
       case 'course': this.setCourse(ship, msg.q); break;
       case 'dock': this.dock(ship); break;
+      case 'preferisci': this.preferisci(ship, msg); break;
       case 'undock': this.undock(ship); break;
       case 'shop': if (ship.docked === 'porto') this.sendShop(ship); break;
       case 'buyShip': this.buyShip(ship, msg.stat); break;
@@ -384,6 +408,25 @@ class Game {
     if (ship.senzaMissione) {
       ship.senzaMissione = false;
       this.missions.assign(ship);
+    }
+  }
+
+  // La stella dell'approdo (issue #13): si segna solo l'isola dove si è
+  // attraccati ORA — il segnalibro è un gesto di presenza, non di curl.
+  preferisci(ship, msg) {
+    if (ship.npc || !ship.docked || ship.docked === 'porto') return;
+    const island = this.archipelago.get(ship.docked);
+    if (!island || !island.domain || island.domain !== msg.dominio) return;
+    if (msg.on) {
+      if (ship.preferiti.size >= PREFERITI_MAX && !ship.preferiti.has(island.domain)) {
+        this.sendTo(ship, { t: 'toast', msg: `⭐ Hai già ${PREFERITI_MAX} approdi preferiti: togline uno prima` });
+        return;
+      }
+      ship.preferiti.add(island.domain);
+      this.sendTo(ship, { t: 'toast', msg: `⭐ ${island.name} è tra i tuoi approdi preferiti` });
+    } else {
+      ship.preferiti.delete(island.domain);
+      this.sendTo(ship, { t: 'toast', msg: `☆ ${island.name} tolta dagli approdi preferiti` });
     }
   }
 

@@ -32,6 +32,7 @@
   </span>
   <span id="dockUrl"></span>
   <span id="guardInfo" title="Parassiti respinti dalla Ciurma di Guardia (tracker e pubblicità bloccati)">🛡 0</span>
+  <button id="favBtn" aria-label="Segna come approdo preferito" aria-pressed="false" title="Approdo preferito: al prossimo varo potrai salpare da qui">☆</button>
   <button id="openExt" aria-label="Apri il sito nel browser di sistema" title="Apri nel browser di sistema">🗗</button>
   <button id="setSailBtn">⛵ Salpa</button>
 </div>
@@ -114,6 +115,7 @@
     <h2 id="siteTitle">⚓ Attraccato</h2>
     <p class="sub">Nel guscio browser il sito si apre qui dentro; nel prototipo web si apre in una nuova scheda.</p>
     <a id="siteLink" href="#" target="_blank" rel="noreferrer noopener"><button>🗺 Apri il sito in una nuova scheda</button></a>
+    <button id="favBtnSito" class="linkish" aria-pressed="false">☆ Segna come approdo preferito</button>
     <button id="siteClose">⛵ Salpa</button>
   </div>
 </div>
@@ -263,6 +265,14 @@
     </div>
 
     <button id="helpClose" class="linkish">Chiudi</button>
+  </div>
+</div>
+
+<div id="salpaOverlay" class="overlay hidden">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloSalpa">
+    <h2 id="titoloSalpa">⛵ Da dove salpiamo, capitano?</h2>
+    <p class="sub">I tuoi approdi preferiti ti aspettano.</p>
+    <div id="salpaScelte"></div>
   </div>
 </div>
 
