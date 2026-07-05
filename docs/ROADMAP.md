@@ -47,12 +47,13 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 | #6 | Arrembaggio completo: il tocco di #15 apre il duello | Dopo #7 |
 | #10 | Il tesoro nell'entroterra (platform da URL profondi + premio) | Riusa #16; il bivio d'attracco disegnato secondo l'audit #8 |
 
-**Mentre si aspettano i file** (ordine consigliato): #23 ✓ → #24 ✓ → #11 ✓ (flotta più ricca, +Sciabecco) → **#25** (collezioni e livree, prossimo).
+**Mentre si aspettano i file**: #23 ✓ → #24 ✓ → #11 ✓ → #25 ✓ (Negozio delle Livree v1, solo dobloni) → **#27** (cartellone OG, prossimo). Gli economics (Stripe) sono la **#28** e bloccano ogni pagamento vero (#25 v2, #1).
 
 ### Fase 6 — L'orizzonte largo
 | #14 | Espansione del mondo | **A dati, non a calendario**: quando l'Atlante sopra soglia supera ~60-80 isole |
 | #11 | ✓ CHIUSA — Flotta più ricca + matrice armi per tipo + Sciabecco (4° tipo) | Riscatto pieno onorato; grandfathering slot |
-| #25 | Collezioni e Negozio delle Livree: **pay to show, mai pay to win** (modello CS) | Dopo #11 e #24; niente casse cieche (loot box = gambling in mezza UE); stessa infrastruttura di pagamento della #1 |
+| #25 | ✓ CHIUSA (v1 a dobloni) — Negozio Livree + Registro + vessillo; skin personaggi con #16/#7, mercato v2 dopo #28 | pay to show, mai pay to win; niente casse |
+| #28 | Il modello economico (faucet/sink, denaro vero, Stripe, VAT) | Blocca Stripe in #25 v2 e #1 |
 | #1 | Editor dell'Isola (riscatto a pagamento) | Richiede #12 (persistenza ✓); può essere ANTICIPATA per decisione di business |
 
 ## Epiche
