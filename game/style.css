@@ -169,6 +169,26 @@ body.conPannello #hint { opacity: 0; }
 .campagnaTappe li.futura { color: #5d4a26; }
 .campagnaPremio { margin: 0; font-size: 13.5px; color: #5d4a26; }
 
+/* il Cantiere con gerarchia (issue #24): schede, consiglio, "no" leggibili */
+#shopTabs { display: flex; gap: 8px; justify-content: center; margin: 10px 0 14px; }
+#shopTabs button { opacity: .75; }
+#shopTabs button[aria-pressed="true"] {
+  opacity: 1; background: linear-gradient(#f4d47c, #d9a93f);
+  border-color: #8a6a2a; font-weight: bold;
+}
+#shopConsiglio {
+  margin: 8px auto 2px; max-width: 640px; padding: 8px 14px;
+  border: 2px solid #b9922f; border-radius: 12px; background: rgba(232,194,104,.16);
+  font-size: 14.5px;
+}
+#shopConsiglio .linkish { margin-left: 4px; }
+.panel button:disabled {
+  opacity: .5; filter: saturate(.35); cursor: not-allowed;
+  border-style: dashed;
+}
+@keyframes occhiolino { 0%, 100% { outline: 3px solid transparent; } 50% { outline: 3px solid #e8c268; } }
+.occhiolino { animation: occhiolino 0.8s ease-in-out 2; }
+
 /* le Fratellanze (issue #5): elenco, scheda, fondazione con l'editor */
 .gildaTesta { display: flex; gap: 16px; align-items: center; text-align: left; margin-bottom: 10px; }
 .gildaTesta h3 { margin: 0; font-size: 18px; }

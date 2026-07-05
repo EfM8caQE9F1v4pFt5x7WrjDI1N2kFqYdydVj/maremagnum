@@ -67,7 +67,7 @@ async function dockAtPort() {
 // mette in scena un combattimento leggibile: bordata vera, scafo ammaccato,
 // diario che racconta i colpi (i valori sono finti, il LAYOUT è quello vero)
 async function stageCombat() {
-  await J(`
+  await J(`(() => {
     document.getElementById('hpBar').style.width = '38%';
     document.getElementById('hpText').textContent = '38 / 100';
     const kf = document.getElementById('killfeed');
@@ -83,7 +83,7 @@ async function stageCombat() {
       el.textContent = msg;
       kf.appendChild(el);
     }
-  `);
+  })()`);
   await key('KeyQ'); await key('KeyQ', 'keyup'); // bordata vera: fumo e palle in volo
   await sleep(350);
 }
@@ -177,10 +177,12 @@ app.whenReady().then(async () => {
   if (docked) {
     await sleep(600);
     await snap(game, 'a7-cantiere');
-    // il varo e le armi stanno in fondo: il muro di bottoni va visto tutto
-    await J(`document.querySelector('#shopOverlay .panel').scrollTop = 1e6`);
+    // le schede del Cantiere (issue #24): gli Armamenti sono a un click
+    await J(`document.getElementById('tabArmi').click()`);
     await sleep(500);
-    await snap(game, 'a7b-cantiere-fondo');
+    await snap(game, 'a7b-cantiere-armi');
+    await J(`document.getElementById('tabNave').click()`);
+    await sleep(300);
     await J(`document.getElementById('assedioOpen').click()`);
     await sleep(400);
     await snap(game, 'a8-assedi');

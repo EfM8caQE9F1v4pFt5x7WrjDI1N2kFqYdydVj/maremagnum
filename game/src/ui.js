@@ -68,6 +68,11 @@ export class UI {
     $('gazzettaClose').addEventListener('click', () => this.hide('gazzettaOverlay'));
     $('gildaOpen').addEventListener('click', () => this.h.onFratellanze());
     $('gildaClose').addEventListener('click', () => this.hide('gildaOverlay'));
+    // il Cantiere a schede (issue #24): meno muro, più bottega
+    this._shopScheda = 'nave';
+    for (const [id, scheda] of [['tabNave', 'nave'], ['tabVaro', 'varo'], ['tabArmi', 'armi']]) {
+      $(id).addEventListener('click', () => this._shopMostra(scheda));
+    }
     // l'editor della bandiera: select popolati dai set fissi, anteprima viva
     const scelte = [
       ['gfFondo', 'Campo', TINTE.map(t => t[0])],
@@ -432,6 +437,65 @@ export class UI {
 
   // --- Cantiere ---
 
+  // le tre schede del Cantiere (issue #24): una alla volta, niente muro
+  _shopMostra(scheda) {
+    this._shopScheda = scheda;
+    $('shopShip').classList.toggle('hidden', scheda !== 'nave');
+    $('shopVaro').classList.toggle('hidden', scheda !== 'varo');
+    $('shopWeapons').classList.toggle('hidden', scheda !== 'armi');
+    $('tabNave').setAttribute('aria-pressed', scheda === 'nave');
+    $('tabVaro').setAttribute('aria-pressed', scheda === 'varo');
+    $('tabArmi').setAttribute('aria-pressed', scheda === 'armi');
+  }
+
+  // il mastro d'ascia consiglia: l'acquisto più grosso che ti puoi
+  // permettere ORA; se il forziere non basta, il primo obiettivo utile
+  _shopConsiglia(m) {
+    const candidati = [];
+    const linee = [
+      ['Scafo', m.ship.hullCost, 'stat-hull'], ['Vele', m.ship.sailsCost, 'stat-sails'],
+      ['Timone', m.ship.helmCost ?? null, 'stat-helm'], ['Ciurma', m.ship.crewCost ?? null, 'stat-crew'],
+      ['Stiva', m.ship.holdCost ?? null, 'stat-hold'],
+    ];
+    for (const [nome, costo, fk] of linee) {
+      if (costo !== null && costo !== undefined) candidati.push({ testo: `un punto ${nome}`, costo, fk, scheda: 'nave' });
+    }
+    for (const [g, data] of Object.entries(m.groups)) {
+      for (const s of data.slots) {
+        if (s.upCost !== null) candidati.push({ testo: `potenziare la ${s.name} (${this.groupLabel(g)})`, costo: s.upCost, fk: `up-${g}-${s.slot}`, scheda: 'armi' });
+        else if (s.replace) candidati.push({ testo: `passare a ${s.replace.name} (${this.groupLabel(g)})`, costo: s.replace.cost, fk: `rep-${g}-${s.slot}`, scheda: 'armi' });
+      }
+      if (data.nextSlotCost !== null) candidati.push({ testo: `uno slot in più (${this.groupLabel(g)})`, costo: data.nextSlotCost, fk: `slot-${g}`, scheda: 'armi' });
+    }
+    const box = $('shopConsiglio');
+    box.innerHTML = '';
+    if (!candidati.length) {
+      box.textContent = '👑 La nave è al completo: da qui in poi si fa la leggenda.';
+      box.classList.remove('hidden');
+      return;
+    }
+    const abbordabili = candidati.filter(c => c.costo <= m.gold).sort((a, b) => b.costo - a.costo);
+    if (abbordabili.length) {
+      const c = abbordabili[0];
+      const testo = document.createElement('span');
+      testo.textContent = `⭐ Il mastro d'ascia consiglia: ${c.testo} · ${c.costo} 🪙 `;
+      const vai = document.createElement('button');
+      vai.className = 'linkish';
+      vai.textContent = 'Portamici';
+      vai.setAttribute('aria-label', `Vai a ${c.testo}`);
+      vai.addEventListener('click', () => {
+        this._shopMostra(c.scheda);
+        const el = $('shopOverlay').querySelector(`[data-fk="${c.fk}"]`);
+        if (el) { el.focus(); el.classList.add('occhiolino'); setTimeout(() => el.classList.remove('occhiolino'), 1600); }
+      });
+      box.append(testo, vai);
+    } else {
+      const c = candidati.sort((a, b) => a.costo - b.costo)[0];
+      box.textContent = `🪙 Riempi il forziere: il primo acquisto utile è ${c.testo} a ${c.costo} 🪙 (ne hai ${m.gold}).`;
+    }
+    box.classList.remove('hidden');
+  }
+
   showShop(m) {
     // il pannello si ricostruisce a ogni acquisto: ricordati dov'era il
     // fuoco della tastiera per rimettercelo (WCAG 2.4.3)
@@ -467,7 +531,11 @@ export class UI {
       () => this.h.onBuyShip('crew'), 'stat-crew'));
     ship.appendChild(this.statRow('🛢 Stiva', 'Un doppiofondo che i vincitori non trovano', m.ship.holdLvl | 0, 4, m.ship.holdCost ?? null, m.gold,
       () => this.h.onBuyShip('hold'), 'stat-hold'));
-    if (m.varo) ship.appendChild(this.varoBlock(m.varo, m.gold));
+    const varoBox = $('shopVaro');
+    varoBox.innerHTML = '';
+    $('tabVaro').classList.toggle('hidden', !m.varo);
+    if (m.varo) varoBox.appendChild(this.varoBlock(m.varo, m.gold));
+    this._shopConsiglia(m);
 
     const wep = $('shopWeapons');
     wep.innerHTML = '';
@@ -489,6 +557,7 @@ export class UI {
           b.setAttribute('aria-label', `Potenzia ${s.name} (${this.groupLabel(g)}) per ${s.upCost} monete`);
           b.dataset.fk = `up-${g}-${s.slot}`;
           b.disabled = m.gold < s.upCost;
+          if (b.disabled) b.title = `Servono ${s.upCost} 🪙 — ne hai ${m.gold}`;
           b.addEventListener('click', () => this.h.onUpgradeWeapon(g, s.slot));
           row.appendChild(b);
         } else if (s.replace) {
@@ -498,6 +567,7 @@ export class UI {
           b.setAttribute('aria-label', `Sostituisci ${s.name} con ${s.replace.name} per ${s.replace.cost} monete`);
           b.dataset.fk = `rep-${g}-${s.slot}`;
           b.disabled = m.gold < s.replace.cost;
+          if (b.disabled) b.title = `Servono ${s.replace.cost} 🪙 — ne hai ${m.gold}`;
           b.addEventListener('click', () => this.h.onReplaceWeapon(g, s.slot));
           row.appendChild(b);
         } else {
@@ -514,11 +584,13 @@ export class UI {
         add.textContent = `+ Nuovo slot (con colubrina) · ${data.nextSlotCost} 🪙`;
         add.dataset.fk = `slot-${g}`;
         add.disabled = m.gold < data.nextSlotCost;
+        if (add.disabled) add.title = `Servono ${data.nextSlotCost} 🪙 — ne hai ${m.gold}`;
         add.addEventListener('click', () => this.h.onBuySlot(g));
         block.appendChild(add);
       }
       wep.appendChild(block);
     }
+    this._shopMostra(this._shopScheda);
     this.show('shopOverlay');
     if (fk) {
       const di_nuovo = $('shopOverlay').querySelector(`[data-fk="${fk}"]`);
@@ -556,6 +628,7 @@ export class UI {
         btn.textContent = `Vara · ${varo.cost} 🪙`;
         btn.setAttribute('aria-label', `Vara ${t.nome} per ${varo.cost} monete`);
         btn.disabled = gold < varo.cost;
+        if (btn.disabled) btn.title = `Servono ${varo.cost} 🪙 — ne hai ${gold}`;
         btn.addEventListener('click', () => this.h.onVaro(key));
       }
       row.appendChild(btn);
@@ -576,6 +649,7 @@ export class UI {
       btn.textContent = `${cost} 🪙`;
       btn.setAttribute('aria-label', `Compra un punto ${title.replace(/^\S+ /, '')} per ${cost} monete`);
       btn.disabled = gold < cost;
+      if (btn.disabled) btn.title = `Servono ${cost} 🪙 — ne hai ${gold}`;
       btn.addEventListener('click', onBuy);
     }
     row.appendChild(btn);

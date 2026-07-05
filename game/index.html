@@ -75,9 +75,15 @@
   <div class="panel wide" role="dialog" aria-modal="true" aria-labelledby="titoloCantiere">
     <h2 id="titoloCantiere">🛠 Cantiere del Porto Franco</h2>
     <p class="sub">Scafo rattoppato e stive piene. Crediti a bordo: <b id="shopGold"></b> 🪙</p>
+    <div id="shopConsiglio" class="hidden" role="status"></div>
+    <div id="shopTabs" role="group" aria-label="Le sezioni del Cantiere">
+      <button id="tabNave" aria-pressed="true">⛵ Nave</button>
+      <button id="tabVaro" aria-pressed="false">⚓ Varo</button>
+      <button id="tabArmi" aria-pressed="false">⚔ Armamenti</button>
+    </div>
     <div id="shopShip"></div>
-    <h3 class="shopSection">⚔ Armamenti</h3>
-    <div id="shopWeapons"></div>
+    <div id="shopVaro" class="hidden"></div>
+    <div id="shopWeapons" class="hidden"></div>
     <div class="row azioni">
       <button id="assedioOpen">⚔ Bacheca degli Assedi</button>
       <button id="gildaOpen">🏴 Fratellanze</button>
