@@ -159,6 +159,7 @@ export class UI {
         panel.scrollTop = 0; // il Manuale si apre dal titolo, non dal modulo in fondo
       }
     }
+    this._sipario();
   }
   hide(id) {
     const el = $(id);
@@ -174,6 +175,16 @@ export class UI {
         this._sospeso = null;
       }
     }
+    this._sipario();
+  }
+
+  // con un pannello aperto la legenda dei comandi tace (F18): meno rumore
+  _sipario() {
+    const aperto = OVERLAY_ORDINE.some((oid) => {
+      const el = $(oid);
+      return el && !el.classList.contains('hidden');
+    });
+    document.body.classList.toggle('conPannello', aperto);
   }
   // il timone tace quando il fuoco è su un campo (SPAZIO su una casella la
   // spunta, le frecce muovono il volume — non la nave); sui BOTTONI invece

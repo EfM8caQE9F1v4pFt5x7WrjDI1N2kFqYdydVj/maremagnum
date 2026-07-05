@@ -128,6 +128,20 @@ button:disabled { opacity: .45; cursor: default; }
 }
 #dannoFlash.acceso { opacity: 1; transition: opacity .06s; }
 
+/* Il benvenuto vivo (issue #21): dietro la pergamena il mare respira,
+   l'interfaccia di bordo aspetta il varo */
+body.benvenuto #hud, body.benvenuto #minimap, body.benvenuto #hint,
+body.benvenuto #killfeed, body.benvenuto #missionHud { display: none; }
+
+/* i placeholder dei codici non si troncano: la spaziatura larga
+   appartiene al codice digitato, non alla scritta di cortesia */
+#ancoraCodice::placeholder, #benvenutoCodice::placeholder,
+#benvenutoEntraCodice::placeholder { letter-spacing: normal; }
+
+/* la legenda dei comandi tace quando un pannello è aperto (F18) */
+#hint { transition: opacity .3s; }
+body.conPannello #hint { opacity: 0; }
+
 /* ---- classifica ---- */
 #board {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
@@ -158,6 +172,7 @@ button:disabled { opacity: .45; cursor: default; }
 .panel::-webkit-scrollbar-track { background: transparent; }
 .panel h2 { margin-bottom: 8px; font-family: 'Pirata One', Georgia, serif; letter-spacing: 1px; font-weight: normal; font-size: 30px; }
 .panel .sub { font-style: italic; opacity: .85; margin-bottom: 16px; line-height: 1.5; }
+.panel .sub.gesto { margin: 14px 0 0; font-size: 13.5px; opacity: .7; }
 .panel form { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
 .panel input {
   font: inherit; font-size: 16px; padding: 8px 14px;

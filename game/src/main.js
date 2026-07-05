@@ -136,7 +136,12 @@ async function boot() {
   const forcedName = devParams.get('nome');
   if (forcedName) state.profile.name = forcedName.slice(0, 18);
   else if (!state.profile.name || (!state.profile.ancora && !state.profile.senzaAncora)) {
+    // il mare di cortesia (issue #21): l'acqua respira già dietro la
+    // pergamena del nome; l'interfaccia di bordo aspetta il varo
+    document.body.classList.add('benvenuto');
+    avviaFrame();
     await benvenuto(); // nome → ancoraggio (QR+chiave) | login | salpa senz'ancora
+    document.body.classList.remove('benvenuto');
   }
   ui.setShipName(state.profile.name);
   saveProfile();
@@ -180,6 +185,15 @@ async function boot() {
   if (devParams.get('autoabilita')) {
     setInterval(() => net.send({ t: 'abilita' }), 3000);
   }
+  avviaFrame();
+}
+
+// il ciclo di frame parte UNA volta sola (anche se il benvenuto lo ha
+// già avviato per il mare di cortesia)
+let frameAvviato = false;
+function avviaFrame() {
+  if (frameAvviato) return;
+  frameAvviato = true;
   requestAnimationFrame(frame);
 }
 
@@ -813,7 +827,8 @@ function frame(now) {
 
   const ships = interpolatedShips();
   const me = ships.find(s => s.id === state.meId) || null;
-  const cam = me ? { x: me.x, y: me.y } : (state.port || { x: 0, y: 0 });
+  // prima del welcome non c'è porto: il mare di cortesia inquadra il centro
+  const cam = me ? { x: me.x, y: me.y } : (state.port || { x: 3000, y: 3000 });
 
   renderer.updateShips(ships, state.meId, dt);
   renderer.frame(dt, cam, me);

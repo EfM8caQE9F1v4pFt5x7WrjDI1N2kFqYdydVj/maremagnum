@@ -33,5 +33,11 @@ const EPITETI = ['il Terribile', 'la Furia', 'del Tramonto', 'Mangiafuoco', 'l\'
 
 export function pirateName() {
   const rng = Math.random;
-  return `${NOMI[(rng() * NOMI.length) | 0]} ${EPITETI[(rng() * EPITETI.length) | 0]}`.slice(0, 18);
+  // niente troncature a metà parola ("Vento Nero la Furi"): si ripesca
+  // finché nome + epiteto stanno nei 18 caratteri del protocollo
+  for (let i = 0; i < 24; i++) {
+    const nome = `${NOMI[(rng() * NOMI.length) | 0]} ${EPITETI[(rng() * EPITETI.length) | 0]}`;
+    if (nome.length <= 18) return nome;
+  }
+  return NOMI[(rng() * NOMI.length) | 0];
 }
