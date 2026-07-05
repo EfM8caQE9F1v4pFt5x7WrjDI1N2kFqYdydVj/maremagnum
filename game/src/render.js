@@ -9,6 +9,7 @@ import { CanvasWater } from './water-canvas.js';
 import { lightNow } from './daycycle.js';
 import { drawGun as drawGunNuovo } from './guns.js';
 import { disegnaBandiera } from './bandiera.js';
+import { COL } from './palette.js';
 
 // Miscela lineare fra due colori esadecimali (k: 0=a, 1=b).
 function mixHex(a, b, k) {
@@ -18,21 +19,8 @@ function mixHex(a, b, k) {
   return (r << 16) | (g << 8) | bl;
 }
 
-// Palette smorzata (lezione DREDGE/Sunless Sea): la tela è desaturata, i
-// colori accesi restano SOLO dove parlano al gameplay (oro, rotta, HP, fuoco).
-const COL = {
-  sea: 0x0e2536,
-  shallow: 0x3e8ca5,
-  sand: 0xc9b184, sandEdge: 0xa08a5e,
-  land: 0x6d8a5b, landDark: 0x50663f,
-  landFort: 0x7d7d70, landFortDark: 0x5a5a4e,
-  palm: 0x40603a, trunk: 0x5f4530,
-  hull: 0x5d4229, hullDark: 0x3f2d1b, hullLine: 0x33230f, deck: 0x8a6d4a, plank: 0x74583a,
-  sail: 0xe9ddc0, sailGhost: 0x93a7b1, sailMerc: 0xcfc9ba,
-  stone: 0x7d7d74, stoneDark: 0x4a4a42, banner: 0x96301f,
-  gold: 0xe8c268, route: 0xf2d387, mirror: 0xf2dc94,
-  hpOk: 0x54c05a, hpMid: 0xd7a83c, hpBad: 0xd8552e, hpBg: 0x1a1a1a,
-};
+// COL (la palette semantica del mondo) vive ora in palette.js, sorgente da
+// game/tokens.json: la STESSA fonte di verità della UI (issue #32).
 
 export class Renderer {
   async init(mount) {

@@ -4,13 +4,14 @@
   "description": "Maremagnum: un vero browser che è anche un gioco — l'internet è un mare magnum, i siti sono isole, tu sei il corsaro.",
   "main": "shell/main.js",
   "scripts": {
-    "build": "esbuild game/src/main.js --bundle --outfile=game/dist/bundle.js --sourcemap",
+    "build": "node scripts/gen-tokens.js && esbuild game/src/main.js --bundle --outfile=game/dist/bundle.js --sourcemap",
     "watch": "esbuild game/src/main.js --bundle --outfile=game/dist/bundle.js --sourcemap --watch",
+    "tokens": "node scripts/gen-tokens.js",
     "server": "node server/index.js",
     "app": "electron .",
     "dev": "node scripts/dev.js",
     "start": "node scripts/dev.js",
-    "test": "node scripts/test-dominio.js && node scripts/test-og.js && node scripts/test-flotta.js && node scripts/test-livree.js && node scripts/test-blocco.js && node scripts/test-campagna.js && node scripts/test-gilde.js && node scripts/test-atlante.js && node scripts/test-protocol.js",
+    "test": "node scripts/test-tokens.js && node scripts/test-dominio.js && node scripts/test-og.js && node scripts/test-flotta.js && node scripts/test-livree.js && node scripts/test-blocco.js && node scripts/test-campagna.js && node scripts/test-gilde.js && node scripts/test-atlante.js && node scripts/test-protocol.js",
     "test:guardia": "node scripts/test-guard.js",
     "test:a11y": "node scripts/test-a11y.js"
   },

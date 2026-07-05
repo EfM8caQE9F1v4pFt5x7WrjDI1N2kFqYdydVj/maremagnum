@@ -1,0 +1,65 @@
+/* GENERATO da scripts/gen-tokens.js — NON modificare a mano.
+   Fonte di verità: game/tokens.json (Rovere & Cera — quercia bruciata + pergamena a lume di candela). */
+:root {
+  /* colori */
+  --sea: #0e3a57;
+  --paper: #efe0b9;
+  --paper-2: #dfcb9c;
+  --paper-hi: #fff8e4;
+  --cream: #f3e6c2;
+  --cream-dim: #e9dbb8;
+  --warm: #ffe9a0;
+  --on-danger: #ffd9c9;
+  --ink: #3a2512;
+  --ink-soft: #5d4a26;
+  --ink-mute: #5a3d1c;
+  --ink-cocoa: #4c3317;
+  --edge: #6d4c22;
+  --line-strong: #2a1a0c;
+  --brown-warm: #7a4a12;
+  --brown-deep: #3a2a12;
+  --wood-1: #6b4a2a;
+  --wood-2: #4a3018;
+  --gold: #e8c268;
+  --gold-deep: #c89a3c;
+  --gold-lite: #f4d47c;
+  --gold-lite2: #d9a93f;
+  --brass: #b9922f;
+  --brass-dim: #b08d57;
+  --brass-2: #b1892f;
+  --brass-3: #8a6a2a;
+  --brass-4: #8a5a17;
+  --hp: #3d9944;
+  --hp-hi: #6cd072;
+  --hp-edge: #0d1607;
+  --green-txt: #2e5d2e;
+  --green-done: #3e6b2f;
+  --green-ink: #25330f;
+  --sage: #93a877;
+  --sage-hi: #b9c99b;
+  --tier: #b18ad8;
+  --tier-hi: #d4b3ee;
+  --danger: #a1261a;
+  --death-bg: #241708;
+  --death-sub: #d8c49a;
+  --focus: #0b63ce;
+
+  /* veli e fondali (rgba) */
+  --gold-10: rgba(232,194,104,.10);
+  --gold-12: rgba(232,194,104,.12);
+  --gold-16: rgba(232,194,104,.16);
+  --hair-25: rgba(109,76,34,.25);
+  --hair-30: rgba(109,76,34,.3);
+  --hair-35: rgba(109,76,34,.35);
+  --hair-40: rgba(109,76,34,.4);
+  --paper-60: rgba(255,248,228,.6);
+  --paper-50: rgba(255,248,228,.5);
+  --hud-90: rgba(26,16,7,.9);
+  --hud-85: rgba(26,16,7,.85);
+  --hud-82: rgba(26,16,7,.82);
+  --hud-bg: rgba(14,9,4,.75);
+  --bar-bg: rgba(20,12,5,.75);
+  --assedio-bg: rgba(60,14,8,.9);
+  --overlay-bg: rgba(8,20,30,.62);
+  --danno: rgba(178,30,10,0.62);
+}

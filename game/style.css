@@ -7,10 +7,10 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; overflow: hidden; background: #0e3a57; }
+html, body { height: 100%; overflow: hidden; background: var(--sea); }
 /* Niente 'Noto Color Emoji' nello stack: si mangerebbe spazi e cifre.
    Il fallback di sistema (fontconfig) serve gli emoji a colori da solo. */
-body { font-family: Georgia, 'Palatino Linotype', serif; color: #f3e6c2; }
+body { font-family: Georgia, 'Palatino Linotype', serif; color: var(--cream); }
 
 #stage, #stage canvas { position: fixed; inset: 0; }
 
@@ -25,9 +25,9 @@ body { font-family: Georgia, 'Palatino Linotype', serif; color: #f3e6c2; }
 /* focus visibile ovunque: anello blu su alone chiaro — si vede sia sulla
    pergamena sia sul legno scuro e sull'acqua (WCAG 2.4.7 / 2.4.13) */
 :focus-visible {
-  outline: 3px solid #0b63ce !important;
+  outline: 3px solid var(--focus) !important;
   outline-offset: 2px;
-  box-shadow: 0 0 0 6px #fff8e4 !important;
+  box-shadow: 0 0 0 6px var(--paper-hi) !important;
   border-radius: 4px;
 }
 
@@ -35,33 +35,33 @@ body { font-family: Georgia, 'Palatino Linotype', serif; color: #f3e6c2; }
 #topbar {
   position: fixed; top: 0; left: 0; right: 0; height: 54px;
   display: flex; align-items: center; gap: 14px; padding: 0 14px;
-  background: linear-gradient(#6b4a2a, #4a3018 60%, #3a2512);
-  border-bottom: 3px solid #2a1a0c;
+  background: linear-gradient(var(--wood-1), var(--wood-2) 60%, var(--ink));
+  border-bottom: 3px solid var(--line-strong);
   box-shadow: 0 3px 14px rgba(0,0,0,.5);
   z-index: 30;
 }
-#brand { font-family: 'Pirata One', Georgia, serif; font-size: 24px; color: #e8c268; white-space: nowrap; letter-spacing: 1px; }
-#brand span { color: #f3e6c2; font-style: italic; font-weight: normal; }
+#brand { font-family: 'Pirata One', Georgia, serif; font-size: 24px; color: var(--gold); white-space: nowrap; letter-spacing: 1px; }
+#brand span { color: var(--cream); font-style: italic; font-weight: normal; }
 #courseForm { flex: 1; display: flex; gap: 8px; max-width: 900px; margin: 0 auto; }
 #courseInput {
   flex: 1; padding: 8px 14px; font: inherit; font-size: 15px;
-  background: #efe0b9; color: #3a2512; border: 2px solid #2a1a0c; border-radius: 20px;
+  background: var(--paper); color: var(--ink); border: 2px solid var(--line-strong); border-radius: 20px;
 }
 button {
   font: inherit; font-size: 14px; cursor: pointer;
-  background: linear-gradient(#e8c268, #c89a3c); color: #3a2512;
-  border: 2px solid #2a1a0c; border-radius: 18px; padding: 7px 14px; font-weight: bold;
+  background: linear-gradient(var(--gold), var(--gold-deep)); color: var(--ink);
+  border: 2px solid var(--line-strong); border-radius: 18px; padding: 7px 14px; font-weight: bold;
 }
 button:hover:not(:disabled) { filter: brightness(1.08); }
 button:disabled { opacity: .45; cursor: default; }
-#gold { font-size: 18px; color: #e8c268; white-space: nowrap; }
+#gold { font-size: 18px; color: var(--gold); white-space: nowrap; }
 
 /* ---- barra d'attracco (navigazione del sito nel guscio) ---- */
 #dockbar {
   position: fixed; top: 54px; left: 0; right: 0; height: 40px;
   display: flex; align-items: center; gap: 10px; padding: 0 14px;
-  background: linear-gradient(#efe0b9, #dfcb9c); color: #3a2512;
-  border-bottom: 3px solid #2a1a0c; z-index: 29; font-size: 14px;
+  background: linear-gradient(var(--paper), var(--paper-2)); color: var(--ink);
+  border-bottom: 3px solid var(--line-strong); z-index: 29; font-size: 14px;
 }
 #dockInfo { font-weight: bold; white-space: nowrap; }
 #dockNav button, #openExt { padding: 5px 13px; border-radius: 10px; font-size: 14px; }
@@ -71,32 +71,32 @@ button:disabled { opacity: .45; cursor: default; }
 /* il fondale scuro garantisce il contrasto dei testi sull'acqua (1.4.3) */
 #hud {
   position: fixed; left: 16px; bottom: 16px; z-index: 20; width: 260px;
-  background: rgba(14,9,4,.75); border-radius: 12px; padding: 10px 12px;
+  background: var(--hud-bg); border-radius: 12px; padding: 10px 12px;
 }
-#shipName { font-size: 17px; font-weight: bold; text-shadow: 0 2px 4px #000; margin-bottom: 6px; color: #f3e6c2; }
+#shipName { font-size: 17px; font-weight: bold; text-shadow: 0 2px 4px #000; margin-bottom: 6px; color: var(--cream); }
 #hpWrap {
-  position: relative; height: 20px; border: 2px solid #2a1a0c; border-radius: 10px;
-  background: rgba(20,12,5,.75); overflow: hidden;
+  position: relative; height: 20px; border: 2px solid var(--line-strong); border-radius: 10px;
+  background: var(--bar-bg); overflow: hidden;
 }
-#hpBar { height: 100%; width: 100%; background: linear-gradient(#6cd072, #3d9944); transition: width .2s; }
+#hpBar { height: 100%; width: 100%; background: linear-gradient(var(--hp-hi), var(--hp)); transition: width .2s; }
 #hpText {
   position: absolute; inset: 0; text-align: center; font-size: 12px; line-height: 17px; color: #fff;
   /* orlo scuro su ogni lato: leggibile anche sul verde pieno della barra */
-  text-shadow: 1px 0 0 #0d1607, -1px 0 0 #0d1607, 0 1px 0 #0d1607, 0 -1px 0 #0d1607, 0 1px 3px #000;
+  text-shadow: 1px 0 0 var(--hp-edge), -1px 0 0 var(--hp-edge), 0 1px 0 var(--hp-edge), 0 -1px 0 var(--hp-edge), 0 1px 3px #000;
 }
 #reloads { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
 .rl { display: flex; align-items: center; gap: 7px; }
-.rl span { font-size: 11.5px; color: #e8c268; min-width: 34px; text-shadow: 0 1px 2px #000; }
-.rlWrap { flex: 1; height: 6px; border: 1px solid #2a1a0c; border-radius: 4px; background: rgba(20,12,5,.75); overflow: hidden; }
-.rlBar { height: 100%; width: 100%; background: #e8c268; }
-#dockHint { margin-top: 8px; font-size: 14px; font-style: italic; color: #ffe9a0; text-shadow: 0 2px 4px #000; min-height: 18px; }
+.rl span { font-size: 11.5px; color: var(--gold); min-width: 34px; text-shadow: 0 1px 2px #000; }
+.rlWrap { flex: 1; height: 6px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--bar-bg); overflow: hidden; }
+.rlBar { height: 100%; width: 100%; background: var(--gold); }
+#dockHint { margin-top: 8px; font-size: 14px; font-style: italic; color: var(--warm); text-shadow: 0 2px 4px #000; min-height: 18px; }
 
 #hint {
   position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-  font-size: 13px; color: #e9dbb8; z-index: 20;
-  background: rgba(14,9,4,.75); border-radius: 10px; padding: 5px 14px;
+  font-size: 13px; color: var(--cream-dim); z-index: 20;
+  background: var(--hud-bg); border-radius: 10px; padding: 5px 14px;
 }
-#hint b { color: #e8c268; }
+#hint b { color: var(--gold); }
 
 #minimap {
   position: fixed; right: 16px; bottom: 16px; z-index: 20;
@@ -106,7 +106,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* ---- killfeed & toast ---- */
 #killfeed { position: fixed; top: 66px; right: 16px; z-index: 25; transition: top .25s; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
 .feedItem {
-  background: rgba(26,16,7,.82); border: 1px solid #6b4a2a; border-radius: 14px;
+  background: var(--hud-82); border: 1px solid var(--wood-1); border-radius: 14px;
   padding: 6px 12px; font-size: 13px; transition: opacity 1.2s; max-width: 380px;
 }
 .feedItem.fading { opacity: 0; }
@@ -115,7 +115,7 @@ button:disabled { opacity: .45; cursor: default; }
    (issue #19, rilievo F8 dell'audit) */
 #toast {
   position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
-  background: rgba(26,16,7,.9); border: 2px solid #e8c268; border-radius: 18px;
+  background: var(--hud-90); border: 2px solid var(--gold); border-radius: 18px;
   padding: 9px 20px; font-size: 15px; z-index: 40; text-align: center; max-width: 70vw;
 }
 
@@ -123,7 +123,7 @@ button:disabled { opacity: .45; cursor: default; }
    (Mare calmo lo spegne — issue #19, rilievo F9) */
 #dannoFlash {
   position: fixed; inset: 0; z-index: 15; pointer-events: none; opacity: 0;
-  box-shadow: inset 0 0 140px 55px rgba(178, 30, 10, 0.62);
+  box-shadow: inset 0 0 140px 55px var(--danno);
   transition: opacity .45s;
 }
 #dannoFlash.acceso { opacity: 1; transition: opacity .06s; }
@@ -147,38 +147,38 @@ body.conPannello #hint { opacity: 0; }
 #gazzettaBadge {
   position: absolute; top: -4px; right: -6px;
   min-width: 16px; height: 16px; padding: 0 3px;
-  border-radius: 9px; background: #e8c268; color: #2a1a0c;
+  border-radius: 9px; background: var(--gold); color: var(--line-strong);
   font-size: 11px; font-weight: bold; line-height: 16px; text-align: center;
-  border: 1px solid #6d4c22;
+  border: 1px solid var(--edge);
 }
-.gazzettaVoce { padding: 8px 4px; border-bottom: 1px solid rgba(109,76,34,.25); text-align: left; }
-.gazzettaVoce time { display: block; font-size: 12px; font-style: italic; color: #5d4a26; margin-bottom: 2px; }
+.gazzettaVoce { padding: 8px 4px; border-bottom: 1px solid var(--hair-25); text-align: left; }
+.gazzettaVoce time { display: block; font-size: 12px; font-style: italic; color: var(--ink-soft); margin-bottom: 2px; }
 .gazzettaVoce p { margin: 0; }
-.gazzettaVoce.nuova { background: rgba(232,194,104,.12); border-left: 3px solid #e8c268; padding-left: 8px; }
+.gazzettaVoce.nuova { background: var(--gold-12); border-left: 3px solid var(--gold); padding-left: 8px; }
 /* la campagna del Mastro di Rotte (issue #3) in cima all'albo */
 .campagnaBox {
   text-align: left; margin-bottom: 14px; padding: 10px 14px;
-  border: 2px solid #6d4c22; border-radius: 8px; background: rgba(232,194,104,.10);
+  border: 2px solid var(--edge); border-radius: 8px; background: var(--gold-10);
 }
 .campagnaBox h3 { margin: 0 0 4px; font-size: 16px; }
-.campagnaLore { margin: 0 0 8px; font-style: italic; color: #5d4a26; font-size: 13.5px; }
+.campagnaLore { margin: 0 0 8px; font-style: italic; color: var(--ink-soft); font-size: 13.5px; }
 .campagnaTappe { margin: 0 0 8px; padding-left: 6px; list-style: none; }
 .campagnaTappe li { padding: 2px 0; }
-.campagnaTappe li.fatta { color: #3e6b2f; }
+.campagnaTappe li.fatta { color: var(--green-done); }
 .campagnaTappe li.corrente { font-weight: bold; }
-.campagnaTappe li.futura { color: #5d4a26; }
-.campagnaPremio { margin: 0; font-size: 13.5px; color: #5d4a26; }
+.campagnaTappe li.futura { color: var(--ink-soft); }
+.campagnaPremio { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
 
 /* il Cantiere con gerarchia (issue #24): schede, consiglio, "no" leggibili */
 #shopTabs { display: flex; gap: 8px; justify-content: center; margin: 10px 0 14px; }
 #shopTabs button { opacity: .75; }
 #shopTabs button[aria-pressed="true"] {
-  opacity: 1; background: linear-gradient(#f4d47c, #d9a93f);
-  border-color: #8a6a2a; font-weight: bold;
+  opacity: 1; background: linear-gradient(var(--gold-lite), var(--gold-lite2));
+  border-color: var(--brass-3); font-weight: bold;
 }
 #shopConsiglio {
   margin: 8px auto 2px; max-width: 640px; padding: 8px 14px;
-  border: 2px solid #b9922f; border-radius: 12px; background: rgba(232,194,104,.16);
+  border: 2px solid var(--brass); border-radius: 12px; background: var(--gold-16);
   font-size: 14.5px;
 }
 #shopConsiglio .linkish { margin-left: 4px; }
@@ -186,7 +186,7 @@ body.conPannello #hint { opacity: 0; }
   opacity: .5; filter: saturate(.35); cursor: not-allowed;
   border-style: dashed;
 }
-@keyframes occhiolino { 0%, 100% { outline: 3px solid transparent; } 50% { outline: 3px solid #e8c268; } }
+@keyframes occhiolino { 0%, 100% { outline: 3px solid transparent; } 50% { outline: 3px solid var(--gold); } }
 .occhiolino { animation: occhiolino 0.8s ease-in-out 2; }
 
 /* le Fratellanze (issue #5): elenco, scheda, fondazione con l'editor */
@@ -194,50 +194,50 @@ body.conPannello #hint { opacity: 0; }
 .gildaTesta h3 { margin: 0; font-size: 18px; }
 .gildaRiga {
   display: flex; gap: 10px; align-items: center; text-align: left;
-  padding: 6px 4px; border-bottom: 1px solid rgba(109,76,34,.25);
+  padding: 6px 4px; border-bottom: 1px solid var(--hair-25);
 }
 .gildaRiga .gildaInfo { flex: 1; }
 .gildaRiga span { flex: 1; }
-.gildaLog { margin: 2px 0; font-size: 13px; text-align: left; color: #5d4a26; }
+.gildaLog { margin: 2px 0; font-size: 13px; text-align: left; color: var(--ink-soft); }
 #gildaFondaForm { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .gfRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
 #gfEditor { align-items: flex-start; }
-#gfBandiera { border: 2px solid #6d4c22; border-radius: 4px; }
+#gfBandiera { border: 2px solid var(--edge); border-radius: 4px; }
 #gfScelte { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13.5px; }
 #gfScelte select { font: inherit; font-size: 13px; margin-left: 4px; }
 #gfCategoria { font: inherit; font-size: 14px; }
 
 /* gli approdi preferiti (issue #13): la stella e la pergamena del varo */
-#favBtn[aria-pressed="true"] { color: #e8c268; }
+#favBtn[aria-pressed="true"] { color: var(--gold); }
 #salpaScelte { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 
 /* ---- classifica ---- */
 #board {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  background: #efe0b9; color: #3a2512; border: 4px double #6d4c22; border-radius: 8px;
+  background: var(--paper); color: var(--ink); border: 4px double var(--edge); border-radius: 8px;
   padding: 18px 26px; z-index: 45; min-width: 420px;
   box-shadow: 0 10px 40px rgba(0,0,0,.6);
 }
 #board h3 { text-align: center; margin-bottom: 10px; }
 #board table { width: 100%; border-collapse: collapse; font-size: 15px; }
-#board th, #board td { padding: 4px 10px; text-align: left; border-bottom: 1px solid rgba(109,76,34,.35); }
+#board th, #board td { padding: 4px 10px; text-align: left; border-bottom: 1px solid var(--hair-35); }
 #board th { font-variant: small-caps; }
 
 /* ---- overlay generici ---- */
 .overlay {
   position: fixed; inset: 0; z-index: 50;
-  background: rgba(8,20,30,.62);
+  background: var(--overlay-bg);
   display: flex; align-items: center; justify-content: center;
 }
 .panel {
-  background: #efe0b9; color: #3a2512;
-  border: 4px double #6d4c22; border-radius: 10px;
+  background: var(--paper); color: var(--ink);
+  border: 4px double var(--edge); border-radius: 10px;
   padding: 26px 34px; text-align: center; max-width: 560px;
   max-height: 92vh; overflow-y: auto;
   box-shadow: 0 14px 50px rgba(0,0,0,.65);
 }
 .panel::-webkit-scrollbar { width: 10px; }
-.panel::-webkit-scrollbar-thumb { background: #b08d57; border-radius: 6px; border: 2px solid #efe0b9; }
+.panel::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: 6px; border: 2px solid var(--paper); }
 .panel::-webkit-scrollbar-track { background: transparent; }
 .panel h2 { margin-bottom: 8px; font-family: 'Pirata One', Georgia, serif; letter-spacing: 1px; font-weight: normal; font-size: 30px; }
 .panel .sub { font-style: italic; opacity: .85; margin-bottom: 16px; line-height: 1.5; }
@@ -245,15 +245,15 @@ body.conPannello #hint { opacity: 0; }
 .panel form { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
 .panel input {
   font: inherit; font-size: 16px; padding: 8px 14px;
-  border: 2px solid #6d4c22; border-radius: 18px; background: #fff8e4; color: #3a2512;
+  border: 2px solid var(--edge); border-radius: 18px; background: var(--paper-hi); color: var(--ink);
   outline: none; width: 280px;
 }
 .linkish { background: none; border: none; font-style: italic; text-decoration: underline; font-weight: normal; min-height: 24px; }
-.panel.death { background: #241708; color: #f3e6c2; border-color: #a1261a; }
+.panel.death { background: var(--death-bg); color: var(--cream); border-color: var(--danger); }
 /* la morte racconta (issue #23): il conto e il consiglio della Stiva */
 .deathConto { margin: 2px 0 4px; font-size: 15px; }
-.panel.death .sub { color: #d8c49a; }
-#deathCount { font-size: 56px; font-weight: bold; color: #e8c268; margin-top: 6px; }
+.panel.death .sub { color: var(--death-sub); }
+#deathCount { font-size: 56px; font-weight: bold; color: var(--gold); margin-top: 6px; }
 
 /* ---- mappa del tesoro ---- */
 .mapWrap { text-align: center; position: relative; }
@@ -267,14 +267,14 @@ body.conPannello #hint { opacity: 0; }
 /* ---- missione & assedio ---- */
 #missionHud {
   position: fixed; top: 66px; left: 16px; z-index: 24; transition: top .25s;
-  background: rgba(26,16,7,.85); border: 1px solid #6b4a2a; border-radius: 14px;
+  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: 14px;
   padding: 7px 14px; font-size: 13.5px; max-width: 420px;
 }
-#missionHud .reward { color: #e8c268; }
+#missionHud .reward { color: var(--gold); }
 #assedioHud {
   position: fixed; top: 66px; left: 50%; transform: translateX(-50%); z-index: 24; transition: top .25s;
-  background: rgba(60,14,8,.9); border: 2px solid #a1261a; border-radius: 16px;
-  padding: 8px 18px; font-size: 14.5px; font-weight: bold; color: #ffd9c9;
+  background: var(--assedio-bg); border: 2px solid var(--danger); border-radius: 16px;
+  padding: 8px 18px; font-size: 14.5px; font-weight: bold; color: var(--on-danger);
 }
 .teams { display: flex; gap: 30px; justify-content: center; margin-bottom: 14px; font-size: 14px; }
 .teams > div { min-width: 130px; }
@@ -284,58 +284,58 @@ body.conPannello #hint { opacity: 0; }
 .panel.wide { max-width: 760px; max-height: 86vh; overflow-y: auto; padding-bottom: 0; }
 .panel .azioni {
   position: sticky; bottom: 0; margin-top: 14px; padding: 12px 0 16px;
-  background: #efe0b9; border-top: 1px solid rgba(109,76,34,.35);
+  background: var(--paper); border-top: 1px solid var(--hair-35);
 }
 .panel.wide::-webkit-scrollbar { width: 10px; }
-.panel.wide::-webkit-scrollbar-thumb { background: #b08d57; border-radius: 6px; border: 2px solid #efe0b9; }
+.panel.wide::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: 6px; border: 2px solid var(--paper); }
 .panel.wide::-webkit-scrollbar-track { background: transparent; }
-.shopSection { margin: 14px 0 8px; border-top: 1px solid rgba(109,76,34,.4); padding-top: 10px; }
+.shopSection { margin: 14px 0 8px; border-top: 1px solid var(--hair-40); padding-top: 10px; }
 .shipClass {
-  background: rgba(255,248,228,.6); border: 1px solid #6d4c22; border-radius: 8px;
+  background: var(--paper-60); border: 1px solid var(--edge); border-radius: 8px;
   padding: 7px 12px; margin-bottom: 10px; text-align: left; font-size: 13.5px;
 }
-.shipClass b { color: #7a4a12; }
+.shipClass b { color: var(--brown-warm); }
 .wgroup {
-  background: rgba(255,248,228,.5); border: 1px solid #6d4c22; border-radius: 8px;
+  background: var(--paper-50); border: 1px solid var(--edge); border-radius: 8px;
   padding: 8px 12px; margin-bottom: 9px; text-align: left;
 }
 .wgroupHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-.wgroupHead span { font-size: 12px; color: #5a3d1c; font-style: italic; }
+.wgroupHead span { font-size: 12px; color: var(--ink-mute); font-style: italic; }
 .wslot {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 5px 8px; border-bottom: 1px dashed rgba(109,76,34,.3);
+  padding: 5px 8px; border-bottom: 1px dashed var(--hair-30);
 }
 .wslot:last-of-type { border-bottom: none; }
-.wname .tier { font-size: 11.5px; color: #6d4c22; margin-left: 8px; font-variant: small-caps; }
-.wname .pips { color: #6d4c22; letter-spacing: 2px; margin-left: 10px; font-size: 12px; }
+.wname .tier { font-size: 11.5px; color: var(--edge); margin-left: 8px; font-variant: small-caps; }
+.wname .pips { color: var(--edge); letter-spacing: 2px; margin-left: 10px; font-size: 12px; }
 .wslot button { padding: 4px 12px; font-size: 13px; min-width: 150px; }
-.wslot .tierUp { background: linear-gradient(#d4b3ee, #b18ad8); }
-.wslot .maxed { font-style: italic; font-size: 12.5px; color: #5a3d1c; }
-.addSlot { margin-top: 7px; width: 100%; font-size: 13px; background: linear-gradient(#b9c99b, #93a877); color: #25330f; }
+.wslot .tierUp { background: linear-gradient(var(--tier-hi), var(--tier)); }
+.wslot .maxed { font-style: italic; font-size: 12.5px; color: var(--ink-mute); }
+.addSlot { margin-top: 7px; width: 100%; font-size: 13px; background: linear-gradient(var(--sage-hi), var(--sage)); color: var(--green-ink); }
 
 /* ---- cantiere (righe nave) ---- */
 #shopRows { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; text-align: left; }
 .shopRow {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  background: rgba(255,248,228,.6); border: 1px solid #6d4c22; border-radius: 8px; padding: 8px 14px;
+  background: var(--paper-60); border: 1px solid var(--edge); border-radius: 8px; padding: 8px 14px;
 }
 .shopInfo { display: flex; flex-direction: column; }
 .shopInfo span { font-size: 12.5px; font-style: italic; opacity: .8; }
-.shopInfo .pips { color: #6d4c22; letter-spacing: 3px; font-style: normal; font-size: 13px; }
-.shopInfo .effetti { color: #5a3d1c; font-style: normal; font-size: 12px; }
+.shopInfo .pips { color: var(--edge); letter-spacing: 3px; font-style: normal; font-size: 13px; }
+.shopInfo .effetti { color: var(--ink-mute); font-style: normal; font-size: 12px; }
 .shopRow button { min-width: 96px; }
 
 /* ---- il Negozio delle Livree e il Registro (issue #25) ---- */
 .swatch {
   display: inline-block; width: 14px; height: 14px; border-radius: 50%;
-  border: 1.5px solid #3a2a12; vertical-align: -2px; margin-right: 4px;
+  border: 1.5px solid var(--brown-deep); vertical-align: -2px; margin-right: 4px;
 }
-.shopRow.indossata { outline: 2px solid #b1892f; outline-offset: -2px; }
+.shopRow.indossata { outline: 2px solid var(--brass-2); outline-offset: -2px; }
 .vessillo {
   display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap;
   padding: 8px; justify-content: flex-start;
 }
-.vessillo canvas { border: 2px solid #6d4c22; border-radius: 4px; }
+.vessillo canvas { border: 2px solid var(--edge); border-radius: 4px; }
 .vessillo .gfScelte { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13.5px; }
 .vessillo .gfScelte select { font: inherit; font-size: 13px; margin-left: 4px; }
 .vessillo button { align-self: center; }
@@ -343,10 +343,10 @@ body.conPannello #hint { opacity: 0; }
    regione scrollabile non-focusabile sarebbe irraggiungibile da tastiera) */
 #registroVoci { text-align: left; }
 .registroRiga {
-  padding: 4px 8px; border-bottom: 1px dashed rgba(109,76,34,.3); font-size: 13.5px;
+  padding: 4px 8px; border-bottom: 1px dashed var(--hair-30); font-size: 13.5px;
 }
 .registroRiga:last-of-type { border-bottom: none; }
-.registroRiga .pips { color: #6d4c22; letter-spacing: 2px; margin-left: 8px; font-size: 12px; }
+.registroRiga .pips { color: var(--edge); letter-spacing: 2px; margin-left: 8px; font-size: 12px; }
 
 /* ---- impostazioni di bordo ---- */
 #settingsBtn, #helpBtn, #registroBtn { padding: 4px 10px; font-size: 17px; border-radius: 12px; }
@@ -363,40 +363,40 @@ body.conPannello #hint { opacity: 0; }
   margin: 12px auto; max-width: 320px; font-size: 15.5px; cursor: pointer; text-align: left;
 }
 .setRow.vol { display: flex; gap: 10px; }
-.setRow input[type="checkbox"] { width: 24px; height: 24px; accent-color: #8a5a17; }
-.setRow input[type="range"] { flex: 1; accent-color: #c89a3c; }
-#guardInfo { font-weight: bold; color: #2e5d2e; white-space: nowrap; }
+.setRow input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--brass-4); }
+.setRow input[type="range"] { flex: 1; accent-color: var(--gold-deep); }
+#guardInfo { font-weight: bold; color: var(--green-txt); white-space: nowrap; }
 #guardInfo.spento { opacity: .4; text-decoration: line-through; }
 
 /* con la barra d'attracco aperta, le pillole scendono sotto di lei */
 body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killfeed { top: 108px; }
 
 /* ruoli dell'assedio, spiegati in una riga */
-.ruoli { font-size: 12.5px; font-style: italic; color: #4c3317; margin-bottom: 10px; }
+.ruoli { font-size: 12.5px; font-style: italic; color: var(--ink-cocoa); margin-bottom: 10px; }
 
 /* ---- ancoraggio del profilo ---- */
-#ancoraSez { border-top: 1px solid rgba(109,76,34,.35); margin-top: 14px; padding-top: 2px; }
+#ancoraSez { border-top: 1px solid var(--hair-35); margin-top: 14px; padding-top: 2px; }
 #ancoraSez .shopSection { border: none; margin-bottom: 4px; }
 #ancoraHandle { width: 100%; max-width: 320px; }
-#ancoraQrCanvas { background: #fff8e4; border: 2px solid #6d4c22; border-radius: 8px; margin-top: 8px; }
+#ancoraQrCanvas { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: 8px; margin-top: 8px; }
 #ancoraSegreto { font-size: 12px; word-break: break-all; }
 #ancoraCodice { width: 170px; text-align: center; letter-spacing: 4px; }
-#ancoraStato b { color: #2e5d2e; }
+#ancoraStato b { color: var(--green-txt); }
 
 /* ---- benvenuto: ancoraggio alla prima visita ---- */
-#benvenutoQr { background: #fff8e4; border: 2px solid #6d4c22; border-radius: 8px; }
+#benvenutoQr { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: 8px; }
 #benvenutoSegreto { font-size: 12px; word-break: break-all; }
-#benvenutoHandle { color: #2e5d2e; }
+#benvenutoHandle { color: var(--green-txt); }
 #benvenutoCodice, #benvenutoEntraCodice { width: 170px; text-align: center; letter-spacing: 4px; }
 #benvenutoEntraForm { flex-wrap: wrap; }
 
-.credits { font-size: 11.5px; color: #5a3d1c; margin-top: 12px; font-style: italic; }
+.credits { font-size: 11.5px; color: var(--ink-mute); margin-top: 12px; font-style: italic; }
 
 /* ---- timoneria: rimappatura dei tasti (WCAG 2.1.4) ---- */
 #tastiRows { display: flex; flex-direction: column; gap: 4px; max-width: 340px; margin: 0 auto; }
 .tastoRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
 .tastoRow button { min-width: 110px; padding: 4px 10px; font-size: 13px; }
-.tastoRow button.inAscolto { background: linear-gradient(#b9c99b, #93a877); color: #25330f; }
+.tastoRow button.inAscolto { background: linear-gradient(var(--sage-hi), var(--sage)); color: var(--green-ink); }
 
 /* ---- reflow (WCAG 1.4.10): niente perdite a 320px ---- */
 .panel, .panel.wide { max-width: min(760px, 96vw); }
