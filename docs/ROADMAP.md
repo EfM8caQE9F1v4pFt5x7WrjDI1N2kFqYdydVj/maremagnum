@@ -47,7 +47,7 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 | #6 | Arrembaggio completo: il tocco di #15 apre il duello | Dopo #7 |
 | #10 | Il tesoro nell'entroterra (platform da URL profondi + premio) | Riusa #16; il bivio d'attracco disegnato secondo l'audit #8 |
 
-**Mentre si aspettano i file**: #23 ✓ → #24 ✓ → #11 ✓ → #25 ✓ (Negozio delle Livree v1, solo dobloni) → **#27** (cartellone OG, prossimo). Gli economics (Stripe) sono la **#28** e bloccano ogni pagamento vero (#25 v2, #1).
+**Mentre si aspettano i file**: #23 ✓ → #24 ✓ → #11 ✓ → #25 ✓ → #27 ✓ (Cartellone OG). La coda d'attesa è ESAURITA: si riparte coi file del designer (F5), oppure #28 (economics, analisi), #14 (a dati) o #1 (anticipabile per business). Gli economics (#28) bloccano ogni pagamento vero (#25 v2, #1).
 
 ### Fase 6 — L'orizzonte largo
 | #14 | Espansione del mondo | **A dati, non a calendario**: quando l'Atlante sopra soglia supera ~60-80 isole |
