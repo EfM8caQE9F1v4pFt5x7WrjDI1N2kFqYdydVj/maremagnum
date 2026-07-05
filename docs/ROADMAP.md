@@ -65,6 +65,10 @@ Lavoro trasversale su TUTTA la piattaforma, da spezzare in tappe:
 4. **Font Atkinson Hyperlegible Next** al posto di Georgia (TENERE Pirata One estetico); self-host woff2, anche i Text di PixiJS.
 5. **README completo** — meccaniche + tecnologia, tutta la piattaforma.
 
+## Multilingua IT/EN (issue #33)
+
+Tutta la piattaforma in italiano e inglese. Oggi 100% italiano, zero i18n. Nodo chiave: i messaggi che il server manda a TUTTI (feed/Gazzetta) — direzione consigliata: il server manda EVENTI STRUTTURATI, ogni client compone la frase nella propria lingua (Gazzetta persistente inclusa). Dizionari it/en + `t()` fatto in casa, selettore in Impostazioni, default da navigator.language. **Forte sinergia con #32**: estrarre le stringhe mentre si fa l'audit componente per componente (toccare ogni testo una volta).
+
 ## Le ispirazioni (registrate 2026-07-05, da approfondire — MAI sviluppare senza conferma)
 
 - **Sid Meier's Pirates! (2004)** → battaglie navali (**#29**); attinge anche il PvE.
