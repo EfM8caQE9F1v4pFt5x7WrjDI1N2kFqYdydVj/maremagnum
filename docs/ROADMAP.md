@@ -56,6 +56,13 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 | #28 | Il modello economico (faucet/sink, denaro vero, Stripe, VAT) | Blocca Stripe in #25 v2 e #1 |
 | #1 | Editor dell'Isola (riscatto a pagamento) | Richiede #12 (persistenza ✓); può essere ANTICIPATA per decisione di business |
 
+## Le ispirazioni (registrate 2026-07-05, da approfondire — MAI sviluppare senza conferma)
+
+- **Sid Meier's Pirates! (2004)** → battaglie navali (**#29**); attinge anche il PvE.
+- **Policenauts** → modalità storia / PvE (**#30**), in mix and match con Pirates!.
+- **Cutthroat Island** → platform d'entroterra: livello → tesoro = dobloni + URL profondo (annotata su #10).
+- **Picchiaduro** (riferimento DA SCEGLIERE, ricerca **#31**) → arrembaggio: 25% o abbordaggio col roster (annotata su #6/#7; #31 blocca il design di #7).
+
 ## Epiche
 
 - **#9 — Il mare è uno solo** → #12 (F0), #13 (F2), #14 (F6). Si chiude con le figlie.
