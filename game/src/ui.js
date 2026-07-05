@@ -10,6 +10,15 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
 const OVERLAY_ORDINE = ['helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay',
   'shopOverlay', 'searchOverlay', 'siteOverlay', 'deathOverlay', 'nameOverlay'];
 
+// La disciplina dei pannelli (issue #18): i fluttuanti si ESCLUDONO a vicenda
+// (aprirne uno chiude l'altro), quelli di banchina si SOSPENDONO sotto e
+// tornano a galla alla chiusura — mai due pannelli impilati a schermo.
+const FLUTTUANTI = ['helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay'];
+const DI_BANCHINA = ['shopOverlay', 'searchOverlay', 'siteOverlay'];
+// I documenti lunghi si aprono dall'INIZIO: fuoco al pannello (2.4.3 resta:
+// il fuoco entra comunque nel dialogo), non al primo campo in fondo.
+const DALL_INIZIO = ['helpOverlay', 'settingsOverlay', 'shopOverlay'];
+
 export class UI {
   constructor(handlers) {
     this.h = handlers;
@@ -72,6 +81,7 @@ export class UI {
     // (WCAG 2.4.3) e Tab gira DENTRO il pannello senza mai restare in trappola
     // (2.1.2: ESC chiude sempre)
     this._focusStack = [];
+    this._sospeso = null; // pannello di banchina sotto un fluttuante (issue #18)
     addEventListener('keydown', (e) => {
       if (e.key !== 'Tab') return;
       const panel = this.topPanel();
@@ -125,13 +135,29 @@ export class UI {
   show(id) {
     const el = $(id);
     const eraNascosto = el.classList.contains('hidden');
+    if (eraNascosto && FLUTTUANTI.includes(id)) {
+      for (const oid of FLUTTUANTI) {
+        if (oid !== id && !$(oid).classList.contains('hidden')) this.hide(oid);
+      }
+      for (const oid of DI_BANCHINA) {
+        if (!$(oid).classList.contains('hidden')) {
+          $(oid).classList.add('hidden'); // sospeso, non chiuso: nessun giro di fuoco
+          this._sospeso = oid;
+        }
+      }
+    }
     el.classList.remove('hidden');
     if (eraNascosto && el.classList.contains('overlay')) {
       this._focusStack.push(document.activeElement);
       const panel = el.querySelector('[role="dialog"], [role="alertdialog"]') || el;
-      const primo = panel.querySelector('input:not([type="checkbox"]), button');
+      const primo = DALL_INIZIO.includes(id) ? null
+        : panel.querySelector('input:not([type="checkbox"]), button');
       if (primo) primo.focus();
-      else { panel.tabIndex = -1; panel.focus(); }
+      else {
+        panel.tabIndex = -1;
+        panel.focus();
+        panel.scrollTop = 0; // il Manuale si apre dal titolo, non dal modulo in fondo
+      }
     }
   }
   hide(id) {
@@ -142,6 +168,11 @@ export class UI {
       const prima = this._focusStack.pop();
       if (prima && prima !== document.body && document.contains(prima)) prima.focus();
       else if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      // il pannello di banchina sospeso torna a galla
+      if (FLUTTUANTI.includes(id) && this._sospeso) {
+        $(this._sospeso).classList.remove('hidden');
+        this._sospeso = null;
+      }
     }
   }
   // il timone tace quando il fuoco è su un campo (SPAZIO su una casella la
@@ -510,6 +541,7 @@ export class UI {
   hideDeath() { clearInterval(this.deathTimer); this.hide('deathOverlay'); }
 
   closeDockOverlays() {
+    this._sospeso = null; // si salpa: niente pannelli di banchina da riesumare
     this.hide('shopOverlay'); this.hide('searchOverlay'); this.hide('siteOverlay');
     this.hide('assedioOverlay');
     this.hideDockbar();
