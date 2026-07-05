@@ -6,8 +6,61 @@ import { MareDO } from './mare-do.js';
 import { ContiDO } from './conti-do.js';
 import { AtlanteDO } from './atlante-do.js';
 import { GazzettaDO } from './gazzetta-do.js';
+import { CampagneDO } from './campagne-do.js';
+import campagna from '../../server/campagna-core.js';
 
-export { MareDO, ContiDO, AtlanteDO, GazzettaDO };
+export { MareDO, ContiDO, AtlanteDO, GazzettaDO, CampagneDO };
+
+// Il Mastro di Rotte al lavoro (issue #3): campagna procedurale e
+// DETERMINISTICA dal numero della settimana; Workers AI (quota permettendo)
+// riveste SOLO nome e lore — mai i numeri. Se l'LLM manca o sfora, il
+// vestito procedurale del core basta: la campagna esce comunque.
+async function generaCampagna(env) {
+  const settimana = campagna.settimanaDi();
+  const c = campagna.genera(settimana);
+  try {
+    if (env.AI) {
+      const risposta = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+        messages: [{
+          role: 'user',
+          content: 'Sei il Mastro di Rotte di un gioco piratesco italiano. Rispondi SOLO con JSON ' +
+            `{"nome": "...", "lore": "...", "tappe": ["...", "...", "..."]}: un nome evocativo (max 5 parole) ` +
+            `per la campagna della settimana, una riga di lore (max 20 parole), e una riga di lore piratesca ` +
+            `(max 15 parole) per ciascuna di queste ${c.tappe.length} tappe: ` +
+            c.tappe.map((t, i) => `${i + 1}) ${t.desc}`).join('; ') + '. Niente numeri, niente premi: solo atmosfera.',
+        }],
+        max_tokens: 300,
+      });
+      const testo = (risposta && (risposta.response || risposta.result)) || '';
+      const match = testo.match(/\{[\s\S]*\}/);
+      const vestito = match ? JSON.parse(match[0]) : null;
+      if (vestito && typeof vestito.nome === 'string' && vestito.nome.trim()) {
+        c.nome = vestito.nome.trim().slice(0, 60);
+        if (typeof vestito.lore === 'string') c.lore = vestito.lore.trim().slice(0, 200);
+        if (Array.isArray(vestito.tappe)) {
+          vestito.tappe.forEach((l, i) => {
+            if (c.tappe[i] && typeof l === 'string' && l.trim()) c.tappe[i].lore = l.trim().slice(0, 120);
+          });
+        }
+      }
+    }
+  } catch { /* niente neuron? pazienza: si salpa col vestito procedurale */ }
+
+  const reg = env.CAMPAGNE.get(env.CAMPAGNE.idFromName('campagne'));
+  await reg.fetch('https://campagne/pubblica', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(c),
+  });
+  // una campagna non annunciata non esiste: la Gazzetta la proclama
+  const gaz = env.GAZZETTA.get(env.GAZZETTA.idFromName('gazzetta'));
+  await gaz.fetch('https://gazzetta/pubblica', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      tipo: 'campagna',
+      testo: `⚔ Il Mastro di Rotte proclama la campagna della settimana: "${c.nome}" — ${c.tappe.length} tappe, ${c.premio} 🪙 a chi la compie.`,
+    }),
+  });
+  return c;
+}
 
 const PUBBLICHE_CONTI = { '/ancora/nuovo': '/nuovo', '/ancora/conferma': '/conferma', '/ancora/entra': '/entra' };
 
@@ -61,6 +114,17 @@ export default {
       });
     }
 
+    // L'Ammiragliato può battere il cron sul tempo (collaudi e prime uscite)
+    if (url.pathname === '/ammiragliato/mastro' && req.method === 'POST') {
+      if (!env.ADMIN_SECRET || req.headers.get('X-Ammiragliato') !== env.ADMIN_SECRET) {
+        return new Response('Chi va là?', { status: 401 });
+      }
+      const c = await generaCampagna(env);
+      return new Response(JSON.stringify({ ok: true, campagna: c }), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
     // Ammiragliato: rotte d'amministrazione protette da segreto (mai nel git)
     if (url.pathname.startsWith('/ammiragliato/profilo/')) {
       if (!env.ADMIN_SECRET || req.headers.get('X-Ammiragliato') !== env.ADMIN_SECRET) {
@@ -87,5 +151,10 @@ export default {
     }
 
     return env.ASSETS.fetch(req);
+  },
+
+  // il cron del Mastro di Rotte: ogni lunedì alle 06:00 UTC una campagna nuova
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(generaCampagna(env));
   },
 };

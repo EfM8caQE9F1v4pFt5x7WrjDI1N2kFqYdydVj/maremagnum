@@ -9,6 +9,11 @@ const path = require('path');
 const { WebSocketServer } = require('ws');
 const { Game } = require('./game');
 const blocklist = require('./blocklist');
+const campagna = require('./campagna-core');
+
+// il Mastro di Rotte in locale: campagna della settimana, vestito procedurale
+// (in produzione la genera il cron del worker, con l'AI solo per il lore)
+campagna.setCampagna(campagna.genera(campagna.settimanaDi()));
 
 const PORT = process.env.PORT || 3210;
 const GAME_DIR = path.join(__dirname, '..', 'game');

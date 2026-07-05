@@ -6,6 +6,7 @@ import { Game } from '../../server/game.js';
 import blocklist from '../../server/blocklist-core.js';
 import atlante from '../../server/atlante-core.js';
 import gazzetta from '../../server/gazzetta-core.js';
+import campagna from '../../server/campagna-core.js';
 import { verificaToken } from './sessione.js';
 
 const LIST_URL = 'https://nsfw.oisd.nl/abp';
@@ -86,12 +87,22 @@ export class MareDO {
     } catch { /* le notizie arriveranno al prossimo risveglio */ }
   }
 
+  // La campagna della settimana torna a bordo al risveglio del mare.
+  async caricaCampagna() {
+    try {
+      const reg = this.env.CAMPAGNE.get(this.env.CAMPAGNE.idFromName('campagne'));
+      const res = await reg.fetch('https://campagne/corrente');
+      if (res.ok) campagna.setCampagna((await res.json()).campagna);
+    } catch { /* il Mastro tornerà al prossimo risveglio */ }
+  }
+
   async pronto() {
     if (!this.prontoPromise) {
       this.prontoPromise = (async () => {
         await this.caricaBlocklist();
         await this.caricaAtlante();
         await this.caricaGazzetta();
+        await this.caricaCampagna();
         this.game = new Game((obj) => {
           const s = JSON.stringify(obj);
           for (const ws of this.equipaggio.keys()) {
@@ -214,6 +225,8 @@ export class MareDO {
       mounts: ship.mounts,
       conquered: [...(ship.conquered || [])],
       preferiti: [...(ship.preferiti || [])],
+      gazzettaLetta: ship.gazzettaLetta || 0,
+      campagna: ship.campagna || null,
       kills: ship.kills,
       deaths: ship.deaths,
     };

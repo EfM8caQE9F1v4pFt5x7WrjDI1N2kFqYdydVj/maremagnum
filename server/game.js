@@ -5,6 +5,7 @@ const W = require('./weapons');
 const { Missions } = require('./missions');
 const atlante = require('./atlante-core');
 const gazzetta = require('./gazzetta-core');
+const campagna = require('./campagna-core');
 
 const TICK = 1 / 30;          // simulazione a 30Hz
 const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
@@ -246,6 +247,17 @@ class Game {
     // la Gazzetta (issue #4): lo storico al join + il cursore dei non-letti
     ship.gazzettaLetta = Math.max(0, +p.gazzettaLetta || 0);
     this.sendTo(ship, { t: 'gazzetta', voci: gazzetta.ultime(50) });
+    // il Mastro di Rotte (issue #3): il progresso personale torna dal profilo
+    if (p.campagna && typeof p.campagna === 'object') {
+      ship.campagna = {
+        settimana: p.campagna.settimana | 0,
+        tappa: Math.max(0, p.campagna.tappa | 0),
+        fatto: Math.max(0, p.campagna.fatto | 0),
+        completata: !!p.campagna.completata,
+      };
+    }
+    const statoCampagna = this.campagnaPer(ship);
+    if (statoCampagna) this.sendTo(ship, { t: 'campagna', stato: statoCampagna });
     // il primo minuto ha UN obiettivo (issue #22): al profilo vergine la
     // missione arriva col primo attracco, non al secondo zero
     if (p.gold == null) ship.senzaMissione = true;
@@ -263,6 +275,7 @@ class Game {
       mounts: ship.mounts, conquered: [...ship.conquered],
       preferiti: [...ship.preferiti],
       gazzettaLetta: ship.gazzettaLetta || 0,
+      campagna: ship.campagna || null,
       kills: ship.kills, deaths: ship.deaths,
     };
   }
@@ -293,6 +306,45 @@ class Game {
     this.broadcast({ t: 'feed', msg: voce.testo }); // il diario, per chi c'è
     this.broadcast({ t: 'notifica', voce });        // l'albo, per chi verrà
     if (this.onGazzetta) this.onGazzetta(voce);
+  }
+
+  // Il Mastro di Rotte (issue #3): la campagna della settimana avanza sugli
+  // eventi che il Game emette già; i numeri sono del codice, mai dell'LLM.
+  campagnaPer(ship) {
+    const c = campagna.getCampagna();
+    if (!c) return null;
+    const st = ship.campagna && ship.campagna.settimana === c.settimana
+      ? ship.campagna : { tappa: 0, fatto: 0, completata: false };
+    return {
+      settimana: c.settimana, nome: c.nome, lore: c.lore, premio: c.premio,
+      tappe: c.tappe.map(t => ({ desc: t.desc, lore: t.lore, n: t.n })),
+      tappa: st.tappa, fatto: st.fatto, completata: !!st.completata,
+    };
+  }
+
+  avanzaCampagna(ship, evento) {
+    const c = campagna.getCampagna();
+    if (!c || ship.npc) return;
+    if (!ship.campagna || ship.campagna.settimana !== c.settimana) {
+      ship.campagna = { settimana: c.settimana, tappa: 0, fatto: 0, completata: false };
+    }
+    const st = ship.campagna;
+    if (st.completata || st.tappa >= c.tappe.length) return;
+    if (c.tappe[st.tappa].tipo !== evento) return;
+    st.fatto++;
+    if (st.fatto >= c.tappe[st.tappa].n) {
+      st.tappa++;
+      st.fatto = 0;
+      if (st.tappa >= c.tappe.length) {
+        st.completata = true;
+        ship.gold += c.premio;
+        this.sendGold(ship, c.premio, `Campagna "${c.nome}" compiuta!`);
+        this.annuncia('campagna', `⚔ ${ship.name} ha compiuto la campagna "${c.nome}"! (+${c.premio} 🪙)`);
+      } else {
+        this.sendTo(ship, { t: 'toast', msg: `⚔ Tappa compiuta! Ora: ${c.tappe[st.tappa].desc}` });
+      }
+    }
+    this.sendTo(ship, { t: 'campagna', stato: this.campagnaPer(ship) });
   }
 
   // --- messaggi dai client ---
@@ -414,6 +466,7 @@ class Game {
         ship.visited.add(best.id);
         ship.gold += DISCOVERY_GOLD;
         this.sendGold(ship, DISCOVERY_GOLD, 'Terra scoperta!');
+        this.avanzaCampagna(ship, 'scoperte');
       }
       this.sendTo(ship, { t: 'docked', island: publicIsland(best) });
       // Atlante comunitario: l'approdo fa crescere l'isola per tutti
@@ -814,6 +867,7 @@ class Game {
       this.sendGold(hero, FORT.conquestBounty, `Hai espugnato ${island.name}!`);
       this.sendTo(hero, { t: 'conquered', island: island.id, list: [...hero.conquered] });
       this.annuncia('espugnazione', `🏰⚔️ ${hero.name} ha ESPUGNATO ${island.name}! Il blocco è caduto.`);
+      this.avanzaCampagna(hero, 'espugnazione');
     } else {
       this.broadcast({ t: 'feed', msg: `🏰 Le difese di ${island.name} sono cadute!` });
     }
@@ -972,6 +1026,7 @@ class Game {
       killer.kills++;
       this.sendGold(killer, bounty, `Hai affondato ${ship.name}!`);
       this.missions.onKill(killer, ship);
+      if (ship.npc) this.avanzaCampagna(killer, ship.npc === 'ghost' ? 'fantasmi' : 'mercantili');
     } else if (killer && killer.npc === 'ghost') {
       killerName = killer.name;
     }

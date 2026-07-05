@@ -563,9 +563,38 @@ export class UI {
       n > 0 ? `Gazzetta del Corsaro: ${n} notizie non lette` : 'Gazzetta del Corsaro');
   }
 
-  showGazzetta(voci, lettaFino) {
+  showGazzetta(voci, lettaFino, campagna) {
     const box = $('gazzettaVoci');
     box.innerHTML = '';
+    // la campagna della settimana (issue #3): la vetrina del Mastro di Rotte
+    if (campagna) {
+      const cb = document.createElement('div');
+      cb.className = 'campagnaBox';
+      const titolo = document.createElement('h3');
+      titolo.textContent = `⚔ La campagna della settimana: «${campagna.nome}»`;
+      const lore = document.createElement('p');
+      lore.className = 'campagnaLore';
+      lore.textContent = campagna.lore || '';
+      const lista = document.createElement('ol');
+      lista.className = 'campagnaTappe';
+      campagna.tappe.forEach((t, i) => {
+        const li = document.createElement('li');
+        const fatta = campagna.completata || i < campagna.tappa;
+        const corrente = !campagna.completata && i === campagna.tappa;
+        li.className = fatta ? 'fatta' : corrente ? 'corrente' : 'futura';
+        li.textContent = (fatta ? '✓ ' : corrente ? '➤ ' : '· ') + t.desc +
+          (corrente && campagna.fatto > 0 ? ` (${campagna.fatto}/${t.n})` : '');
+        if (t.lore && (corrente || fatta)) li.title = t.lore;
+        lista.appendChild(li);
+      });
+      const premio = document.createElement('p');
+      premio.className = 'campagnaPremio';
+      premio.textContent = campagna.completata
+        ? `⭐ Compiuta! Il Mastro ti ha pagato ${campagna.premio} 🪙`
+        : `Premio del Mastro: ${campagna.premio} 🪙`;
+      cb.append(titolo, lore, lista, premio);
+      box.appendChild(cb);
+    }
     if (!voci.length) {
       const p = document.createElement('p');
       p.className = 'sub';

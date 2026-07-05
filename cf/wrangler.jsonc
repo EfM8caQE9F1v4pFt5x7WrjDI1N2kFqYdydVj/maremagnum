@@ -14,16 +14,21 @@
       { "name": "MARE", "class_name": "MareDO" },
       { "name": "CONTI", "class_name": "ContiDO" },
       { "name": "ATLANTE", "class_name": "AtlanteDO" },
-      { "name": "GAZZETTA", "class_name": "GazzettaDO" }
+      { "name": "GAZZETTA", "class_name": "GazzettaDO" },
+      { "name": "CAMPAGNE", "class_name": "CampagneDO" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["MareDO", "ContiDO"] },
     { "tag": "v2", "new_sqlite_classes": ["AtlanteDO"] },
-    { "tag": "v3", "new_sqlite_classes": ["GazzettaDO"] }
+    { "tag": "v3", "new_sqlite_classes": ["GazzettaDO"] },
+    { "tag": "v4", "new_sqlite_classes": ["CampagneDO"] }
   ],
   "r2_buckets": [
     { "binding": "DEPOSITO", "bucket_name": "maremagnum" }
   ],
+  // il Mastro di Rotte lavora il lunedì all'alba; l'AI riveste solo il lore
+  "triggers": { "crons": ["0 6 * * 1"] },
+  "ai": { "binding": "AI" },
   "observability": { "enabled": true }
 }

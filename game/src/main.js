@@ -239,7 +239,7 @@ function nonLette() {
 
 function apriGazzetta() {
   const fino = state.profile.gazzettaLetta || 0;
-  ui.showGazzetta(state.gazzetta || [], fino);
+  ui.showGazzetta(state.gazzetta || [], fino, state.campagna);
   const max = (state.gazzetta || []).reduce((a, v) => Math.max(a, v.t), fino);
   if (max > fino) {
     state.profile.gazzettaLetta = max;
@@ -524,6 +524,7 @@ function applyYou(you) {
     preferiti: you.preferiti ?? state.profile.preferiti ?? [],
     // il cursore dei non-letti: vince il più avanti fra locale e Conti
     gazzettaLetta: Math.max(you.gazzettaLetta || 0, state.profile.gazzettaLetta || 0),
+    campagna: you.campagna ?? state.profile.campagna ?? null,
     kills: you.kills ?? state.profile.kills, deaths: you.deaths ?? state.profile.deaths,
   });
   saveProfile();
@@ -689,6 +690,13 @@ function wireNet() {
   net.on('dead', (m) => { ui.showDeath(m.respawn); sfx.sink(); battleUntil = performance.now() + 3000; });
   net.on('respawned', () => { ui.hideDeath(); ui.toast('Nave riparata a nuovo. Il mare ti aspetta.'); });
   net.on('board', (m) => ui.setBoard(m.rows));
+  net.on('campagna', (m) => {
+    state.campagna = m.stato || null;
+    // se l'albo è aperto, la checklist si aggiorna sotto gli occhi
+    if (!document.getElementById('gazzettaOverlay').classList.contains('hidden')) {
+      ui.showGazzetta(state.gazzetta || [], state.profile.gazzettaLetta || 0, state.campagna);
+    }
+  });
   net.on('gazzetta', (m) => {
     state.gazzetta = Array.isArray(m.voci) ? m.voci : [];
     ui.setGazzettaBadge(nonLette());

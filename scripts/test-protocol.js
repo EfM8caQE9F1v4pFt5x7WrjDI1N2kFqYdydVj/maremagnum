@@ -450,6 +450,10 @@ async function main() {
     ok(albo && albo.voci.some(v => v.tipo === 'arrembaggio'),
       'anche l\'arrembaggio della battaglia è agli atti');
     L.send({ t: 'gazzettaLetta', fino: Date.now() }); // il cursore non fa male a nessuno
+    // il Mastro di Rotte (issue #3): la campagna della settimana arriva al join
+    const camp = await L.wait(m => m.t === 'campagna', 3000);
+    ok(camp && camp.stato && camp.stato.nome && camp.stato.tappe.length === 3 && camp.stato.tappa === 0,
+      `la campagna del Mastro arriva al join ("${camp && camp.stato.nome}", 3 tappe, da capo)`);
     ok(await A.goto(fortIsland.x, fortIsland.y, fortIsland.r + 80, 60000), 'ritorno sotto le mura');
     A.send({ t: 'dock' });
     let dockedFort = null;

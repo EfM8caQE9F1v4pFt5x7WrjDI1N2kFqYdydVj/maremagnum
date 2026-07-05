@@ -88,10 +88,19 @@ app.whenReady().then(async () => {
   await axeState('salpa-da');
   await J(`document.getElementById('salpaOverlay').classList.add('hidden')`);
 
-  // 2c. la Gazzetta del Corsaro (issue #4), in scena con voci e badge
+  // 2c. la Gazzetta del Corsaro (issue #4) con la campagna del Mastro (#3)
   await J(`(() => {
     const box = document.getElementById('gazzettaVoci');
     box.innerHTML = '';
+    const cb = document.createElement('div');
+    cb.className = 'campagnaBox';
+    cb.innerHTML = '<h3>⚔ La campagna della settimana: «Le Vele Nere»</h3>' +
+      '<p class="campagnaLore">Il mare mormora di vele ostili.</p>' +
+      '<ol class="campagnaTappe"><li class="fatta">✓ Affonda 2 Mercantili</li>' +
+      '<li class="corrente">➤ Affonda 2 Corsari Fantasma (1/2)</li>' +
+      '<li class="futura">· Espugna una Fortezza Proibita</li></ol>' +
+      '<p class="campagnaPremio">Premio del Mastro: 400 🪙</p>';
+    box.appendChild(cb);
     for (const [quando, testo, nuova] of [
       ['adesso', "🏰⚔️ Barbanera ha ESPUGNATO la Fortezza di Malware!", true],
       ['2 ore fa', '⚔ Olonese ha ABBORDATO Rackham! (+300 🪙)', false],
