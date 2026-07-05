@@ -5,6 +5,7 @@
 
 const blocklist = require('./blocklist-core');
 const atlante = require('./atlante-core');
+const { dominioBase } = require('./dominio');
 
 const WORLD = { W: 6000, H: 6000 };
 const PORT = { x: WORLD.W / 2, y: WORLD.H / 2 };
@@ -60,16 +61,18 @@ function parseCourse(q) {
   if (/^https?:\/\//i.test(q)) {
     try {
       const url = new URL(q);
-      return { domain: url.hostname.toLowerCase().replace(/^www\./, ''), url: url.href };
+      // l'ISOLA è il dominio registrabile (#26); la rotta resta profonda:
+      // si salpa verso wikipedia.org, all'attracco si apre l'URL digitato
+      return { domain: dominioBase(url.hostname), url: url.href };
     } catch { return null; }
   }
   if (!q.includes('.') || /\s/.test(q)) {
     // Testo libero: rotta per il Faro dell'Oracolo (il motore di ricerca).
     return { search: true, domain: null, url: 'https://duckduckgo.com/?q=' + encodeURIComponent(q) };
   }
-  const domain = q.toLowerCase().replace(/^www\./, '').split('/')[0];
-  if (!/^[a-z0-9.-]+$/.test(domain)) return null;
-  return { domain, url: 'https://' + q };
+  const host = q.toLowerCase().split('/')[0];
+  if (!/^[a-z0-9.-]+$/.test(host)) return null;
+  return { domain: dominioBase(host), url: 'https://' + q };
 }
 
 // Knob per i test end-to-end: fortezze di cartapesta (WEAK_FORTS=1).
@@ -102,6 +105,7 @@ class Archipelago {
   // Crea (o restituisce) l'isola di un dominio. Posizione deterministica dal
   // nome, con spostamenti in caso di sovrapposizione con isole esistenti.
   ensure(domain) {
+    domain = dominioBase(domain); // difesa: chiavi vecchie coi sottodomini (#26)
     if (this.islands.has(domain)) return { island: this.islands.get(domain), isNew: false };
     const fortress = blocklist.isBlocked(domain);
     const seed = hashStr(domain);

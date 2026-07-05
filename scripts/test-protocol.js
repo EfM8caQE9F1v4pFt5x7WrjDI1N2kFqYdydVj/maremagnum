@@ -234,6 +234,12 @@ async function main() {
     A.send({ t: 'course', q: 'wikipedia.org' });
     let c = await A.wait(m => m.t === 'course');
     ok(c && c.ok && c.island.id === 'wikipedia.org', 'rotta per wikipedia.org');
+    // un sito, un'isola (issue #26): il sottodominio non fa doppioni,
+    // ma la rotta resta profonda
+    A.send({ t: 'course', q: 'https://it.wikipedia.org/wiki/Isola' });
+    c = await A.wait(m => m.t === 'course');
+    ok(c && c.ok && c.island.id === 'wikipedia.org' && c.url === 'https://it.wikipedia.org/wiki/Isola',
+      "it.wikipedia.org è la STESSA isola, e all'attracco si aprirà la pagina digitata");
     A.send({ t: 'course', q: 'pornhub.com' });
     c = await A.wait(m => m.t === 'course');
     ok(c && c.ok && c.island.fortress === true, 'dominio nella blocklist oisd → fortezza');

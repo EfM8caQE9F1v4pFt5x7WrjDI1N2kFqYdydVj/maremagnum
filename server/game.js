@@ -231,7 +231,7 @@ class Game {
     if (typeof msg.spawn === 'string' && DOMINIO_OK.test(msg.spawn)) {
       const dominio = msg.spawn.toLowerCase();
       const { island } = this.archipelago.ensure(dominio);
-      if (!island.fortress || ship.conquered.has(dominio)) {
+      if (!island.fortress || ship.conquered.has(island.domain)) {
         const a = Math.random() * Math.PI * 2;
         ship.x = island.x + Math.cos(a) * (island.r + 100);
         ship.y = island.y + Math.sin(a) * (island.r + 100);

@@ -5,17 +5,29 @@
 // più il Maremagnum attracca a un dominio, più la sua isola cresce.
 // Niente telemetria di navigazione: contiamo un gesto di gioco.
 
-let conteggi = new Map(); // dominio → approdi totali
+const { dominioBase } = require('./dominio');
+
+let conteggi = new Map(); // dominio (registrabile) → approdi totali
+
+// le chiavi storiche coi sottodomini (it.wikipedia.org…) si FONDONO nel
+// dominio registrabile sommando gli approdi (#26): un sito, un'isola
+function canonizza(obj) {
+  const fusi = new Map();
+  for (const [d, n] of Object.entries(obj || {})) {
+    const dom = dominioBase(d);
+    fusi.set(dom, (fusi.get(dom) || 0) + (n | 0));
+  }
+  return fusi;
+}
 
 function setConteggi(obj) {
-  conteggi = new Map(Object.entries(obj || {}));
+  conteggi = canonizza(obj);
 }
 
 // Fusione al rialzo: i conteggi possono solo crescere, quindi tra locale e
 // remoto vince il più alto — nessun approdo registrato nel frattempo va perso.
 function mergeConteggi(obj) {
-  for (const [d, n] of Object.entries(obj || {})) {
-    const dom = String(d).toLowerCase();
+  for (const [dom, n] of canonizza(obj)) {
     if ((conteggi.get(dom) || 0) < n) conteggi.set(dom, n);
   }
 }
@@ -32,14 +44,14 @@ function sopraSoglia(min = 3) {
 
 function registraApprodo(dominio) {
   if (!dominio) return 0;
-  const d = String(dominio).toLowerCase();
+  const d = dominioBase(dominio);
   const n = (conteggi.get(d) || 0) + 1;
   conteggi.set(d, n);
   return n;
 }
 
 function approdiDi(dominio) {
-  return conteggi.get(String(dominio || '').toLowerCase()) || 0;
+  return conteggi.get(dominioBase(dominio)) || 0;
 }
 
 // Fattore di crescita dell'isola: logaritmico e con un tetto, così Wikipedia
