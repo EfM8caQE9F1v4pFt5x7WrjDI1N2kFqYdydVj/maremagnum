@@ -56,6 +56,15 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 | #28 | Il modello economico (faucet/sink, denaro vero, Stripe, VAT) | Blocca Stripe in #25 v2 e #1 |
 | #1 | Editor dell'Isola (riscatto a pagamento) | Richiede #12 (persistenza ✓); può essere ANTICIPATA per decisione di business |
 
+## Il restyle (issue #32, prossimo giro dopo /clear)
+
+Lavoro trasversale su TUTTA la piattaforma, da spezzare in tappe:
+1. **Design token unico** — `:root` + ponte CSS↔canvas (oggi 44 hex + 30 rgba in CSS, ~98 colori nel canvas, ZERO custom property).
+2. **Audit estetico totale** — 41 bottoni, 13 modali: uniformare in componenti coerenti, a11y verde.
+3. **UX/UI più moderna** — gerarchia/densità/ritmo, senza tradire l'anima Monkey Island.
+4. **Font Atkinson Hyperlegible Next** al posto di Georgia (TENERE Pirata One estetico); self-host woff2, anche i Text di PixiJS.
+5. **README completo** — meccaniche + tecnologia, tutta la piattaforma.
+
 ## Le ispirazioni (registrate 2026-07-05, da approfondire — MAI sviluppare senza conferma)
 
 - **Sid Meier's Pirates! (2004)** → battaglie navali (**#29**); attinge anche il PvE.
