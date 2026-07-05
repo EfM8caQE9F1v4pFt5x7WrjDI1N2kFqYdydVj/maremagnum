@@ -250,7 +250,10 @@ export class UI {
     const bar = $('hpBar');
     const frac = Math.max(0, Math.min(1, hp / maxHp));
     bar.style.width = (frac * 100) + '%';
-    bar.style.background = frac > 0.35 ? 'linear-gradient(#6cd072,#3d9944)' : 'linear-gradient(#e8783f,#b23a1a)';
+    // tre soglie (#19): il giallo avvisa quando c'è ancora tempo per scappare
+    bar.style.background = frac > 0.6 ? 'linear-gradient(#6cd072,#3d9944)'
+      : frac > 0.35 ? 'linear-gradient(#e5c34a,#b98f22)'
+        : 'linear-gradient(#e8783f,#b23a1a)';
     const v = Math.ceil(hp);
     if (v !== this._hpDetto) {
       this._hpDetto = v;

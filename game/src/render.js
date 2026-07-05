@@ -30,7 +30,7 @@ const COL = {
   sail: 0xe9ddc0, sailGhost: 0x93a7b1, sailMerc: 0xcfc9ba,
   stone: 0x7d7d74, stoneDark: 0x4a4a42, banner: 0x96301f,
   gold: 0xe8c268, route: 0xf2d387, mirror: 0xf2dc94,
-  hpOk: 0x54c05a, hpBad: 0xd8552e, hpBg: 0x1a1a1a,
+  hpOk: 0x54c05a, hpMid: 0xd7a83c, hpBad: 0xd8552e, hpBg: 0x1a1a1a,
 };
 
 export class Renderer {
@@ -802,7 +802,9 @@ export class Renderer {
       if (!s.sunk && s.hp < s.maxHp) {
         const w = 44, frac = clamp(s.hp / s.maxHp, 0, 1);
         c.hpBar.rect(-w / 2, -28, w, 5).fill({ color: COL.hpBg, alpha: 0.7 });
-        c.hpBar.rect(-w / 2, -28, w * frac, 5).fill(frac > 0.35 ? COL.hpOk : COL.hpBad);
+        // tre soglie come nell'HUD: il giallo avvisa PRIMA che sia tardi (#19)
+        c.hpBar.rect(-w / 2, -28, w * frac, 5)
+          .fill(frac > 0.6 ? COL.hpOk : frac > 0.35 ? COL.hpMid : COL.hpBad);
       }
       if (!s.sunk && !s.docked && s.vel > 30 && Math.random() < 0.6) {
         this.wakes.push({

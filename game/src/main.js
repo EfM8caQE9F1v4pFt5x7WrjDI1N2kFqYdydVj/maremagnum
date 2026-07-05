@@ -489,6 +489,22 @@ function wireNet() {
     if (state.snaps.length > 10) state.snaps.shift();
     for (const f of m.forts) renderer.updateFort(f.i, f.d);
     renderer.updateSmokes(m.sm);
+    // il colpo si SENTE: scossone e lampo rosso quando lo scafo incassa;
+    // Mare calmo li spegne (issue #19, rilievo F9 dell'audit)
+    const io = ships.get(state.meId);
+    if (io) {
+      if (state._hpPrima != null && io.hp < state._hpPrima && !io.sunk) {
+        engage(8000);
+        if (!state.profile.calmaOn) {
+          renderer.addShake(Math.min(10, (state._hpPrima - io.hp) * 0.4 + 3));
+          const fl = document.getElementById('dannoFlash');
+          fl.classList.add('acceso');
+          clearTimeout(state._flashT);
+          state._flashT = setTimeout(() => fl.classList.remove('acceso'), 220);
+        }
+      }
+      state._hpPrima = io.sunk ? null : io.hp;
+    }
   });
 
   net.on('abilita', (m) => {

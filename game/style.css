@@ -110,11 +110,23 @@ button:disabled { opacity: .45; cursor: default; }
   padding: 6px 12px; font-size: 13px; transition: opacity 1.2s; max-width: 380px;
 }
 .feedItem.fading { opacity: 0; }
+/* il toast vive in BASSO al centro (sopra la legenda): mai più impilato
+   con l'annuncio d'assedio, che resta l'unico padrone del centro-alto
+   (issue #19, rilievo F8 dell'audit) */
 #toast {
-  position: fixed; top: 110px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
   background: rgba(26,16,7,.9); border: 2px solid #e8c268; border-radius: 18px;
   padding: 9px 20px; font-size: 15px; z-index: 40; text-align: center; max-width: 70vw;
 }
+
+/* il colpo si sente: lampo rosso ai bordi quando lo scafo incassa
+   (Mare calmo lo spegne — issue #19, rilievo F9) */
+#dannoFlash {
+  position: fixed; inset: 0; z-index: 15; pointer-events: none; opacity: 0;
+  box-shadow: inset 0 0 140px 55px rgba(178, 30, 10, 0.62);
+  transition: opacity .45s;
+}
+#dannoFlash.acceso { opacity: 1; transition: opacity .06s; }
 
 /* ---- classifica ---- */
 #board {
