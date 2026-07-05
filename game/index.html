@@ -18,14 +18,14 @@
 <header id="topbar">
   <div id="brand">⚓ Mare<span>magnum</span></div>
   <form id="courseForm">
-    <input id="courseInput" aria-label="Traccia la rotta: indirizzo di un sito o una ricerca" placeholder="Dove facciamo rotta, capitano? (wikipedia.org — o una ricerca)" autocomplete="off" spellcheck="false">
-    <button type="submit">🧭 Traccia la rotta</button>
+    <input id="courseInput" data-i18n-aria="course.aria" data-i18n-ph="course.ph" aria-label="Traccia la rotta: indirizzo di un sito o una ricerca" placeholder="Dove facciamo rotta, capitano? (wikipedia.org — o una ricerca)" autocomplete="off" spellcheck="false">
+    <button type="submit" data-i18n="course.submit">🧭 Traccia la rotta</button>
   </form>
-  <div id="gold">🪙 <span class="visuallyhidden">monete d'oro: </span><b id="goldVal">0</b></div>
-  <button id="gazzettaBtn" aria-label="Gazzetta del Corsaro" title="La Gazzetta del Corsaro — le notizie del mare">🗞<span id="gazzettaBadge" class="hidden" aria-hidden="true"></span></button>
-  <button id="registroBtn" aria-label="Registro delle Collezioni" title="Il Registro delle Collezioni — ciò che hai conquistato">🏆</button>
-  <button id="helpBtn" aria-label="Manuale del Corsaro" title="Il Manuale del Corsaro — come funziona Maremagnum">📜</button>
-  <button id="settingsBtn" aria-label="Impostazioni di bordo" title="Impostazioni di bordo">⚙</button>
+  <div id="gold">🪙 <span class="visuallyhidden" data-i18n="gold.aria">monete d'oro: </span><b id="goldVal">0</b></div>
+  <button id="gazzettaBtn" data-i18n-aria="gazzetta.aria" data-i18n-title="gazzetta.title" aria-label="Gazzetta del Corsaro" title="La Gazzetta del Corsaro — le notizie del mare">🗞<span id="gazzettaBadge" class="hidden" aria-hidden="true"></span></button>
+  <button id="registroBtn" data-i18n-aria="registro.aria" data-i18n-title="registro.title" aria-label="Registro delle Collezioni" title="Il Registro delle Collezioni — ciò che hai conquistato">🏆</button>
+  <button id="helpBtn" data-i18n-aria="help.aria" data-i18n-title="help.title" aria-label="Manuale del Corsaro" title="Il Manuale del Corsaro — come funziona Maremagnum">📜</button>
+  <button id="settingsBtn" data-i18n-aria="settings.aria" data-i18n-title="settings.title" aria-label="Impostazioni di bordo" title="Impostazioni di bordo">⚙</button>
 </header>
 
 <div id="dockbar" class="hidden">
@@ -34,7 +34,7 @@
     <button id="navBack" aria-label="Indietro nel sito" title="Indietro">←</button><button id="navFwd" aria-label="Avanti nel sito" title="Avanti">→</button><button id="navReload" aria-label="Ricarica il sito" title="Ricarica">↺</button>
   </span>
   <span id="dockUrl"></span>
-  <span id="guardInfo" title="Parassiti respinti dalla Ciurma di Guardia (tracker e pubblicità bloccati)">🛡 0</span>
+  <span id="guardInfo" data-i18n-title="guard.title" title="Parassiti respinti dalla Ciurma di Guardia (tracker e pubblicità bloccati)">🛡 0</span>
   <button id="favBtn" aria-label="Segna come approdo preferito" aria-pressed="false" title="Approdo preferito: al prossimo varo potrai salpare da qui">☆</button>
   <button id="openExt" aria-label="Apri il sito nel browser di sistema" title="Apri nel browser di sistema">🗗</button>
   <button id="setSailBtn">⛵ Salpa</button>
@@ -145,6 +145,8 @@
 <div id="settingsOverlay" class="overlay hidden">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloImpostazioni">
     <h2 id="titoloImpostazioni">⚙ Impostazioni di bordo</h2>
+    <div class="setRow vol"><label for="setLang">🌐 Lingua / Language</label>
+      <select id="setLang"><option value="it">Italiano</option><option value="en">English</option></select></div>
     <label class="setRow"><input type="checkbox" id="setMusic" checked> 🎵 Musica del mare</label>
     <label class="setRow"><input type="checkbox" id="setSfx" checked> 🔊 Effetti sonori</label>
     <label class="setRow"><input type="checkbox" id="setGuard" checked> 🛡 Ciurma di Guardia — respinge spie e pubblicità</label>

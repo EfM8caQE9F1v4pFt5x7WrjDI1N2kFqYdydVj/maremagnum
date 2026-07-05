@@ -10,6 +10,8 @@ import { sfx } from './audio.js';
 import { music } from './music.js';
 import { lerp, anglerp, pirateName } from './util.js';
 import QRCode from 'qrcode';
+import { initLang, applyI18n, setLang, getLang, onLang } from './i18n.js';
+import './dict.js'; // registra le stringhe estratte (issue #33)
 
 const INTERP_DELAY = 120; // ms nel passato: si naviga fra due snapshot certi
 const GROUPS = ['left', 'right', 'bow', 'stern'];
@@ -112,7 +114,20 @@ let renderer, minimap, ui;
 let battleUntil = 0;
 const engage = (ms = 8000) => { battleUntil = Math.max(battleUntil, performance.now() + ms); };
 
+// il selettore lingua (issue #33): riflette la lingua corrente, la cambia a
+// runtime e la ricorda nel profilo (come le altre preferenze di bordo)
+function bindLang() {
+  const sel = document.getElementById('setLang');
+  if (!sel) return;
+  sel.value = getLang();
+  sel.addEventListener('change', () => setLang(sel.value));
+  onLang((l) => { sel.value = l; state.profile.lang = l; saveProfile(); });
+}
+
 async function boot() {
+  initLang(state.profile.lang);
+  applyI18n();
+  bindLang();
   renderer = new Renderer();
   await renderer.init(document.getElementById('stage'));
   initZoom();

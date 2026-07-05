@@ -232,7 +232,7 @@ app.whenReady().then(async () => {
     f[f.length - 1].focus();
   })()`);
   await tasto('Tab', 'Tab');
-  ok(await game.executeJavaScript(`document.querySelector('#settingsOverlay .panel').contains(document.activeElement) && document.activeElement.id === 'setMusic'`),
+  ok(await game.executeJavaScript(`document.querySelector('#settingsOverlay .panel').contains(document.activeElement) && document.activeElement.id === 'setLang'`),
     'Tab dall\'ultimo controllo torna al primo: giro, non trappola (2.1.2)');
   await tasto('Escape', 'Escape');
   await sleep(200);

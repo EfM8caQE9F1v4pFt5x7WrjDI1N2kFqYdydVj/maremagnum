@@ -24,7 +24,7 @@ async function main() {
   await new Promise(r => setTimeout(r, 2500));
 
   const el = spawn(require('electron'), [path.join(__dirname, 'test-a11y-main.js'), '--ozone-platform=wayland', '--disable-gpu'], {
-    env: { ...process.env, A11Y_PORT: PORT, GAME_URL: `http://localhost:${PORT}/?ora=0.25&spia=1&reset=1` },
+    env: { ...process.env, A11Y_PORT: PORT, GAME_URL: `http://localhost:${PORT}/?ora=0.25&spia=1&reset=1&lang=it` },
   });
   el.stdout.on('data', d => process.stdout.write(d));
   el.stderr.on('data', () => {});
