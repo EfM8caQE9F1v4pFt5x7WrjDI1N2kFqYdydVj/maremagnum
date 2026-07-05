@@ -10,12 +10,13 @@ const { Game } = require('../server/game');
 
 const ok = (m) => console.log(`  ✅ ${m}`);
 
-// 1) crescita: 0 approdi = 1×, tanti approdi = più grande, con tetto
+// 1) crescita: 0 approdi = 1×, ogni scatto costa il TRIPLO delle visite del
+//    precedente (issue #26bis), con tetto a 3×
 assert.strictEqual(atlante.crescita('mai-visto.it'), 1);
-atlante.setConteggi({ 'famoso.it': 1000, 'noto.it': 10 });
-assert(atlante.crescita('noto.it') > 1.4 && atlante.crescita('noto.it') < 1.7);
-assert(atlante.crescita('famoso.it') > 2.4 && atlante.crescita('famoso.it') <= 2.5);
-ok('crescita logaritmica con tetto (10 approdi ~1.5×, 1000 ~2.5×)');
+atlante.setConteggi({ 'famoso.it': 100000, 'noto.it': 10 });
+assert(atlante.crescita('noto.it') > 1.25 && atlante.crescita('noto.it') < 1.35, `noto ~1.3, ha ${atlante.crescita('noto.it')}`);
+assert(atlante.crescita('famoso.it') === 3, `famoso al tetto 3×, ha ${atlante.crescita('famoso.it')}`);
+ok('crescita ×3 per scatto con tetto 3× (10 approdi ~1.3×, enorme → 3×)');
 
 // 2) un'isola famosa nasce più grande di una sconosciuta (stesso seme di base)
 const game = new Game(() => {});
@@ -46,14 +47,15 @@ game.dock(ship);
 assert.strictEqual(registrato, null, 'il porto non deve finire nell\'Atlante');
 ok('il Porto Franco resta fuori dall\'Atlante');
 
-// 5) la semina al risveglio (issue #12): il Game rinasce e le mete condivise
-//    (≥3 approdi) rinascono con lui, in posizioni stabili; sotto soglia no
-atlante.setConteggi({ 'famoso.it': 1000, 'noto.it': 10, 'timido.it': 2 });
+// 5) la semina al risveglio (issue #12/#26bis): il Game rinasce e le mete
+//    condivise (≥ soglia 20) rinascono con lui, in posizioni stabili; sotto
+//    soglia no (isole effimere, le vede solo chi ci naviga)
+atlante.setConteggi({ 'famoso.it': 1000, 'noto.it': 30, 'timido.it': 10 });
 const rinato = new Game(() => {});
 rinato.pausa();
 assert(rinato.archipelago.get('famoso.it'), 'famoso.it non riseminata al risveglio');
-assert(rinato.archipelago.get('noto.it'), 'noto.it non riseminata al risveglio');
-assert(!rinato.archipelago.get('timido.it'), 'sotto soglia (<3) non deve nascere');
+assert(rinato.archipelago.get('noto.it'), 'noto.it (30 approdi) non riseminata al risveglio');
+assert(!rinato.archipelago.get('timido.it'), 'sotto soglia (10 < 20) non deve nascere');
 const ancora = new Game(() => {});
 ancora.pausa();
 for (const d of ['famoso.it', 'noto.it']) {
@@ -71,7 +73,7 @@ prima.pausa();
 prima.onApprodo = (d) => atlante.registraApprodo(d); // stesso aggancio del MareDO
 const { island: meta } = prima.archipelago.ensure('meta-condivisa.it');
 const capitano = prima.join(conn, { t: 'join', name: 'Pioniere', profile: {} });
-for (let i = 0; i < 3; i++) {
+for (let i = 0; i < 20; i++) { // servono 20 approdi perché diventi isola stabile
   capitano.x = meta.x; capitano.y = meta.y + meta.r + 30; capitano.vel = 0;
   prima.dock(capitano);
   assert.strictEqual(capitano.docked, 'meta-condivisa.it', `approdo ${i + 1} fallito`);
@@ -87,15 +89,16 @@ assert(welcome2 && welcome2.islands.some(i => i.id === 'meta-condivisa.it'),
   'il secondo giocatore non vede l\'isola nel welcome');
 ok('approdo ×3 → riavvio del Game → l\'isola resta e il secondo giocatore la vede');
 
-// 7) il cap della semina: mai più di 150 isole riseminate d'un colpo
+// 7) il cap della semina: mai più di 150 isole riseminate d'un colpo (le
+//    isole di partenza T0 rientrano nel conto)
 const tanti = {};
-for (let i = 0; i < 160; i++) tanti[`dominio-${String(i).padStart(3, '0')}.it`] = 3 + (i % 7);
+for (let i = 0; i < 160; i++) tanti[`dominio-${String(i).padStart(3, '0')}.it`] = 20 + (i % 7);
 atlante.setConteggi(tanti);
 const affollato = new Game(() => {});
 affollato.pausa();
 const seminate = affollato.archipelago.list().filter(i => i.kind === 'site').length;
 assert(seminate === 150, `attese 150 isole seminate, trovate ${seminate}`);
-ok('la semina rispetta il cap (150 su 160 sopra soglia)');
+ok('la semina rispetta il cap (150, T0 + sopra soglia)');
 
 // 8) fusione al rialzo: il merge non perde gli approdi locali più freschi
 atlante.setConteggi({ 'viva.it': 5 });

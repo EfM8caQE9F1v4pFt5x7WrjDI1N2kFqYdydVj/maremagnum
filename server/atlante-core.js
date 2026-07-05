@@ -32,10 +32,16 @@ function mergeConteggi(obj) {
   }
 }
 
+// Quante visite perché un sito diventi un'isola STABILE e condivisa (issue
+// #26bis): sotto soglia è effimera (la vede solo chi ci naviga), sopra
+// entra nella mappa di tutti ed è riseminata al risveglio. Alzata a 20 per
+// non riempire il mare di doppioni e siti di passaggio.
+const SOGLIA_ISOLA = 20;
+
 // I domini sopra soglia in ORDINE STABILE (approdi decrescenti, spareggio
 // alfabetico): la risoluzione delle sovrapposizioni in ensure() dipende
 // dall'ordine, e le isole non devono saltellare tra un risveglio e l'altro.
-function sopraSoglia(min = 3) {
+function sopraSoglia(min = SOGLIA_ISOLA) {
   return [...conteggi]
     .filter(([, n]) => n >= min)
     .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
@@ -54,11 +60,14 @@ function approdiDi(dominio) {
   return conteggi.get(dominioBase(dominio)) || 0;
 }
 
-// Fattore di crescita dell'isola: logaritmico e con un tetto, così Wikipedia
-// non diventa un continente. 0 approdi → 1×; 10 → ~1.5×; 1000 → ~2.5× (cap).
+// Fattore di crescita dell'isola (issue #26bis): ogni SCATTO di raggio costa
+// il TRIPLO delle visite del precedente — le isole popolari crescono, ma
+// sempre più a fatica (meritocratico, mai un continente). Ancorata a 10
+// approdi = 1.3×: 10→1.3, 30→1.6, 90→1.9, 270→2.2, 810→2.5, poi tetto 3×.
 function crescita(dominio) {
   const n = approdiDi(dominio);
-  return Math.min(2.5, 1 + Math.log10(1 + n) * 0.5);
+  const m = 1 + 0.3 * (1 + Math.log(Math.max(1, n) / 10) / Math.log(3));
+  return Math.min(3.0, Math.max(1.0, m));
 }
 
-module.exports = { setConteggi, mergeConteggi, registraApprodo, approdiDi, crescita, sopraSoglia };
+module.exports = { setConteggi, mergeConteggi, registraApprodo, approdiDi, crescita, sopraSoglia, SOGLIA_ISOLA };

@@ -76,7 +76,7 @@ class Player {
 async function main() {
   console.log('— Avvio server di test (WEAK_FORTS) —');
   const server = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
-    env: { ...process.env, PORT, WEAK_FORTS: '1', DEV_UID_OK: '1', OG_FINTO: '1' }, stdio: 'ignore',
+    env: { ...process.env, PORT, WEAK_FORTS: '1', DEV_UID_OK: '1', OG_FINTO: '1', SENZA_T0: '1' }, stdio: 'ignore',
   });
   for (let i = 0; i < 40; i++) {
     try { const r = await fetch(`http://localhost:${PORT}/health`); if (r.ok) break; } catch { /* riprova */ }
@@ -270,6 +270,24 @@ async function main() {
     ok(speronato, `speronato: il bersaglio incassa la prua (${eShip() && eShip().hp}/100)`);
     ok(speronato && D.me() && D.me().hp <= 76, `lo speronatore paga il pegno di legno (${D.me() && D.me().hp}/85)`);
     D.ws.close(); E.ws.close();
+
+    console.log('— Isole effimere sotto soglia (issue #26bis) —');
+    // chi naviga verso un sito nuovo lo vede (arriva nella risposta course),
+    // ma resta affar suo: non affolla la mappa degli altri finché non è meta
+    // condivisa (≥20 approdi). Anti-esplosione.
+    const N1 = new Player('Esploratore', { gold: 100 });
+    await N1.join();
+    N1.send({ t: 'course', q: 'sito-mai-visto-xyz.example' });
+    const rottaN = await N1.wait(m => m.t === 'course' && m.ok, 4000);
+    ok(rottaN && rottaN.island.domain === 'sito-mai-visto-xyz.example',
+      'chi traccia la rotta riceve l\'isola effimera nella risposta course');
+    const N2 = new Player('Nuovo Arrivato', { gold: 100 });
+    await N2.join();
+    ok(!N2.welcome.islands.some(i => i.domain === 'sito-mai-visto-xyz.example'),
+      'un sito sotto soglia NON affolla il welcome di un altro capitano');
+    ok(N2.welcome.islands.every(i => i.kind !== 'site' || i.domain),
+      'la mappa condivisa porta solo isole con un dominio valido');
+    N1.ws.close(); N2.ws.close();
 
     console.log('— La flotta cresce (issue #11): Sciabecco e matrice del legno —');
     // il quarto tipo: vele latine, Falconetto di casa, Colpo di Vento

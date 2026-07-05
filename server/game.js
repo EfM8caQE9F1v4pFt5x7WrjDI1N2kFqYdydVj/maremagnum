@@ -1,6 +1,7 @@
 'use strict';
 
 const { WORLD, PORT, FORT, parseCourse, Archipelago, publicIsland } = require('./world');
+const { dominioBase } = require('./dominio');
 const W = require('./weapons');
 const { Missions } = require('./missions');
 const atlante = require('./atlante-core');
@@ -33,6 +34,8 @@ const OG_FINTO = !!(typeof process !== 'undefined' ? process.env.OG_FINTO : unde
 
 // Legge la home del sito per l'anteprima: timeout stretto, solo HTML,
 // solo l'inizio (i meta stanno in <head>).
+const UA_MARE = 'Maremagnum/1.0 (+https://maremagnum.maremagnum.workers.dev)';
+
 async function leggiSito(dominio) {
   if (OG_FINTO) {
     return `<html><head><title>Finto</title>
@@ -41,16 +44,47 @@ async function leggiSito(dominio) {
       <meta property="og:image" content="https://finto.example/anteprima.png"/>
       </head></html>`;
   }
+  // molti siti servono i meta solo su www: se la nuda fallisce, si riprova
+  for (const host of [dominio, 'www.' + dominio]) {
+    try {
+      const r = await fetch('https://' + host + '/', {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(6500),
+        headers: { 'user-agent': UA_MARE, accept: 'text/html' },
+      });
+      if (r.ok && /text\/html/.test(r.headers.get('content-type') || '')) {
+        return (await r.text()).slice(0, 200000);
+      }
+    } catch { /* prova la variante, poi si arrende */ }
+    if (dominio.startsWith('www.')) break; // già www: niente doppioni
+  }
+  throw new Error('niente html');
+}
+
+// Segue i redirect per trovare l'identità canonica di un dominio: dove
+// atterra la home (eTLD+1 finale). wikipedia.com → wikipedia.org. Se non
+// redirige altrove (o la rete tace), resta il dominio di partenza.
+async function risolviRedirect(dominio) {
   const r = await fetch('https://' + dominio + '/', {
     redirect: 'follow',
-    signal: AbortSignal.timeout(6000),
-    headers: { 'user-agent': 'Maremagnum/1.0 (+https://maremagnum.maremagnum.workers.dev)', accept: 'text/html' },
+    signal: AbortSignal.timeout(4000),
+    headers: { 'user-agent': UA_MARE, accept: 'text/html' },
   });
-  if (!r.ok || !/text\/html/.test(r.headers.get('content-type') || '')) throw new Error('niente html');
-  return (await r.text()).slice(0, 200000);
+  const finale = dominioBase(new URL(r.url).hostname);
+  return finale || dominio;
 }
 
 const GROUP_DIR = { left: -Math.PI / 2, right: Math.PI / 2, bow: 0, stern: Math.PI };
+
+// Le isole di partenza (issue #26bis): esistono dal T0, sempre visibili,
+// anche a zero approdi — la mappa non nasce vuota. Elenco curato (il
+// capitano lo rifinisce). I domini vanno in forma registrabile (eTLD+1).
+// SENZA_T0=1 lascia il mare spoglio: i test end-to-end usano un autopilota
+// ingenuo che si impiglia tra troppe isole.
+const ISOLE_T0 = (typeof process !== 'undefined' && process.env.SENZA_T0) ? [] : [
+  'wikipedia.org', 'github.com', 'youtube.com', 'reddit.com',
+  'openstreetmap.org', 'archive.org',
+];
 
 // Le linee di punti nave in vendita al Cantiere: stat pubblica → campo della nave.
 const SHIP_LINES = { hull: 'hullLvl', sails: 'sailsLvl', helm: 'helmLvl', crew: 'crewLvl', hold: 'holdLvl' };
@@ -134,6 +168,8 @@ class Game {
     this.smokes = [];
     this.cartelloni = new Map(); // dominio → { og, at }: la cache dei Cartelloni (issue #27)
     this.cartelloniInCorso = new Map(); // dominio → Promise: un fetch solo per dominio
+    this.canonico = new Map(); // dominio digitato → dominio canonico (redirect, issue #26bis)
+    this.canonicoInCorso = new Map(); // una risoluzione sola per dominio
     this.nextId = 1;
     this.nextShotId = 1;
     this.now = Date.now() / 1000;
@@ -148,14 +184,25 @@ class Game {
 
   stop() { clearInterval(this.timer); clearInterval(this.boardTimer); }
 
-  // Al risveglio il mare si ricorda delle sue isole: le mete condivise
-  // dell'Atlante (≥3 approdi) rinascono senza aspettare una nuova rotta,
-  // con un tetto per non affollare la mappa prima dell'espansione del mondo.
+  // Al risveglio il mare si ricorda delle sue isole: le isole di partenza
+  // (T0) e le mete condivise dell'Atlante (≥ soglia) rinascono senza
+  // aspettare una nuova rotta, con un tetto per non affollare la mappa.
   semina(cap = 150) {
-    for (const dominio of atlante.sopraSoglia().slice(0, cap)) {
+    const domini = [...new Set([...ISOLE_T0, ...atlante.sopraSoglia()])].slice(0, cap);
+    for (const dominio of domini) {
       const { island, isNew } = this.archipelago.ensure(dominio);
       if (isNew) this.broadcastIsland(island);
     }
+  }
+
+  // Un'isola è STABILE (visibile a tutti, riseminata) se è fissa (Porto,
+  // Faro), di partenza (T0), o ha raccolto abbastanza approdi (issue #26bis).
+  // Le altre sono effimere: le vede solo chi ci naviga, spariscono al sonno.
+  stabile(island) {
+    if (!island) return false;
+    if (island.kind !== 'site') return true;
+    if (ISOLE_T0.includes(island.domain)) return true;
+    return atlante.approdiDi(island.domain) >= atlante.SOGLIA_ISOLA;
   }
 
   // --- navi ---
@@ -270,6 +317,7 @@ class Game {
     ship.hp = shipStats(ship).maxHp;
     // la scelta del punto di partenza (issue #13, campo ADDITIVO nel join):
     // isola esistente o seminata al volo, mai una fortezza non conquistata
+    let isolaSpawn = null;
     if (typeof msg.spawn === 'string' && DOMINIO_OK.test(msg.spawn)) {
       const dominio = msg.spawn.toLowerCase();
       const { island } = this.archipelago.ensure(dominio);
@@ -278,12 +326,17 @@ class Game {
         ship.x = island.x + Math.cos(a) * (island.r + 100);
         ship.y = island.y + Math.sin(a) * (island.r + 100);
         ship.rot = a;
+        isolaSpawn = island; // la si mostra a chi ci parte, anche se sotto soglia
       }
     }
     this.ships.set(id, ship);
+    // la mappa condivisa: solo le isole STABILI (issue #26bis); i siti di
+    // passaggio sotto soglia restano affar di chi ci naviga — ma l'isola su
+    // cui si spawna la si vede comunque, sennò si parte nel vuoto
+    const mappa = this.archipelago.list().filter(i => this.stabile(i) || i === isolaSpawn);
     this.sendTo(ship, {
       t: 'welcome', id, world: WORLD, port: PORT,
-      islands: this.archipelago.list().map(publicIsland),
+      islands: mappa.map(publicIsland),
       you: this.youFor(ship),
       arsenal: W.publicConfig(),
       livree: livree.publicCatalogo(),
@@ -551,7 +604,7 @@ class Game {
         for (const k of ['up', 'down', 'left', 'right']) ship.input[k] = !!msg[k];
         break;
       case 'fire': this.fire(ship, msg.group); break;
-      case 'course': this.setCourse(ship, msg.q); break;
+      case 'course': this.setCourse(ship, msg.q).catch(() => { /* la rotta si può ritracciare */ }); break;
       case 'dock': this.dock(ship); break;
       case 'preferisci': this.preferisci(ship, msg); break;
       case 'gazzettaLetta': ship.gazzettaLetta = Math.max(ship.gazzettaLetta || 0, +msg.fino || 0); break;
@@ -574,18 +627,42 @@ class Game {
     }
   }
 
-  setCourse(ship, q) {
+  async setCourse(ship, q) {
     const parsed = parseCourse(q);
     if (!parsed) { this.sendTo(ship, { t: 'course', ok: false, error: 'Rotta illeggibile, corsaro.' }); return; }
     let island, isNew = false;
     if (parsed.search) {
       island = this.archipelago.get('oracolo');
     } else {
-      const r = this.archipelago.ensure(parsed.domain);
+      // il dominio VERO è dove punta il redirect (issue #26bis): wikipedia.com
+      // che rimanda a wikipedia.org è la stessa isola; apple.com e apple.org,
+      // che NON si rimandano, restano distinti. Un'isola sola per entità.
+      const dominio = await this.canonicalizza(parsed.domain);
+      const r = this.archipelago.ensure(dominio);
       island = r.island; isNew = r.isNew;
-      if (isNew) this.broadcastIsland(island);
+      // solo le mete condivise finiscono sulla mappa di tutti; le altre le
+      // vede solo chi ci naviga (arrivano nella risposta 'course' qui sotto)
+      if (isNew && this.stabile(island)) this.broadcastIsland(island);
     }
     this.sendTo(ship, { t: 'course', ok: true, island: publicIsland(island), url: parsed.url, isNew });
+  }
+
+  // Segue il redirect del dominio per trovare la sua identità canonica
+  // (eTLD+1 finale). Cache per non rifare la corsa; una risoluzione sola
+  // per dominio. In caso di rete muta o test (OG_FINTO) si tiene il digitato.
+  async canonicalizza(dominio) {
+    if (this.canonico.has(dominio)) return this.canonico.get(dominio);
+    if (OG_FINTO) return dominio;
+    let corsa = this.canonicoInCorso.get(dominio);
+    if (!corsa) {
+      corsa = risolviRedirect(dominio).catch(() => dominio);
+      this.canonicoInCorso.set(dominio, corsa);
+      corsa.finally(() => this.canonicoInCorso.delete(dominio));
+    }
+    const canon = (await corsa) || dominio;
+    this.canonico.set(dominio, canon);
+    if (canon !== dominio && this.onCanonico) { try { this.onCanonico(dominio, canon); } catch { /* si ripersiste poi */ } }
+    return canon;
   }
 
   // --- fuoco ---
@@ -820,19 +897,26 @@ class Game {
 
   async scaricaCartellone(dominio, ora) {
     let dati = { titolo: '', descrizione: '', img: false };
+    let riuscito = false;
     try {
       const html = await leggiSito(dominio);
       const e = og.estraiOG(html, 'https://' + dominio + '/');
       dati = { titolo: e.titolo, descrizione: e.descrizione, img: !!e.immagine };
+      riuscito = true;
       // il traghetto verso il proxy delle immagini: chi ha lo storage
       // (MareDO/R2 o il server di sviluppo) annota l'URL approvato
       if (e.immagine && this.onCartellone) {
         try { await this.onCartellone(dominio, e.immagine); } catch { dati.img = false; }
       }
     } catch { /* sito muto o lento: il cartellone resta bianco */ }
-    this.cartelloni.set(dominio, { og: dati, at: ora });
-    if (this.cartelloni.size > CARTELLONE.maxCache) {
-      this.cartelloni.delete(this.cartelloni.keys().next().value);
+    // si cachea SOLO ciò che si è letto davvero: un fallimento (sito lento o
+    // bloccato al momento) non deve condannare il cartellone al bianco per una
+    // settimana — al prossimo passaggio si riprova (issue #27, robustezza)
+    if (riuscito) {
+      this.cartelloni.set(dominio, { og: dati, at: ora });
+      if (this.cartelloni.size > CARTELLONE.maxCache) {
+        this.cartelloni.delete(this.cartelloni.keys().next().value);
+      }
     }
     return dati;
   }
