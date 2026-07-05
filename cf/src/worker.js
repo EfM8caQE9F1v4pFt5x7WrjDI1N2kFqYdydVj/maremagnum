@@ -120,7 +120,12 @@ export default {
       const lascia = await env.DEPOSITO.get('og-ok/' + dominio);
       if (!lascia) return new Response('', { status: 404 });
       try {
-        const r = await fetch(await lascia.text(), { redirect: 'follow', signal: AbortSignal.timeout(8000) });
+        // lo User-Agent è d'obbligo: Wikimedia e altri rifiutano i client anonimi
+        const r = await fetch(await lascia.text(), {
+          redirect: 'follow',
+          signal: AbortSignal.timeout(8000),
+          headers: { 'user-agent': 'Maremagnum/1.0 (+https://maremagnum.maremagnum.workers.dev)', accept: 'image/*' },
+        });
         const tipo = r.headers.get('content-type') || '';
         if (!r.ok || !tipo.startsWith('image/')) throw new Error('niente immagine');
         const dati = await r.arrayBuffer();

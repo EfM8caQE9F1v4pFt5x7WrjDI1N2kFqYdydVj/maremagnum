@@ -39,7 +39,11 @@ async function serviOgImg(dominio, res) {
   if (!voce) { res.writeHead(404); res.end(); return; }
   if (!voce.dati) {
     try {
-      const r = await fetch(voce.url, { signal: AbortSignal.timeout(8000), redirect: 'follow' });
+      const r = await fetch(voce.url, {
+        signal: AbortSignal.timeout(8000),
+        redirect: 'follow',
+        headers: { 'user-agent': 'Maremagnum/1.0 (+https://maremagnum.maremagnum.workers.dev)', accept: 'image/*' },
+      });
       const tipo = r.headers.get('content-type') || '';
       if (!r.ok || !tipo.startsWith('image/')) throw new Error('niente immagine');
       const dati = Buffer.from(await r.arrayBuffer());
