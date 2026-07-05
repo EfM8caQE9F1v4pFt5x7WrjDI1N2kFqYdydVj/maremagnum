@@ -4,7 +4,7 @@
 // (una luce da NW ruoterebbe con l'affusto e tradirebbe il trucco).
 // Ogni bocca da fuoco ha la sua sagoma: colubrina slanciata, cannone da
 // marina, carronata su slitta, mortaio a pentola, organo a tre canne,
-// colubrina lunga a spillo, carronata pesante a botte.
+// colubrina lunga a spillo, carronata pesante a botte, falconetto su perno.
 
 // Ferro brunito leggibile per i pezzi comuni; il livello 3 è di bronzo
 // caldo, la promozione si vede da lontano. Legno dell'affusto dalla
@@ -60,7 +60,7 @@ export function drawGun(g, cx, cy, dir, type, lvl) {
     g.circle(px, py, 0.5).fill(LEGNO.ruota);
   };
 
-  const L = { c: 9.6, n: 8.6, r: 6.2, m: 4.5, o: 8.2, l: 12.6, p: 6.8 }[type] + lvl * 0.6;
+  const L = { c: 9.6, n: 8.6, r: 6.2, m: 4.5, o: 8.2, l: 12.6, p: 6.8, f: 7.4 }[type] + lvl * 0.6;
 
   if (type === 'o') {
     // Organo di Da Vinci: telaio largo, tre canne sottili, traversa in volata
@@ -83,6 +83,17 @@ export function drawGun(g, cx, cy, dir, type, lvl) {
     g.circle(px, py, 1.35).fill(BOCCA);
     const [hx, hy] = P(0.5, 0); // riflesso zenitale sul bordo della pentola
     g.circle(hx, hy, 0.4).fill(pal.colmo);
+  } else if (type === 'f') {
+    // falconetto a ripetizione: niente carriola, il pezzo gira sulla
+    // forcella da murata — colonnina, canna a spillo, codolo di punteria
+    // e la camera di ricambio posata accanto (la "ripetizione" si vede)
+    const [px, py] = P(-0.6, 0);
+    g.circle(px, py, 1.15).fill(LEGNO.fianco);
+    g.circle(px, py, 0.55).fill(LEGNO.mozzo);
+    quad(-3.4, 0.28, -1.0, 0.34, LEGNO.piano);
+    canna(-1.0, L, 1.05, 0.68);
+    const [rx, ry] = P(-1.6, 1.6);
+    g.circle(rx, ry, 0.5).fill(pal.fusto);
   } else if (type === 'r' || type === 'p') {
     // carronata (e sorella pesante): tozza, su slitta, bocca che mangia
     const w0 = type === 'p' ? 2.5 : 2.0, w1 = type === 'p' ? 2.2 : 1.7;

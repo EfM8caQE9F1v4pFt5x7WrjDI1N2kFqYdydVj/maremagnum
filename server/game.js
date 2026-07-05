@@ -48,8 +48,12 @@ const TIPI = {
     nome: 'Galeone', hpMul: 1.2, speedMul: 1, turnMul: 0.88,
     sconto: 'hullLvl', motto: 'Lento e corazzato: un castello che naviga',
   },
+  sciabecco: {
+    nome: 'Sciabecco', hpMul: 0.9, speedMul: 1, turnMul: 1.15,
+    sconto: 'holdLvl', motto: 'Agile e rapace: vira dove gli altri arrancano, e la stiva non pesa',
+  },
 };
-const TIPO_SNAP = { goletta: 1, guerra: 2, galeone: 3 };
+const TIPO_SNAP = { goletta: 1, guerra: 2, galeone: 3, sciabecco: 4 };
 
 // Le abilità attive: una per tipo, tasto R, cooldown lungo rispetto al
 // ritmo del duello (TTK ~10-30s). Il fumogeno acceca solo le IA (fantasmi
@@ -58,6 +62,9 @@ const ABILITA = {
   goletta: { nome: 'Speronamento', cd: 30, durata: 2.2, dmg: 42, autodanno: 10, spinta: 1.9 },
   guerra: { nome: 'Fumogeno', cd: 40, durata: 10, raggio: 150 },
   galeone: { nome: 'Bordata Doppia', cd: 40, durata: 4 },
+  // il Colpo di Vento è pura mobilità: niente danno, niente prua indurita —
+  // si entra (o si esce) da un duello, non lo si vince col tasto R
+  sciabecco: { nome: 'Colpo di Vento', cd: 30, durata: 2.5, spinta: 1.75 },
 };
 // catalogo pubblico del varo (statico): quello che il Cantiere espone
 const TIPI_PUB = Object.fromEntries(Object.entries(TIPI).map(([k, t]) => [k, {
@@ -144,7 +151,7 @@ class Game {
       hp: 100, kills: 0, deaths: 0,
       docked: null, sunkUntil: 0, lastHitBy: null, lastDamageAt: 0,
       blockedUntil: 0, blockedBy: null, bloccoSalvo: 0, immuneUntil: 0,
-      abilityAt: 0, ramUntil: 0, doubleUntil: 0,
+      abilityAt: 0, ramUntil: 0, doubleUntil: 0, ventoUntil: 0,
       visited: new Set(), conquered: new Set(), preferiti: new Set(),
       mission: null, wp: null, fleeUntil: 0,
     };
@@ -211,7 +218,12 @@ class Game {
     // grandfathering: chi comprò l'Organo quando era di tutti è Galeone
     // d'ufficio, gratis — nessuno perde un'arma che ha pagato
     if (!ship.tipo && hasOrgano(p.mounts)) ship.tipo = 'galeone';
-    ship.mounts = W.sanitizeMounts(p.mounts, ship.tipo);
+    // la matrice del legno può essere cambiata da un aggiornamento: le armi
+    // che il tipo non regge più tornano ORO PIENO al capitano (issue #11)
+    const sanificati = W.sanitizeConRiscatto(p.mounts, ship.tipo);
+    ship.mounts = sanificati.mounts;
+    ship.gold = Math.min(1e7, ship.gold + sanificati.riscatto);
+    ship.riscattoAlJoin = sanificati;
     ship.kills = Math.min(1e6, Math.max(0, p.kills | 0));
     ship.deaths = Math.min(1e6, Math.max(0, p.deaths | 0));
     if (Array.isArray(p.conquered)) {
@@ -245,6 +257,11 @@ class Game {
       you: this.youFor(ship),
       arsenal: W.publicConfig(),
     });
+    if (ship.riscattoAlJoin && ship.riscattoAlJoin.riscatto) {
+      const { riscatto, tolte } = ship.riscattoAlJoin;
+      this.sendGold(ship, riscatto, `Il Cantiere ha riscattato: ${[...new Set(tolte)].join(', ')}`);
+    }
+    delete ship.riscattoAlJoin;
     // le Fratellanze (issue #5): l'identità è l'uid dell'Ancoraggio.
     // In sviluppo (Node, MAI nel Worker) il client può dichiararlo:
     // il MareDO lo sovrascrive comunque con quello verificato dal token.
@@ -662,10 +679,12 @@ class Game {
 
   sendShop(ship) {
     const groups = {};
+    const perTipo = W.groupsPer(ship.tipo);
     for (const g of Object.keys(W.GROUPS)) {
       groups[g] = {
-        max: W.GROUPS[g].max,
-        nextSlotCost: W.slotCost(g, ship.mounts[g].length),
+        // gli slot grandfathered oltre il tetto nuovo restano visibili
+        max: Math.max(perTipo[g].max, ship.mounts[g].length),
+        nextSlotCost: W.slotCost(g, ship.mounts[g].length, ship.tipo),
         slots: ship.mounts[g].map((w, i) => {
           const nt = w.lvl >= W.MAX_WEAPON_LVL ? W.nextTier(w.type, ship.tipo) : null;
           return {
@@ -700,17 +719,15 @@ class Game {
     if (!this.charge(ship, varoCost(ship))) return;
     ship.vari++;
     ship.tipo = tipo;
-    let riscatto = 0;
-    for (const g of Object.keys(W.GROUPS)) {
-      ship.mounts[g] = ship.mounts[g].map(w => {
-        const t = W.TYPES[w.type];
-        if (t.tipo && t.tipo !== tipo) { riscatto += W.weaponValue(w); return { type: 'colubrina', lvl: 1 }; }
-        return w;
-      });
-    }
+    // la matrice del legno decide cosa il nuovo scafo regge: esclusive
+    // altrui, vietate e gruppi a tetto zero tornano oro pieno (fonte
+    // fidata: questi mount vivevano già sul server)
+    const { mounts, riscatto, tolte } = W.sanitizeConRiscatto(ship.mounts, tipo, true);
+    ship.mounts = mounts;
+    this.syncReady(ship);
     if (riscatto) {
       ship.gold += riscatto;
-      this.sendGold(ship, riscatto, 'Il Cantiere riscatta le armi dell\'altro tipo');
+      this.sendGold(ship, riscatto, `Il Cantiere ha riscattato: ${[...new Set(tolte)].join(', ')}`);
     }
     ship.hp = shipStats(ship).maxHp; // il varo esce dal bacino a scafo asciutto
     this.broadcast({ t: 'feed', msg: `⚓ ${ship.name} ha varato: ora naviga su un ${TIPI[tipo].nome}!` });
@@ -735,7 +752,7 @@ class Game {
 
   buySlot(ship, group) {
     if (ship.docked !== 'porto' || !W.GROUPS[group]) return;
-    if (!this.charge(ship, W.slotCost(group, ship.mounts[group].length))) return;
+    if (!this.charge(ship, W.slotCost(group, ship.mounts[group].length, ship.tipo))) return;
     ship.mounts[group].push({ type: 'colubrina', lvl: 1 }); // lo slot arriva armato
     this.syncReady(ship);
     this.sendShop(ship);
@@ -779,6 +796,9 @@ class Game {
     } else if (ship.tipo === 'galeone') {
       ship.doubleUntil = this.now + a.durata;
       for (const g of Object.keys(W.GROUPS)) ship.ready[g] = ship.ready[g].map(() => 0); // canne fresche
+    } else if (ship.tipo === 'sciabecco') {
+      ship.ventoUntil = this.now + a.durata;
+      this.fxQueue.push({ k: 'ram', x: r1(ship.x), y: r1(ship.y) }); // la raffica si vede partire
     }
     this.sendTo(ship, { t: 'abilita', nome: a.nome, cd: a.cd });
   }
@@ -844,9 +864,10 @@ class Game {
     const speed = ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed);
     const turn = (ship.input.left ? -1 : 0) + (ship.input.right ? 1 : 0);
     ship.rot += turn * st.turnRate * dt;
-    // durante lo speronamento la nave carica, vele o non vele
+    // durante lo speronamento (o il Colpo di Vento) la nave carica, vele o non vele
     const desired = ship.ramUntil > this.now ? speed * ABILITA.goletta.spinta
-      : ship.input.up ? speed : 0;
+      : ship.ventoUntil > this.now ? speed * ABILITA.sciabecco.spinta
+        : ship.input.up ? speed : 0;
     ship.vel += (desired - ship.vel) * Math.min(1, dt * 1.1);
     if (ship.input.down) ship.vel *= Math.max(0, 1 - 2.5 * dt);
     ship.x += Math.cos(ship.rot) * ship.vel * dt;

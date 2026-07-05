@@ -541,11 +541,17 @@ export class Renderer {
   shipClass(s) {
     if (s.k === 'g') return 'fantasma';
     if (s.k === 'm') return 'mercantile';
-    if (s.tp === 1) return 'goletta';
-    if (s.tp === 2) return 'guerra';
-    // tipo galeone: hp ×1.2, quindi il dorato scatta a 312 (260 × 1.2)
-    if (s.tp === 3) return (s.sl | 0) >= 4 && s.maxHp >= 312 ? 'oro' : 'galeone';
-    if (s.maxHp >= 260) return (s.sl | 0) >= 4 ? 'oro' : 'galeone';
+    // la scala visiva DENTRO ogni tipo (issue #11): con scafo e vele al
+    // massimo si diventa VETERANI — castello in più e pomi d'oro in testa
+    // d'albero. Le soglie sono i maxHp a scafo 4 col moltiplicatore di tipo.
+    const vet = (s.sl | 0) >= 4;
+    if (s.tp === 1) return vet && s.maxHp >= 221 ? 'golettavet' : 'goletta';
+    if (s.tp === 2) return vet && s.maxHp >= 260 ? 'guerravet' : 'guerra';
+    // tipo galeone: hp ×1.2, quindi il dorato scatta a 312 (260 × 1.2);
+    // sotto il dorato veste il blu regale, distinto dal galeone di leva
+    if (s.tp === 3) return vet && s.maxHp >= 312 ? 'oro' : 'galeonetipo';
+    if (s.tp === 4) return 'sciabecco';
+    if (s.maxHp >= 260) return vet ? 'oro' : 'galeone';
     return s.maxHp >= 180 ? 'brigantino' : 'sloop';
   }
 
@@ -575,7 +581,9 @@ export class Renderer {
         : this.navi.frames.pirata ? 'pirata' : Object.keys(this.navi.frames)[0];
       // lo scafo si allunga con la classe (solo in lunghezza: il baglio è fisso)
       const fL = variant === 'sloop' ? 0.82 : variant === 'goletta' ? 0.88
-        : (variant === 'galeone' || variant === 'oro') ? 1.16 : 1;
+        : variant === 'golettavet' ? 0.92 : variant === 'sciabecco' ? 0.94
+          : variant === 'guerravet' ? 1.06
+            : (variant === 'galeone' || variant === 'galeonetipo' || variant === 'oro') ? 1.16 : 1;
       const shadow = new Graphics();
       shadow.ellipse(2, 7, 27 * fL, 11).fill({ color: 0x061018, alpha: 0.17 });
       c.addChildAt(shadow, (c.glow ? 1 : 0));

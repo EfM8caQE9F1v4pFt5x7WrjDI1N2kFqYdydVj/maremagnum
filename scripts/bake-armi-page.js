@@ -1,7 +1,7 @@
 // Il Cantiere di Cottura delle bocche da fuoco (issue #17): l'arsenale
 // completo modellato in Three.js e pre-renderizzato in 36 angolazioni per
 // variante, con la STESSA camera e le STESSE luci delle navi — prospettiva
-// e luce combaciano con lo scafo. 7 sagome × 3 livelli = 21 varianti,
+// e luce combaciano con lo scafo. 8 sagome × 3 livelli = 24 varianti,
 // nominate come le chiavi gw del protocollo (lettera+livello: 'n2', 'p3'…).
 //
 // Semantica dei livelli, identica al vettoriale di game/src/guns.js:
@@ -217,6 +217,33 @@ const SAGOME = {
     g.add(c);
     return { g, cx: 0.32 };
   },
+  // falconetto a ripetizione: pezzo da murata dello sciabecco — colonnina
+  // con forcella, canna snella col codolo di punteria, e la camera di
+  // ricambio posata sul ponte (la "ripetizione" si deve vedere)
+  f(lvl) {
+    const g = new THREE.Group();
+    const palo = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.6, 8), mat(LEGNO_SCURO));
+    palo.position.y = 0.3;
+    g.add(palo);
+    for (const s of [-1, 1]) {
+      const braccio = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.32, 6), metallo(lvl >= 3));
+      braccio.position.set(0, 0.72, s * 0.14);
+      g.add(braccio);
+    }
+    const c = canna({ len: 1.9 * LVL_LEN[lvl - 1], r0: 0.14, r1: 0.09, bronzo: lvl >= 3, anelli: lvl >= 2 ? [0.3, 0.6] : [] });
+    c.rotation.z = -Math.PI / 2 + 0.05;
+    c.position.set(-0.35, 0.86, 0);
+    g.add(c);
+    const codolo = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.62, 6), mat(LEGNO));
+    codolo.rotation.z = -Math.PI / 2 + 0.55;
+    codolo.position.set(-0.72, 0.68, 0);
+    g.add(codolo);
+    const ricambio = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.34, 8), metallo(lvl >= 3));
+    ricambio.rotation.z = Math.PI / 2;
+    ricambio.position.set(-0.42, 0.1, 0.26);
+    g.add(ricambio);
+    return { g, cx: 0.3 };
+  },
 };
 
 // centrato sul perno orizzontale: nessuna posa esce dal fotogramma
@@ -229,7 +256,7 @@ function buildGun(tipo, lvl) {
 }
 
 const VARIANTI = [];
-for (const t of ['c', 'n', 'r', 'm', 'o', 'l', 'p']) {
+for (const t of ['c', 'n', 'r', 'm', 'o', 'l', 'p', 'f']) {
   for (let lvl = 1; lvl <= 3; lvl++) VARIANTI.push({ nome: t + lvl, tipo: t, lvl });
 }
 

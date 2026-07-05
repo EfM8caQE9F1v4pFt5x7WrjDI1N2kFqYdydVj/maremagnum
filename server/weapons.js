@@ -13,12 +13,19 @@ const TYPES = {
   organo: { name: 'Organo di Da Vinci', tier: 5, dmg: 9, range: 350, reload: 1.3, speed: 480, cost: 9700, burst: 3, upDmg: 3, upRange: 30, upReload: -0.1, tipo: 'galeone' },
   lunga: { name: 'Colubrina Lunga', tier: 5, dmg: 14, range: 560, reload: 2.2, speed: 560, cost: 9700, upDmg: 4, upRange: 40, upReload: -0.1, tipo: 'goletta' },
   pesante: { name: 'Carronata Pesante', tier: 5, dmg: 62, range: 210, reload: 3.0, speed: 380, cost: 9700, upDmg: 14, upRange: 15, upReload: -0.2, tipo: 'guerra' },
+  // l'esclusiva dello Sciabecco (issue #11): pressione costante in corsa —
+  // metà del dps di organo/pesante, ma spara mentre sfrecci
+  falconetto: { name: 'Falconetto a Ripetizione', tier: 5, dmg: 9, range: 300, reload: 0.9, speed: 500, cost: 9700, upDmg: 2, upRange: 25, upReload: -0.08, tipo: 'sciabecco' },
 };
 
 // La scala comune sale fino al mortaio; il quinto gradino dipende dal varo.
 const TIER_ORDER = ['colubrina', 'cannone', 'carronata', 'mortaio'];
-const EXCLUSIVES = { goletta: 'lunga', guerra: 'pesante', galeone: 'organo' };
+const EXCLUSIVES = { goletta: 'lunga', guerra: 'pesante', galeone: 'organo', sciabecco: 'falconetto' };
 const MAX_WEAPON_LVL = 3;
+
+// La matrice del legno (issue #11, tappa 2): non tutto sta su tutte.
+// Goletta e sciabecco non reggono la carronata (la scala la SALTA).
+const VIETATE = { goletta: ['carronata'], sciabecco: ['carronata'] };
 
 // Gruppi di fuoco e slot: base → massimo. Anche gli slot sono esponenziali:
 // ogni bocca in più sulla fiancata costa ×2.5 della precedente.
@@ -28,6 +35,38 @@ const GROUPS = {
   bow: { base: 0, max: 2, slotCosts: [400, 1200] },
   stern: { base: 0, max: 2, slotCosts: [400, 1200] },
 };
+
+// …e nemmeno gli SLOT sono uguali per tutti: la goletta punge di prua, il
+// galeone rinuncia agli assiali per fiancate piene, lo sciabecco corre e
+// spara in fuga. Gli slot già comprati oltre i tetti nuovi restano
+// (grandfathering): sono infrastruttura pagata, non armi.
+const GRUPPI_TIPO = {
+  goletta: {
+    left: { max: 4 }, right: { max: 4 },
+    bow: { max: 3, slotCosts: [400, 1200, 3000] },
+  },
+  galeone: {
+    left: { max: 6, slotCosts: [null, 200, 500, 1250, 3125, 7800] },
+    right: { max: 6, slotCosts: [null, 200, 500, 1250, 3125, 7800] },
+    bow: { max: 0, slotCosts: [] }, stern: { max: 0, slotCosts: [] },
+  },
+  sciabecco: {
+    left: { max: 3 }, right: { max: 3 },
+    bow: { max: 3, slotCosts: [400, 1200, 3000] },
+    stern: { max: 3, slotCosts: [400, 1200, 3000] },
+  },
+};
+
+// il tetto assoluto fra tutti i tipi: nulla si tronca in silenzio ai join
+const MAX_ASSOLUTO = { left: 6, right: 6, bow: 3, stern: 3 };
+
+function groupsPer(tipo) {
+  const out = {};
+  for (const g of Object.keys(GROUPS)) {
+    out[g] = { ...GROUPS[g], ...((GRUPPI_TIPO[tipo] || {})[g] || {}) };
+  }
+  return out;
+}
 
 // Statistiche effettive di un'arma {type, lvl}.
 function weaponStats(w) {
@@ -51,14 +90,20 @@ function upgradeCost(w) {
 }
 
 function nextTier(type, tipo) {
+  const vietate = VIETATE[tipo] || [];
   const i = TIER_ORDER.indexOf(type);
-  if (i >= 0 && i < TIER_ORDER.length - 1) return TIER_ORDER[i + 1];
-  // sopra il mortaio c'è solo l'esclusiva del proprio tipo di nave
-  return type === 'mortaio' ? EXCLUSIVES[tipo] || null : null;
+  if (i >= 0) {
+    // la scala SALTA i gradini che il legno non regge (issue #11)
+    for (let j = i + 1; j < TIER_ORDER.length; j++) {
+      if (!vietate.includes(TIER_ORDER[j])) return TIER_ORDER[j];
+    }
+    return EXCLUSIVES[tipo] || null;
+  }
+  return null;
 }
 
-function slotCost(group, currentCount) {
-  const g = GROUPS[group];
+function slotCost(group, currentCount, tipo) {
+  const g = groupsPer(tipo)[group];
   if (!g || currentCount >= g.max) return null;
   return g.slotCosts[currentCount];
 }
@@ -72,19 +117,53 @@ function defaultMounts() {
   };
 }
 
-// Valida (e ripara) i mount arrivati da un profilo client: mai fidarsi.
-// Le armi esclusive passano solo se il tipo di nave è quello giusto.
-function sanitizeMounts(m, tipo) {
+// Valida (e ripara) i mount E fa i conti: le armi che il tipo non regge più
+// per una regola nuova (vietate della matrice, gruppi a tetto zero) si
+// RISCATTANO al prezzo pieno pagato — mai confische, precedente del varo.
+// Le esclusive di un ALTRO tipo invece si riscattano solo da fonte FIDATA
+// (il varo, dove erano possedute legalmente): da un profilo client sono
+// contrabbando, e il contrabbando si rifiuta, non si compra. Gli slot di un
+// gruppo perso si riscattano anch'essi; gli slot oltre i tetti nuovi negli
+// altri gruppi restano (grandfathering, tetto assoluto a monte).
+function sanitizeConRiscatto(m, tipo, fidato) {
   const out = defaultMounts();
-  if (!m || typeof m !== 'object') return out;
+  let riscatto = 0;
+  const tolte = [];
+  if (!m || typeof m !== 'object') return { mounts: out, riscatto, tolte };
+  const vietate = VIETATE[tipo] || [];
+  const gruppi = groupsPer(tipo);
+  const contrabbando = w => !fidato && TYPES[w.type].tipo && TYPES[w.type].tipo !== tipo;
   for (const g of Object.keys(GROUPS)) {
     if (!Array.isArray(m[g])) continue;
-    const list = m[g].slice(0, GROUPS[g].max)
-      .filter(w => w && TYPES[w.type] && (!TYPES[w.type].tipo || TYPES[w.type].tipo === tipo))
+    const grezzi = m[g].slice(0, MAX_ASSOLUTO[g]).filter(w => w && TYPES[w.type])
       .map(w => ({ type: w.type, lvl: Math.min(MAX_WEAPON_LVL, Math.max(1, w.lvl | 0)) }));
+    if (gruppi[g].max === 0) {
+      // il tipo non regge il gruppo: armi E slot riscattati
+      for (const w of grezzi) {
+        if (contrabbando(w)) continue;
+        riscatto += weaponValue(w);
+        tolte.push(TYPES[w.type].name);
+      }
+      const costi = GROUPS[g].slotCosts;
+      for (let i = GROUPS[g].base; i < grezzi.length; i++) riscatto += costi[i] ?? costi[costi.length - 1] ?? 0;
+      out[g] = [];
+      continue;
+    }
+    const list = grezzi.map(w => {
+      const t = TYPES[w.type];
+      if ((t.tipo && t.tipo !== tipo) || vietate.includes(w.type)) {
+        if (!contrabbando(w)) { riscatto += weaponValue(w); tolte.push(t.name); }
+        return { type: 'colubrina', lvl: 1 };
+      }
+      return w;
+    });
     if (list.length >= GROUPS[g].base) out[g] = list;
   }
-  return out;
+  return { mounts: out, riscatto, tolte };
+}
+
+function sanitizeMounts(m, tipo) {
+  return sanitizeConRiscatto(m, tipo).mounts;
 }
 
 // Prezzo totale pagato per un'arma {type, lvl}: catalogo più potenziamenti.
@@ -109,7 +188,7 @@ function publicConfig() {
 }
 
 module.exports = {
-  TYPES, TIER_ORDER, EXCLUSIVES, MAX_WEAPON_LVL, GROUPS,
-  weaponStats, upgradeCost, nextTier, slotCost, defaultMounts, sanitizeMounts,
+  TYPES, TIER_ORDER, EXCLUSIVES, MAX_WEAPON_LVL, GROUPS, VIETATE, GRUPPI_TIPO, MAX_ASSOLUTO,
+  weaponStats, upgradeCost, nextTier, slotCost, defaultMounts, sanitizeMounts, sanitizeConRiscatto, groupsPer,
   weaponValue, fleetValue, publicConfig,
 };

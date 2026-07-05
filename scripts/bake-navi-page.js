@@ -11,7 +11,7 @@ import * as THREE from 'three';
 
 const FRAME = 256; // col cannocchiale a 2x i 192 andavano stretti
 const STEPS = 36;
-const COLS = 12; // atlas largo e basso: 9216 px di altezza sforavano il limite texture (8192) dei renderer software
+const COLS = 18; // atlas largo e basso: con 12 varianti (issue #11) servono 2 righe a variante per stare sotto il limite texture (8192) dei renderer software
 
 const TINTA = {
   legno: {
@@ -28,6 +28,17 @@ const TINTA = {
     hull: 0x6f4425, deck: 0x9d7c4e, mast: 0x53401f, flag: 0x7c1710,
     wale: 0x201812, trim: 0xe9b93c, accento: 0x8a2418, sail: 0xf3e9d2,
   },
+  // il Galeone di tipo veste il blu regale: si distingue dal galeone di
+  // progressione (verdazzurro) prima ancora di contare gli alberi
+  regale: {
+    hull: 0x6b4a2c, deck: 0x9a7a4c, mast: 0x54401f, flag: 0x2b2560,
+    wale: 0x1f1812, trim: 0xe9b93c, accento: 0x2f6096, sail: 0xeef2f4,
+  },
+  // lo Sciabecco corsaro: legno chiaro, verde mare e tela di canapa
+  sciabecco: {
+    hull: 0x8a5a33, deck: 0xac8756, mast: 0x5c4326, flag: 0x14343f,
+    wale: 0x2a2014, trim: 0xd9a83c, accento: 0x0f5c54, sail: 0xf6ead0,
+  },
   oro: 0xf0c14e,
 };
 
@@ -42,6 +53,13 @@ const CLASSI = {
   // i TIPI di nave (issue #2): in coda per non spostare gli indici già cotti
   goletta:    { L: 0.86, alberi: 2, castello: 0, gabbia: false, fiocco: true,  pal: 'legno' },
   guerra:     { L: 1.04, alberi: 2, castello: 1, gabbia: true,  fiocco: true,  pal: 'guerra' },
+  // la flotta cresce (issue #11): la scala visiva DENTRO ogni tipo.
+  // Le veterane (scafo e vele al massimo) guadagnano castello e pomi d'oro;
+  // il galeone di tipo veste il regale; lo sciabecco arriva a vele latine.
+  golettavet:  { L: 0.92, alberi: 2, castello: 1, gabbia: true,  fiocco: true,  pal: 'legno',  veterana: true },
+  guerravet:   { L: 1.08, alberi: 2, castello: 2, gabbia: true,  fiocco: true,  pal: 'guerra', veterana: true },
+  galeonetipo: { L: 1.22, alberi: 3, castello: 2, gabbia: true,  fiocco: true,  pal: 'regale' },
+  sciabecco:   { L: 0.95, alberi: 2, castello: 0, gabbia: false, fiocco: true,  pal: 'sciabecco', latine: true },
 };
 const VARIANTS = Object.keys(CLASSI);
 
@@ -255,10 +273,48 @@ function buildShip(nome) {
     const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.085, hAlbero * s, 6), mat(p.mast));
     mast.position.set(x, 0.9 + (hAlbero / 2) * s, 0);
     ship.add(mast);
-    if (oro) {
+    if (oro || cfg.veterana) {
       const pomo = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), matOro);
       pomo.position.set(x, 0.9 + hAlbero * s + 0.05, 0);
       ship.add(pomo);
+    }
+
+    // vele LATINE (lo sciabecco, issue #11): antenna obliqua alta a poppa e
+    // un gran triangolo di tela — la firma del corsaro barbaresco. Niente
+    // ordini quadri su questi alberi.
+    if (cfg.latine) {
+      const rig = new THREE.Group();
+      rig.position.set(x, 0, 0);
+      // bracciate DIVERSE per albero: la latina è un piano, di taglio
+      // sparirebbe — così almeno una vela resta piena da ogni inquadratura
+      rig.rotation.y = 0.38 + (i % 2) * 0.4;
+      ship.add(rig);
+      const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 4.8 * s, 5), mat(p.mast));
+      antenna.rotation.z = 0.85;
+      antenna.position.set(0, 0.9 + 3.4 * s, 0.03);
+      rig.add(antenna);
+      const latShape = new THREE.Shape();
+      latShape.moveTo(1.7 * s, 0.9 + 1.95 * s);   // penna bassa verso prua
+      latShape.lineTo(-1.7 * s, 0.9 + 4.9 * s);   // vetta alta a poppa
+      latShape.lineTo(-1.5 * s, 0.9 + 1.25 * s);  // bugna al ponte
+      latShape.closePath();
+      const lat = new THREE.Mesh(new THREE.ShapeGeometry(latShape), sailMat);
+      lat.position.set(0, 0, -0.02);
+      rig.add(lat);
+
+      const nest = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.11, 0.14, 7, 1, true), mat(p.deck));
+      nest.position.set(x, 0.9 + 2.5 * s, 0);
+      ship.add(nest);
+      // straglio di prua: anche lo sciabecco tiene l'albero legato al bompresso
+      const from = new THREE.Vector3(x, 0.9 + (hAlbero - 0.25) * s, 0);
+      const to = new THREE.Vector3(2.55 * L, 1.2, 0);
+      const len = from.distanceTo(to);
+      const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, len, 4), ropeMat);
+      rope.position.copy(from).lerp(to, 0.5);
+      rope.lookAt(to);
+      rope.rotateX(Math.PI / 2);
+      ship.add(rope);
+      continue;
     }
 
     // ordini di vele: [raggio alto, raggio basso, altezza, quota centro].

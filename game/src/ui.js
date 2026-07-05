@@ -347,7 +347,7 @@ export class UI {
 
   // La riga dell'abilità di tipo (tasto R): compare solo dopo il varo.
   setAbility(tipo) {
-    const EMO = { goletta: '🐏', guerra: '💨', galeone: '💥' };
+    const EMO = { goletta: '🐏', guerra: '💨', galeone: '💥', sciabecco: '🌬' };
     this._abilityEmoji = EMO[tipo] || null;
     $('abilityRow').classList.toggle('hidden', !EMO[tipo]);
     if (EMO[tipo]) $('abilityKey').textContent = `${(this.tasti && this.tasti.abilita) || 'R'} ${EMO[tipo]}`;
@@ -511,8 +511,13 @@ export class UI {
     const banner = document.createElement('div');
     banner.className = 'shipClass';
     if (tuoTipo) {
-      const dorato = m.varo.tipo === 'galeone' && h >= 4 && v >= 4;
-      banner.innerHTML = `⚓ La tua nave: <b>${dorato ? 'Galeone Dorato' : esc(tuoTipo.nome)}</b> — ${esc(tuoTipo.motto)}`;
+      // la scala visiva del tipo (issue #11): scafo e vele al massimo = veterana
+      const pieno = h >= 4 && v >= 4;
+      const nome = !pieno ? esc(tuoTipo.nome)
+        : m.varo.tipo === 'galeone' ? 'Galeone Dorato'
+          : m.varo.tipo === 'goletta' ? 'Goletta Veterana'
+            : m.varo.tipo === 'guerra' ? 'Brigantino Veterano' : esc(tuoTipo.nome);
+      banner.innerHTML = `⚓ La tua nave: <b>${nome}</b> — ${esc(tuoTipo.motto)}`;
     } else {
       const classe = h >= 4 ? (v >= 4 ? 'Galeone Dorato' : 'Galeone') : h >= 2 ? 'Brigantino' : 'Sloop';
       const prossima = h >= 4
@@ -540,6 +545,8 @@ export class UI {
     const wep = $('shopWeapons');
     wep.innerHTML = '';
     for (const [g, data] of Object.entries(m.groups)) {
+      // il tipo non regge il gruppo (galeone senza assiali): niente vetrina vuota
+      if (!data.max && !data.slots.length) continue;
       const block = document.createElement('div');
       block.className = 'wgroup';
       const head = document.createElement('div');
@@ -602,7 +609,7 @@ export class UI {
   // moltiplicatori che arrivano dal server: una sola fonte di verità.
   varoBlock(varo, gold) {
     const LINEA = { hullLvl: 'Scafo', sailsLvl: 'Vele', helmLvl: 'Timone', crewLvl: 'Ciurma', holdLvl: 'Stiva' };
-    const EMOJI = { goletta: '🐟', guerra: '⚔', galeone: '🏰' };
+    const EMOJI = { goletta: '🐟', guerra: '⚔', galeone: '🏰', sciabecco: '🌊' };
     const pct = (mul) => `${mul > 1 ? '+' : ''}${Math.round((mul - 1) * 100)}%`;
     const block = document.createElement('div');
     block.className = 'wgroup';

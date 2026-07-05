@@ -76,11 +76,11 @@ function loadProfile() {
     for (const [param, field] of Object.entries(linee)) {
       if (dp.get(param) != null) p[field] = Math.min(4, Math.max(0, dp.get(param) | 0));
     }
-    if (dp.get('tipo') != null) p.tipo = dp.get('tipo'); // ?tipo=goletta|guerra|galeone
+    if (dp.get('tipo') != null) p.tipo = dp.get('tipo'); // ?tipo=goletta|guerra|galeone|sciabecco
     // ?armi=n1,n2,n3 (sviluppo): fiancate armate per il collaudo visivo —
     // lettera del tipo + livello; le esclusive vogliono il ?tipo= giusto
     if (dp.get('armi')) {
-      const nomi = { c: 'colubrina', n: 'cannone', r: 'carronata', m: 'mortaio', o: 'organo', l: 'lunga', p: 'pesante' };
+      const nomi = { c: 'colubrina', n: 'cannone', r: 'carronata', m: 'mortaio', o: 'organo', l: 'lunga', p: 'pesante', f: 'falconetto' };
       const list = dp.get('armi').split(',')
         .map(s => ({ type: nomi[s[0]] || 'cannone', lvl: Math.min(3, Math.max(1, +s.slice(1) || 1)) }));
       p.mounts = { left: list, right: list.map(w => ({ ...w })), bow: [], stern: [] };

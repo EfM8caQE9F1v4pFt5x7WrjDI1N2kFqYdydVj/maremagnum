@@ -155,6 +155,8 @@ async function main() {
     ok(cshop && cshop.gold === 5000 - 90 + 14550, `i conti tornano: ${cshop && cshop.gold} 🪙 (5000 − 90 + 14550)`);
     ok(cshop && cshop.mounts.left[0].type === 'colubrina' && cshop.mounts.left[0].lvl === 1, 'lo slot dell\'Organo riparte con la colubrina');
     ok(cshop && cshop.ship.helmCost === 45, 'lo sconto segue il tipo: ora è il Timone a metà prezzo (45)');
+    ok(cshop && cshop.groups.bow.max === 3 && cshop.groups.left.max === 4,
+      'il cantiere espone la matrice del tipo: la goletta punge di prua (3) e accorcia le fiancate (4)');
     await sleep(500);
     const cGoletta = C.me();
     ok(cGoletta && cGoletta.tp === 1 && cGoletta.maxHp === 85,
@@ -229,6 +231,53 @@ async function main() {
     ok(speronato, `speronato: il bersaglio incassa la prua (${eShip() && eShip().hp}/100)`);
     ok(speronato && D.me() && D.me().hp <= 76, `lo speronatore paga il pegno di legno (${D.me() && D.me().hp}/85)`);
     D.ws.close(); E.ws.close();
+
+    console.log('— La flotta cresce (issue #11): Sciabecco e matrice del legno —');
+    // il quarto tipo: vele latine, Falconetto di casa, Colpo di Vento
+    const S = new Player('Levantino', {
+      gold: 500, tipo: 'sciabecco',
+      mounts: { left: [{ type: 'falconetto', lvl: 1 }], right: [{ type: 'colubrina', lvl: 1 }] },
+    });
+    await S.join();
+    ok(S.welcome.you.tipo === 'sciabecco', 'il varo salvato torna dal profilo: Sciabecco');
+    ok(S.welcome.you.mounts.left[0].type === 'falconetto', 'il Falconetto sullo sciabecco è di casa');
+    await sleep(500);
+    const sMe = S.me();
+    ok(sMe && sMe.tp === 4 && sMe.maxHp === 90, `snapshot vestito: tp=4, scafo agile (${sMe && sMe.maxHp}/90 HP)`);
+    ok(sMe && sMe.gw && sMe.gw[0] === 'f1', `il falconetto viaggia in chiaro (gw "${sMe && sMe.gw && sMe.gw[0]}")`);
+    S.send({ t: 'abilita' });
+    ok(!!await S.wait(m => m.t === 'abilita' && m.nome === 'Colpo di Vento' && m.cd === 30, 3000),
+      'Colpo di Vento attivato (ack col cooldown)');
+    // la raffica spinge a vele ferme: campiona la velocità e tieni il picco
+    let sVel = 0;
+    for (let i = 0; i < 10; i++) { await sleep(200); const me = S.me(); if (me) sVel = Math.max(sVel, me.vel); }
+    ok(sVel > 150, `la raffica spinge senza vele (picco ${sVel} px/s, base 135)`);
+    S.ws.close();
+    // la matrice cambia, il Cantiere paga (issue #11): un galeone d'annata
+    // con armi assiali comprate quando si poteva le vede riscattate al join
+    const V = new Player('Vecchio Galeone', {
+      gold: 1000, tipo: 'galeone',
+      mounts: {
+        left: [{ type: 'colubrina', lvl: 1 }], right: [{ type: 'colubrina', lvl: 1 }],
+        bow: [{ type: 'cannone', lvl: 1 }], stern: [{ type: 'colubrina', lvl: 1 }, { type: 'colubrina', lvl: 1 }],
+      },
+    });
+    await V.join();
+    // cannone 360 + 2 colubrine 240 + slot di prua 400 + slot di poppa 400+1200 = 2600
+    const risc = await V.wait(m => m.t === 'gold' && m.delta === 2600, 3000);
+    ok(!!risc, 'riscatto al join: 2600 🪙 per armi E slot assiali del galeone');
+    ok(!!risc && /riscattato/.test(risc.reason || ''), `…col conto in chiaro ("${risc && risc.reason}")`);
+    ok(V.welcome.you.mounts.bow.length === 0 && V.welcome.you.mounts.stern.length === 0, 'gli assiali del galeone sono sbarcati');
+    ok(V.welcome.you.gold === 3600, `l'oro è già nel welcome (${V.welcome.you.gold} = 1000 + 2600)`);
+    // la carronata (vietata dalla matrice sulla goletta) si riscatta anch'essa
+    const Q = new Player('Golettiere', {
+      gold: 0, tipo: 'goletta',
+      mounts: { left: [{ type: 'carronata', lvl: 1 }], right: [{ type: 'colubrina', lvl: 1 }] },
+    });
+    await Q.join();
+    ok(!!await Q.wait(m => m.t === 'gold' && m.delta === 1080, 3000), 'carronata vietata sulla goletta: riscattata (1080 🪙)');
+    ok(Q.welcome.you.mounts.left[0].type === 'colubrina', 'al suo posto una colubrina di cortesia');
+    Q.ws.close(); V.ws.close();
 
     console.log('— Rotte e fortezza oisd —');
     A.send({ t: 'course', q: 'wikipedia.org' });
