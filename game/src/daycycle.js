@@ -11,8 +11,10 @@ const KEYS = [
   { t: 0.00, ambient: [0.97, 0.85, 0.78], sun: [1.00, 0.72, 0.50], glint: 0.45, night: 0.18, fog: 0.16, cloud: 0.6, warm: 0.40 },  // alba
   { t: 0.25, ambient: [1.00, 1.00, 1.00], sun: [1.00, 0.93, 0.72], glint: 0.55, night: 0.00, fog: 0.00, cloud: 1.0, warm: 0.00 },  // giorno
   { t: 0.50, ambient: [1.04, 0.80, 0.58], sun: [1.00, 0.52, 0.26], glint: 0.95, night: 0.08, fog: 0.05, cloud: 0.7, warm: 0.85 },  // tramonto
-  { t: 0.62, ambient: [0.58, 0.57, 0.70], sun: [0.90, 0.62, 0.50], glint: 0.50, night: 0.55, fog: 0.42, cloud: 0.3, warm: 0.20 },  // crepuscolo
-  { t: 0.80, ambient: [0.36, 0.42, 0.58], sun: [0.72, 0.80, 0.95], glint: 0.30, night: 1.00, fog: 0.80, cloud: 0.15, warm: 0.00 }, // notte fonda
+  // il pavimento di luce notturno è rialzato: la notte è atmosfera, non
+  // cecità — isole, navi e nomi devono restare leggibili anche a mezzanotte
+  { t: 0.62, ambient: [0.64, 0.63, 0.75], sun: [0.90, 0.62, 0.50], glint: 0.50, night: 0.55, fog: 0.32, cloud: 0.3, warm: 0.20 },  // crepuscolo
+  { t: 0.80, ambient: [0.50, 0.55, 0.68], sun: [0.72, 0.80, 0.95], glint: 0.30, night: 1.00, fog: 0.55, cloud: 0.15, warm: 0.00 }, // notte fonda
   { t: 1.00, ambient: [0.97, 0.85, 0.78], sun: [1.00, 0.72, 0.50], glint: 0.45, night: 0.18, fog: 0.16, cloud: 0.6, warm: 0.40 },  // e di nuovo alba
 ];
 
