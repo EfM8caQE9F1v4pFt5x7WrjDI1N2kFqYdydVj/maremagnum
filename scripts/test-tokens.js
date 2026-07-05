@@ -35,9 +35,12 @@ const definiti = [...css.matchAll(/--([a-z0-9-]+):/g)].map(m => m[1]);
 const extra = definiti.filter(n => !(n in tutti));
 ok(extra.length === 0, 'tokens.css non ha token orfani' + (extra.length ? ' — di troppo: ' + extra.join(', ') : ''));
 
-// 3) ogni var(--x) usata in style.css è definita
+// 3) ogni var(--x) usata in style.css è definita — nei token generati O come
+//    helper strutturale nello stesso style.css (es. --studs, che compone i
+//    token colore in un gradiente riusabile)
 const usate = [...style.matchAll(/var\(--([a-z0-9-]+)\)/g)].map(m => m[1]);
-const dangling = [...new Set(usate)].filter(n => !(n in tutti));
+const localVars = new Set([...style.matchAll(/--([a-z0-9-]+)\s*:/g)].map(m => m[1]));
+const dangling = [...new Set(usate)].filter(n => !(n in tutti) && !localVars.has(n));
 ok(dangling.length === 0, `le ${new Set(usate).size} var(--x) usate in style.css sono tutte definite` + (dangling.length ? ' — orfane: ' + dangling.join(', ') : ''));
 
 // 4) nessun colore di palette scritto a mano in style.css (hex a 6 cifre o rgba colorato)

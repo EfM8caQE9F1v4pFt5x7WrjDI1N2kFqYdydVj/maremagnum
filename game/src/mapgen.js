@@ -2,6 +2,7 @@
 // cartografia piratesca (macchie, bordi bruciati, rosa dei venti, mostri marini).
 
 import { mulberry32 } from './util.js';
+import { PAL } from './palette.js';
 
 export function drawTreasureMap(canvas, { from, island, fortress }) {
   const W = canvas.width, H = canvas.height;
@@ -30,10 +31,15 @@ export function drawTreasureMap(canvas, { from, island, fortress }) {
     g.fillStyle = grad;
     g.beginPath(); g.arc(cx, cy, 130, 0, Math.PI * 2); g.fill();
   }
-  g.strokeStyle = '#6d4c22'; g.lineWidth = 3;
+  g.strokeStyle = PAL.edge; g.lineWidth = 3;
   g.strokeRect(14, 14, W - 28, H - 28);
   g.lineWidth = 1;
   g.strokeRect(22, 22, W - 44, H - 44);
+  // le borchie d'ottone del cartiglio, come sui pannelli (issue #32)
+  g.fillStyle = PAL['gold-deep'];
+  for (const [bx, by] of [[28, 28], [W - 28, 28], [28, H - 28], [W - 28, H - 28]]) {
+    g.beginPath(); g.arc(bx, by, 3.2, 0, Math.PI * 2); g.fill();
+  }
 
   // titolo
   g.fillStyle = '#4a3010';
