@@ -12,6 +12,11 @@ const RESPAWN_S = 6;
 const DISCOVERY_GOLD = 25;
 const MAX_SHIP_LVL = 4;       // ogni linea del Cantiere: scafo, vele, timone, ciurma, stiva
 const PVE_BOUNTY = { merc: 25, ghost: 60 }; // taglie magre e fisse per tipologia
+// L'economia del blocco (issue #15, arrembaggio v1): vita a zero per mano di
+// un capitano = nave BLOCCATA, non affondata. Il doppiofondo della Stiva è
+// SEMPRE protetto; il resto è "il forziere in gioco": 25% subito al vincitore,
+// il tocco prende il resto, il timeout libera col 75% e l'immunità.
+const BLOCCO = { durata: 18, immunita: 30, quotaSubito: 0.25, hpRitorno: 0.5, tocco: 46 };
 const WEAK_FORTS = !!(typeof process !== 'undefined' ? process.env.WEAK_FORTS : undefined); // knob per i test: difese di cartapesta
 
 const GROUP_DIR = { left: -Math.PI / 2, right: Math.PI / 2, bow: 0, stern: Math.PI };
@@ -132,6 +137,7 @@ class Game {
       mounts: W.defaultMounts(), ready: { left: [0], right: [0], bow: [], stern: [] },
       hp: 100, kills: 0, deaths: 0,
       docked: null, sunkUntil: 0, lastHitBy: null, lastDamageAt: 0,
+      blockedUntil: 0, blockedBy: null, bloccoSalvo: 0, immuneUntil: 0,
       abilityAt: 0, ramUntil: 0, doubleUntil: 0,
       visited: new Set(), conquered: new Set(),
       mission: null, wp: null, fleeUntil: 0,
@@ -234,6 +240,8 @@ class Game {
   }
 
   leave(ship) {
+    // scappare staccando la spina non paga: chi resta vince (issue #15)
+    if (ship.blockedUntil > this.now) this.abborda(ship);
     this.missions.leave(ship);
     this.ships.delete(ship.id);
     this.broadcast({ t: 'feed', msg: `${ship.name} è tornato sulla terraferma` });
@@ -290,6 +298,7 @@ class Game {
   fire(ship, group) {
     if (!GROUP_DIR.hasOwnProperty(group)) return;
     if (ship.docked || this.isSunk(ship) || ship.npc === 'merc') return;
+    if (ship.blockedUntil > this.now) return; // bloccata: cannoni muti
     if (!ship.npc) ship.graceUntil = 0; // chi apre il fuoco rinuncia alla tregua
     const mounts = ship.mounts[group];
     if (!mounts.length) return;
@@ -342,6 +351,7 @@ class Game {
 
   dock(ship) {
     if (ship.docked || this.isSunk(ship) || ship.npc) return;
+    if (ship.blockedUntil > this.now) return; // bloccata: niente fughe in banchina
     if (ship.vel > 45) { this.sendTo(ship, { t: 'toast', msg: 'Troppo veloce per attraccare: ammaina le vele!' }); return; }
     let best = null, bestD = Infinity;
     for (const i of this.archipelago.list()) {
@@ -497,7 +507,7 @@ class Game {
 
   abilita(ship) {
     const a = !ship.npc && ABILITA[ship.tipo];
-    if (!a || ship.docked || this.isSunk(ship)) return;
+    if (!a || ship.docked || this.isSunk(ship) || ship.blockedUntil > this.now) return;
     if (this.now < ship.abilityAt) {
       this.sendTo(ship, { t: 'toast', msg: `⏳ ${a.nome}: ancora ${Math.ceil(ship.abilityAt - this.now)}s` });
       return;
@@ -550,6 +560,14 @@ class Game {
     for (const ship of this.ships.values()) {
       if (ship.sunkUntil && this.now >= ship.sunkUntil) this.respawn(ship);
       if (this.isSunk(ship) || ship.docked) continue;
+      // il blocco (issue #15): la nave è inerme; si risolve col tocco o col tempo
+      if (ship.blockedUntil) {
+        if (this.now >= ship.blockedUntil) { this.libera(ship); continue; }
+        const p = this.ships.get(ship.blockedBy);
+        if (p && !this.isSunk(p) && !p.docked &&
+            Math.hypot(p.x - ship.x, p.y - ship.y) < BLOCCO.tocco) this.abborda(ship);
+        continue;
+      }
       if (ship.npc === 'merc') this.steerMerc(ship);
       else if (ship.npc === 'ghost') this.steerGhost(ship);
       this.move(ship, dt);
@@ -796,10 +814,73 @@ class Game {
 
   damageShip(ship, dmg, byId) {
     if (ship.graceUntil > this.now) return; // tregua: il colpo scivola in mare
+    if (ship.immuneUntil > this.now) return; // appena svincolato: intoccabile
+    if (ship.blockedUntil > this.now) return; // già vinta: si abborda, non si bombarda
     ship.hp -= dmg;
     ship.lastHitBy = byId;
     ship.lastDamageAt = this.now;
-    if (ship.hp <= 0) this.sink(ship, byId);
+    if (ship.hp <= 0) {
+      // fra capitani il colpo di grazia BLOCCA (issue #15); NPC e fortezze
+      // affondano come sempre
+      const killer = this.ships.get(byId);
+      if (!ship.npc && killer && !killer.npc) this.blocca(ship, killer);
+      else this.sink(ship, byId);
+    }
+  }
+
+  // Il blocco: lo scontro navale è vinto QUI — kill, missioni e diario si
+  // registrano subito; l'arrembaggio è solo il bottino che manca.
+  blocca(vittima, predatore) {
+    vittima.hp = 0;
+    vittima.vel = 0;
+    vittima.input = { up: false, down: false, left: false, right: false };
+    vittima.blockedUntil = this.now + BLOCCO.durata;
+    vittima.blockedBy = predatore.id;
+    vittima.deaths++;
+    vittima.bloccoSalvo = Math.round(vittima.gold * 0.10 * vittima.holdLvl);
+    const inGioco = vittima.gold - vittima.bloccoSalvo;
+    const subito = Math.round(inGioco * BLOCCO.quotaSubito);
+    vittima.gold -= subito;
+    predatore.gold += subito;
+    predatore.kills++;
+    this.fxQueue.push({ k: 'boom', x: r1(vittima.x), y: r1(vittima.y), r: 30 });
+    this.sendGold(vittima, -subito, 'Bloccato! Un quarto del forziere in gioco è del vincitore');
+    this.sendGold(predatore, subito, `Hai bloccato ${vittima.name}: toccala per l'arrembaggio!`);
+    this.missions.onKill(predatore, vittima);
+    this.broadcast({ t: 'kill', killer: predatore.name, victim: vittima.name, bounty: subito });
+  }
+
+  // Il tocco entro il tempo: il predatore prende tutto il forziere in gioco;
+  // alla vittima resta il doppiofondo, e la nave affonda (conto già saldato).
+  abborda(vittima) {
+    const predatore = this.ships.get(vittima.blockedBy);
+    const resto = Math.max(0, vittima.gold - vittima.bloccoSalvo);
+    if (resto > 0) {
+      vittima.gold = vittima.bloccoSalvo;
+      if (predatore) {
+        predatore.gold += resto;
+        this.sendGold(predatore, resto, `Arrembaggio! Il forziere di ${vittima.name} è tuo`);
+      }
+      this.sendGold(vittima, -resto, vittima.bloccoSalvo > 0
+        ? 'Abbordato! Il doppiofondo ha salvato qualcosa' : 'Abbordato! Il forziere è del vincitore');
+    }
+    this.broadcast({ t: 'feed', msg: `⚔ ${predatore ? predatore.name : 'Il mare'} ha ABBORDATO ${vittima.name}!${resto ? ` (+${resto} 🪙)` : ''}` });
+    vittima.blockedUntil = 0;
+    vittima.blockedBy = null;
+    vittima.sunkUntil = this.now + RESPAWN_S;
+    this.fxQueue.push({ k: 'sink', x: r1(vittima.x), y: r1(vittima.y) });
+    this.sendTo(vittima, { t: 'dead', respawn: RESPAWN_S });
+  }
+
+  // Il timeout: nessuno ha osato — la vittima si svincola col 75% del forziere
+  // in gioco (mai toccato dopo il blocco), mezza vita e l'immunità per rientrare.
+  libera(vittima) {
+    vittima.blockedUntil = 0;
+    vittima.blockedBy = null;
+    vittima.hp = Math.round(shipStats(vittima).maxHp * BLOCCO.hpRitorno);
+    vittima.immuneUntil = this.now + BLOCCO.immunita;
+    this.sendTo(vittima, { t: 'toast', msg: `⛵ Nessuno ha osato abbordarti: sei libero, con ${BLOCCO.immunita}s di immunità` });
+    this.broadcast({ t: 'feed', msg: `⛵ ${vittima.name} si è svincolato dal blocco` });
   }
 
   sink(ship, byId) {
@@ -842,6 +923,7 @@ class Game {
   respawn(ship) {
     ship.sunkUntil = 0;
     ship.lastHitBy = null;
+    ship.blockedUntil = 0; ship.blockedBy = null; ship.bloccoSalvo = 0; ship.immuneUntil = 0;
     if (ship.npc) {
       ship.x = 400 + Math.random() * (WORLD.W - 800);
       ship.y = 400 + Math.random() * (WORLD.H - 800);
@@ -873,6 +955,11 @@ class Game {
         // armi in chiaro (iniziale+livello per slot): il client disegna i
         // cannoni VERI, non pallini — "n" = cannone, "r" = carronata
         gw: [encW(s.mounts.left), encW(s.mounts.right), encW(s.mounts.bow), encW(s.mounts.stern)],
+        // il blocco (issue #15), campi ADDITIVI: bk = secondi al timeout,
+        // bb = chi ha diritto d'abbordaggio, im = 1 se immune post-svincolo
+        ...(s.blockedUntil > this.now
+          ? { bk: Math.ceil(s.blockedUntil - this.now), bb: s.blockedBy } : {}),
+        ...(s.immuneUntil > this.now ? { im: 1 } : {}),
       });
     }
     const forts = [];

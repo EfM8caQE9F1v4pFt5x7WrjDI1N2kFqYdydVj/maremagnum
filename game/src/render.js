@@ -834,6 +834,17 @@ export class Renderer {
         c.hpBar.rect(-w / 2, -28, w * frac, 5)
           .fill(frac > 0.6 ? COL.hpOk : frac > 0.35 ? COL.hpMid : COL.hpBad);
       }
+      // il blocco (issue #15): nave spenta con l'anello del tempo che si
+      // consuma; chi si è appena svincolato porta un anello dorato d'immunità
+      const bloccata = (s.bk || 0) > 0;
+      if (c.body.shipSprite) c.body.shipSprite.tint = bloccata ? 0x7c848d : 0xffffff;
+      if (bloccata) {
+        c.hpBar.circle(0, 4, 40).stroke({ width: 2, color: 0x1a1208, alpha: 0.5 });
+        c.hpBar.arc(0, 4, 40, -Math.PI / 2, -Math.PI / 2 + Math.min(1, s.bk / 18) * Math.PI * 2)
+          .stroke({ width: 3, color: 0xd8552e, alpha: 0.9 });
+      } else if (s.im) {
+        c.hpBar.circle(0, 4, 38).stroke({ width: 2, color: COL.gold, alpha: 0.45 });
+      }
       if (!s.sunk && !s.docked && s.vel > 30 && Math.random() < 0.6) {
         this.wakes.push({
           x: s.x - Math.cos(s.rot) * 22, y: s.y - Math.sin(s.rot) * 22,

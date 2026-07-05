@@ -855,6 +855,20 @@ function frame(now) {
 
 function updateDockHint(me) {
   if (state.docked) { ui.setDockHint(''); return; }
+  // il blocco (issue #15) comanda su tutto: o resisti, o abbordi
+  if (me.bk) {
+    ui.setDockHint(`⚑ Sei bloccato! Resisti ${me.bk}s o subirai l'arrembaggio`);
+    return;
+  }
+  const snap = state.snaps[state.snaps.length - 1];
+  if (snap) {
+    for (const s of snap.ships.values()) {
+      if (s.bk && s.bb === state.meId) {
+        ui.setDockHint(`⚔ Hai bloccato ${s.name}: TOCCALA per l'arrembaggio! (${s.bk}s)`);
+        return;
+      }
+    }
+  }
   let best = null, bestD = Infinity;
   for (const i of state.islands.values()) {
     const d = Math.hypot(i.x - me.x, i.y - me.y);

@@ -338,13 +338,32 @@ async function main() {
     const kill = await A.wait(m => m.t === 'kill' && m.victim === 'Olonese' && m.killer === 'Barbanera', 90000);
     clearInterval(hunt);
     A.input({});
-    ok(!!kill, 'Olonese affondato con la fiancata sinistra');
-    // legge del mare + Stiva 2: il doppiofondo trattiene il 20%, il resto è bottino
-    const spoglio = await B.wait(m => m.t === 'gold' && m.delta < 0, 3000);
-    const pre = spoglio ? spoglio.gold - spoglio.delta : 0;
-    ok(spoglio && spoglio.gold > 0 && spoglio.gold === Math.round(pre * 0.2),
-      `il doppiofondo della Stiva salva il 20% del forziere (${spoglio && spoglio.gold}/${pre} 🪙)`);
-    if (kill) ok(kill.bounty === pre - (spoglio ? spoglio.gold : 0), `bottino del vincitore: tutto il resto (${kill.bounty} 🪙)`);
+    ok(!!kill, 'Olonese BLOCCATO con la fiancata sinistra (il kill si conta al blocco)');
+    // economia del blocco (issue #15) + Stiva 2: doppiofondo (20%) SEMPRE
+    // protetto; al blocco parte il 25% del forziere in gioco
+    const bloccato = await B.wait(m => m.t === 'gold' && m.delta < 0, 3000);
+    const pre = bloccato ? bloccato.gold - bloccato.delta : 0;
+    const inGioco = pre - Math.round(pre * 0.2);
+    ok(bloccato && -bloccato.delta === Math.round(inGioco * 0.25),
+      `al blocco parte il 25% dell'in-gioco (${bloccato && -bloccato.delta} su ${inGioco} 🪙)`);
+    if (kill) ok(kill.bounty === -bloccato.delta, 'la taglia del diario coincide col prelievo');
+    await sleep(400);
+    const bBlocked = B.me();
+    ok(bBlocked && !bBlocked.sunk && bBlocked.bk > 0 && bBlocked.bb === A.id,
+      `la vittima è in acqua, bloccata e abbordabile solo dal vincitore (bk=${bBlocked && bBlocked.bk}s)`);
+    // il tocco: Barbanera si accosta e l'arrembaggio v1 prende il resto
+    const tocco = setInterval(() => {
+      const me = A.me(), t = A.find(B.id);
+      if (!me || !t) return;
+      const turn = norm(Math.atan2(t.y - me.y, t.x - me.x) - me.rot);
+      A.input({ up: true, left: turn < -0.1, right: turn > 0.1 });
+    }, 140);
+    const abbordo = await B.wait(m => m.t === 'gold' && m.delta < 0, 15000);
+    clearInterval(tocco);
+    A.input({});
+    ok(abbordo && abbordo.gold === Math.round(pre * 0.2),
+      `arrembaggio col tocco: alla vittima resta il doppiofondo (${abbordo && abbordo.gold}/${pre} 🪙)`);
+    ok(!!await B.wait(m => m.t === 'dead', 6000), 'la vittima abbordata affonda');
     ok(!!await B.wait(m => m.t === 'respawned', 12000), 'la vittima rispunta al porto');
 
     console.log('— La Fortezza Proibita: blocco reale, poi espugnazione —');
