@@ -76,10 +76,10 @@ app.whenReady().then(async () => {
   await J(`document.getElementById('settingsClose').click()`);
   await sleep(300);
 
-  // 3. classifica (TAB tenuto premuto)
-  await key('Tab'); await sleep(500);
+  // 3. classifica (C tenuto premuto; TAB ora è della navigazione)
+  await key('KeyC'); await sleep(500);
   await snap(game, 'a3-classifica');
-  await key('Tab', 'keyup'); await sleep(300);
+  await key('KeyC', 'keyup'); await sleep(300);
 
   // 4. rotta verso un sito: input + mappa del tesoro
   await J(`document.getElementById('courseInput').value = 'wikipedia.org'`);

@@ -7,65 +7,70 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="stage"></div>
+<main id="stage" aria-label="Il mare di gioco">
+  <p class="visuallyhidden">Vista dall'alto del Mare dell'Internet: la tua nave, le isole-sito
+  e le navi degli altri corsari. Lo stato che conta — vita, oro, missione, eventi, approdi —
+  è annunciato dai pannelli dell'interfaccia. I comandi sono nel Manuale del Corsaro (bottone
+  «Manuale» in alto) e si possono rimappare nelle Impostazioni di bordo.</p>
+</main>
 
 <header id="topbar">
   <div id="brand">⚓ Mare<span>magnum</span></div>
   <form id="courseForm">
-    <input id="courseInput" placeholder="Dove facciamo rotta, capitano? (wikipedia.org — o una ricerca)" autocomplete="off" spellcheck="false">
+    <input id="courseInput" aria-label="Traccia la rotta: indirizzo di un sito o una ricerca" placeholder="Dove facciamo rotta, capitano? (wikipedia.org — o una ricerca)" autocomplete="off" spellcheck="false">
     <button type="submit">🧭 Traccia la rotta</button>
   </form>
-  <div id="gold">🪙 <b id="goldVal">0</b></div>
-  <button id="helpBtn" title="Il Manuale del Corsaro — come funziona Maremagnum">📜</button>
-  <button id="settingsBtn" title="Impostazioni di bordo">⚙</button>
+  <div id="gold">🪙 <span class="visuallyhidden">monete d'oro: </span><b id="goldVal">0</b></div>
+  <button id="helpBtn" aria-label="Manuale del Corsaro" title="Il Manuale del Corsaro — come funziona Maremagnum">📜</button>
+  <button id="settingsBtn" aria-label="Impostazioni di bordo" title="Impostazioni di bordo">⚙</button>
 </header>
 
 <div id="dockbar" class="hidden">
   <span id="dockInfo">⚓</span>
   <span id="dockNav">
-    <button id="navBack" title="Indietro">←</button><button id="navFwd" title="Avanti">→</button><button id="navReload" title="Ricarica">↺</button>
+    <button id="navBack" aria-label="Indietro nel sito" title="Indietro">←</button><button id="navFwd" aria-label="Avanti nel sito" title="Avanti">→</button><button id="navReload" aria-label="Ricarica il sito" title="Ricarica">↺</button>
   </span>
   <span id="dockUrl"></span>
   <span id="guardInfo" title="Parassiti respinti dalla Ciurma di Guardia (tracker e pubblicità bloccati)">🛡 0</span>
-  <button id="openExt" title="Apri nel browser di sistema">🗗</button>
+  <button id="openExt" aria-label="Apri il sito nel browser di sistema" title="Apri nel browser di sistema">🗗</button>
   <button id="setSailBtn">⛵ Salpa</button>
 </div>
 
-<div id="missionHud" class="hidden"></div>
+<div id="missionHud" class="hidden" role="status"></div>
 <div id="assedioHud" class="hidden"></div>
 
 <div id="hud">
   <div id="shipName"></div>
-  <div id="hpWrap"><div id="hpBar"></div><span id="hpText"></span></div>
-  <div id="reloads">
-    <div class="rl"><span>Q ◀</span><div class="rlWrap"><div id="rlLeft" class="rlBar"></div></div></div>
-    <div class="rl"><span>E ▶</span><div class="rlWrap"><div id="rlRight" class="rlBar"></div></div></div>
-    <div class="rl hidden" id="rlAxialRow"><span>␣ ⇅</span><div class="rlWrap"><div id="rlAxial" class="rlBar"></div></div></div>
-    <div class="rl hidden" id="abilityRow"><span id="abilityKey">R ✦</span><div class="rlWrap"><div id="abilityBar" class="rlBar"></div></div></div>
+  <div id="hpWrap" role="progressbar" aria-label="Integrità della nave" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="hpBar"></div><span id="hpText"></span></div>
+  <div id="reloads" role="group" aria-label="Ricarica di cannoni e abilità (le barre si riempiono quando sono pronti)">
+    <div class="rl"><span id="rlKeyLeft">Q ◀</span><div class="rlWrap" aria-hidden="true"><div id="rlLeft" class="rlBar"></div></div></div>
+    <div class="rl"><span id="rlKeyRight">E ▶</span><div class="rlWrap" aria-hidden="true"><div id="rlRight" class="rlBar"></div></div></div>
+    <div class="rl hidden" id="rlAxialRow"><span id="rlKeyAxial">␣ ⇅</span><div class="rlWrap" aria-hidden="true"><div id="rlAxial" class="rlBar"></div></div></div>
+    <div class="rl hidden" id="abilityRow"><span id="abilityKey">R ✦</span><div class="rlWrap" aria-hidden="true"><div id="abilityBar" class="rlBar"></div></div></div>
   </div>
-  <div id="dockHint"></div>
+  <div id="dockHint" role="status"></div>
 </div>
 
 <div id="hint">Vela <b>W A S D</b> · Bordata sin. <b>Q</b> / des. <b>E</b> · Prua/Poppa <b>SPAZIO</b> · Abilità <b>R</b> · Attracca <b>F</b> · Zoom <b>Z</b> · Classifica <b>TAB</b></div>
-<canvas id="minimap" width="230" height="230"></canvas>
-<div id="killfeed"></div>
-<div id="toast" class="hidden"></div>
+<canvas id="minimap" width="230" height="230" role="img" aria-label="Minimappa del mare: isole e navi in vista"></canvas>
+<div id="killfeed" role="log" aria-label="Diario di bordo"></div>
+<div id="toast" class="hidden" role="status"></div>
 
 <div id="board" class="hidden">
-  <h3>☠ Registro dei Corsari</h3>
-  <table id="boardTable"></table>
+  <h3 id="boardTitle">☠ Registro dei Corsari</h3>
+  <table id="boardTable" aria-labelledby="boardTitle"></table>
 </div>
 
 <div id="mapOverlay" class="overlay hidden">
-  <div class="mapWrap">
+  <div class="mapWrap" role="dialog" aria-modal="true" aria-label="Mappa del tesoro: la rotta è tracciata">
     <canvas id="mapCanvas"></canvas>
     <button id="sailBtn">⛵ Salpa!</button>
   </div>
 </div>
 
 <div id="shopOverlay" class="overlay hidden">
-  <div class="panel wide">
-    <h2>🛠 Cantiere del Porto Franco</h2>
+  <div class="panel wide" role="dialog" aria-modal="true" aria-labelledby="titoloCantiere">
+    <h2 id="titoloCantiere">🛠 Cantiere del Porto Franco</h2>
     <p class="sub">Scafo rattoppato e stive piene. Crediti a bordo: <b id="shopGold"></b> 🪙</p>
     <div id="shopShip"></div>
     <h3 class="shopSection">⚔ Armamenti</h3>
@@ -78,8 +83,8 @@
 </div>
 
 <div id="assedioOverlay" class="overlay hidden">
-  <div class="panel">
-    <h2>⚔ Bacheca degli Assedi</h2>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloAssedi">
+    <h2 id="titoloAssedi">⚔ Bacheca degli Assedi</h2>
     <p class="sub" id="assedioInfo"></p>
     <p class="ruoli">🏴 I Corridori forzano il blocco della fortezza — ⚓ i Bloccatori lo difendono</p>
     <div id="assedioTeams" class="teams"></div>
@@ -92,11 +97,11 @@
 </div>
 
 <div id="searchOverlay" class="overlay hidden">
-  <div class="panel">
-    <h2>🔭 Il Faro dell'Oracolo</h2>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloOracolo">
+    <h2 id="titoloOracolo">🔭 Il Faro dell'Oracolo</h2>
     <p class="sub">Chiedi, e l'Oracolo indicherà la rotta fra i sette mari.</p>
     <form id="searchForm">
-      <input id="searchInput" placeholder="Cosa cerchi, capitano?" autocomplete="off">
+      <input id="searchInput" aria-label="Cosa cerchi" placeholder="Cosa cerchi, capitano?" autocomplete="off">
       <button type="submit">Chiedi</button>
     </form>
     <button id="searchClose" class="linkish">⛵ Salpa senza chiedere</button>
@@ -104,7 +109,7 @@
 </div>
 
 <div id="siteOverlay" class="overlay hidden">
-  <div class="panel">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="siteTitle">
     <h2 id="siteTitle">⚓ Attraccato</h2>
     <p class="sub">Nel guscio browser il sito si apre qui dentro; nel prototipo web si apre in una nuova scheda.</p>
     <a id="siteLink" href="#" target="_blank" rel="noreferrer noopener"><button>🗺 Apri il sito in una nuova scheda</button></a>
@@ -113,36 +118,42 @@
 </div>
 
 <div id="deathOverlay" class="overlay hidden">
-  <div class="panel death">
-    <h2>☠️ La tua nave è affondata!</h2>
+  <div class="panel death" role="alertdialog" aria-modal="true" aria-labelledby="titoloAffondato">
+    <h2 id="titoloAffondato">☠️ La tua nave è affondata!</h2>
     <p class="sub">I flutti ti riportano al Porto Franco per le riparazioni…</p>
     <div id="deathCount">6</div>
   </div>
 </div>
 
 <div id="settingsOverlay" class="overlay hidden">
-  <div class="panel">
-    <h2>⚙ Impostazioni di bordo</h2>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloImpostazioni">
+    <h2 id="titoloImpostazioni">⚙ Impostazioni di bordo</h2>
     <label class="setRow"><input type="checkbox" id="setMusic" checked> 🎵 Musica del mare</label>
     <label class="setRow"><input type="checkbox" id="setSfx" checked> 🔊 Effetti sonori</label>
     <label class="setRow"><input type="checkbox" id="setGuard" checked> 🛡 Ciurma di Guardia — respinge spie e pubblicità</label>
-    <label class="setRow vol">🔉 Volume <input type="range" id="setVol" min="0" max="100" value="80"></label>
+    <label class="setRow vol">🔉 Volume <input type="range" id="setVol" min="0" max="100" value="80" aria-label="Volume di musica ed effetti"></label>
+    <label class="setRow"><input type="checkbox" id="setCalma"> 🌊 Mare calmo — riduci scosse e movimenti di contorno</label>
+    <div id="timoneria">
+      <h3 class="shopSection">⌨ La timoneria — rimappa i tasti</h3>
+      <p class="ruoli">Scegli tu i tasti del timone. Le frecce governano sempre, ESC chiude sempre.</p>
+      <div id="tastiRows"></div>
+    </div>
     <div id="ancoraSez">
       <h3 class="shopSection">⚓ Ancoraggio del profilo</h3>
       <p class="sub" id="ancoraStato">Il tuo bottino vive solo su questa nave. Getta l'ancora per salvarlo in mare aperto.</p>
       <div id="ancoraForm">
-        <input id="ancoraHandle" placeholder="nome o mail — non la verifichiamo" autocomplete="off">
+        <input id="ancoraHandle" aria-label="Nome dell'ancoraggio" placeholder="nome o mail — non la verifichiamo" autocomplete="username">
         <div class="row">
           <button id="ancoraCrea">⚓ Getta l'ancora</button>
           <button id="ancoraEntraBtn" class="linkish">Ho già un ancoraggio</button>
         </div>
       </div>
       <div id="ancoraQr" class="hidden">
-        <canvas id="ancoraQrCanvas" width="168" height="168"></canvas>
+        <canvas id="ancoraQrCanvas" width="168" height="168" role="img" aria-label="Codice QR per l'app di autenticazione (in alternativa usa la chiave manuale qui sotto)"></canvas>
         <p class="sub">Inquadra con la tua app di autenticazione,<br>o inserisci la chiave a mano: <code id="ancoraSegreto"></code></p>
       </div>
       <form id="ancoraCodiceForm" class="hidden">
-        <input id="ancoraCodice" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="off">
+        <input id="ancoraCodice" aria-label="Codice a 6 cifre dall'app di autenticazione" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
         <button type="submit">Conferma</button>
       </form>
       <p class="ruoli">Niente password, niente email di conferma. Se perdi il generatore perdi il forziere;<br>dopo 30 giorni senza entrare, il mare si riprende tutto.</p>
@@ -153,8 +164,8 @@
 </div>
 
 <div id="helpOverlay" class="overlay hidden">
-  <div class="panel wide">
-    <h2>📜 Il Manuale del Corsaro</h2>
+  <div class="panel wide" role="dialog" aria-modal="true" aria-labelledby="titoloManuale">
+    <h2 id="titoloManuale">📜 Il Manuale del Corsaro</h2>
     <p class="sub">L'internet è un mare magnum. Questo è un browser che lo prende alla lettera.</p>
 
     <div class="manuale">
@@ -220,9 +231,19 @@
       parassiti respinti.</p>
 
       <h3 class="shopSection">🎛 I comandi</h3>
-      <p class="comandi"><b>W A S D</b> vela e timone · <b>Q</b>/<b>E</b> bordata sinistra/destra ·
+      <p class="comandi"><b>W A S D</b> (o le frecce) vela e timone · <b>Q</b>/<b>E</b> bordata sinistra/destra ·
       <b>SPAZIO</b> prua e poppa · <b>R</b> abilità del tipo · <b>F</b> attracca/salpa · <b>Z</b> o rotella cannocchiale ·
-      <b>TAB</b> classifica · <b>ESC</b> chiudi/salpa</p>
+      <b>C</b> classifica · <b>TAB</b> naviga l'interfaccia · <b>ESC</b> chiudi/salpa.
+      Ogni tasto d'azione si cambia dalla <b>Timoneria</b>, nelle Impostazioni di bordo.</p>
+
+      <h3 class="shopSection">♿ Un mare per tutti</h3>
+      <p>Maremagnum punta alla conformità <b>WCAG 2.2 AA</b>: tasti rimappabili, interfaccia
+      tutta navigabile da tastiera (TAB per muoversi, ESC per chiudere), stato di gioco
+      annunciato agli screen reader (vita, oro, missioni, diario di bordo, approdi),
+      contrasti verificati e codici d'accesso incollabili dall'app di autenticazione.
+      Nelle Impostazioni c'è <b>Mare calmo</b> per ridurre scosse e movimenti di contorno.
+      Il mondo dipinto è la scena: lo stato essenziale per giocare passa dai pannelli
+      accessibili dell'interfaccia.</p>
 
       <h3 class="shopSection">👑 Riscatta la tua isola</h3>
       <p>Sei il capitano del sito vero? Presto potrai <b>riscattare la tua isola</b>:
@@ -230,11 +251,11 @@
       edifici, vessilli, fino a farne la tua insegna sul mare. L'editor è in cantiere:
       lascia un segnale e ti chiameremo quando la banchina apre.</p>
       <form id="riscattoForm">
-        <input id="riscattoDominio" placeholder="iltuosito.it" autocomplete="off" spellcheck="false">
-        <input id="riscattoContatto" placeholder="come ti raggiungiamo (mail o ancoraggio)" autocomplete="off">
+        <input id="riscattoDominio" aria-label="Dominio della tua isola" placeholder="iltuosito.it" autocomplete="off" spellcheck="false">
+        <input id="riscattoContatto" aria-label="Recapito: email o nome d'ancoraggio" placeholder="come ti raggiungiamo (mail o ancoraggio)" autocomplete="email">
         <button type="submit">👑 Prenota il riscatto</button>
       </form>
-      <p class="ruoli" id="riscattoEsito"></p>
+      <p class="ruoli" id="riscattoEsito" role="status"></p>
     </div>
 
     <button id="helpClose" class="linkish">Chiudi</button>
@@ -242,12 +263,12 @@
 </div>
 
 <div id="nameOverlay" class="overlay hidden">
-  <div class="panel">
-    <h2>⚓ Maremagnum</h2>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloBenvenuto">
+    <h2 id="titoloBenvenuto">⚓ Maremagnum</h2>
     <div id="benvenutoNome">
       <p class="sub">L'internet è un mare magnum: vasto, profondo e infestato di corsari.<br>Con che nome solcherai le onde?</p>
       <form id="nameForm">
-        <input id="nameInput" maxlength="18" autocomplete="off">
+        <input id="nameInput" aria-label="Il tuo nome di corsaro" maxlength="18" autocomplete="nickname">
         <button type="submit">⛵ Salpa!</button>
       </form>
       <button id="benvenutoLogin" class="linkish">Ho già un ancoraggio</button>
@@ -256,10 +277,10 @@
       <p class="sub">Il tuo ancoraggio è <b id="benvenutoHandle"></b>.<br>
         Inquadralo con la tua app di autenticazione (Google Authenticator, Aegis, 1Password…):<br>
         il codice a 6 cifre ti farà rientrare nelle prossime sessioni.</p>
-      <canvas id="benvenutoQr" width="168" height="168"></canvas>
+      <canvas id="benvenutoQr" width="168" height="168" role="img" aria-label="Codice QR per l'app di autenticazione (in alternativa usa la chiave manuale qui sotto)"></canvas>
       <p class="sub">Chiave manuale: <code id="benvenutoSegreto"></code></p>
       <form id="benvenutoConfermaForm">
-        <input id="benvenutoCodice" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="off">
+        <input id="benvenutoCodice" aria-label="Codice a 6 cifre dall'app di autenticazione" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
         <button type="submit">⚓ Getta l'ancora e salpa</button>
       </form>
       <button id="benvenutoSalta" class="linkish">Salpa senza ancora — il bottino resterà solo su questa nave</button>
@@ -267,8 +288,8 @@
     <div id="benvenutoEntra" class="hidden">
       <p class="sub">Bentornato, capitano. Nome d'ancoraggio e codice dalla tua app.</p>
       <form id="benvenutoEntraForm">
-        <input id="benvenutoEntraHandle" placeholder="nome d'ancoraggio" autocomplete="off">
-        <input id="benvenutoEntraCodice" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="off">
+        <input id="benvenutoEntraHandle" aria-label="Nome d'ancoraggio" placeholder="nome d'ancoraggio" autocomplete="username">
+        <input id="benvenutoEntraCodice" aria-label="Codice a 6 cifre dall'app di autenticazione" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
         <button type="submit">⛵ Entra</button>
       </form>
       <button id="benvenutoIndietro" class="linkish">Sono nuovo da queste acque</button>

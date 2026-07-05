@@ -14,6 +14,31 @@ import QRCode from 'qrcode';
 const INTERP_DELAY = 120; // ms nel passato: si naviga fra due snapshot certi
 const GROUPS = ['left', 'right', 'bow', 'stern'];
 
+// La timoneria: azioni di gioco → tasti, rimappabili nelle Impostazioni
+// (WCAG 2.1.4: le scorciatoie a tasto singolo devono potersi cambiare).
+// Le frecce governano sempre; ESC, INVIO e TAB restano della navigazione.
+const AZIONI = [
+  ['su', 'Avanti (vela)', 'KeyW'],
+  ['giu', 'Frena (ammaina)', 'KeyS'],
+  ['sinistra', 'Vira a sinistra', 'KeyA'],
+  ['destra', 'Vira a destra', 'KeyD'],
+  ['bordataSin', 'Bordata sinistra', 'KeyQ'],
+  ['bordataDes', 'Bordata destra', 'KeyE'],
+  ['pruaPoppa', 'Prua e poppa', 'Space'],
+  ['abilita', 'Abilità del tipo', 'KeyR'],
+  ['attracca', 'Attracca / salpa', 'KeyF'],
+  ['zoom', 'Cannocchiale', 'KeyZ'],
+  ['classifica', 'Classifica (tieni premuto)', 'KeyC'],
+];
+const TASTI_RISERVATI = ['Escape', 'Enter', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+
+function keyLabel(code) {
+  if (code === 'Space') return 'SPAZIO';
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  return code;
+}
+
 const shell = window.navigareShell || null;
 
 // Parametri di sviluppo (?nome=X salta la pergamena del nome, ?ora=0..1 blocca
@@ -30,6 +55,7 @@ const state = {
   lastFire: { left: 0, right: 0, bow: 0, stern: 0 },
   groupReload: { left: 2000, right: 2000, bow: 2000, stern: 2000 },
   ability: { at: 0, cd: 30 }, // il cooldown vero lo detta il server con l'ack
+  keymap: {}, tastoDi: {}, rebind: null,
   mounts: null,
   profile: loadProfile(),
 };
@@ -88,6 +114,7 @@ async function boot() {
     },
     onRiscatto: riscattaIsola,
     onSettings: applySettings,
+    onRebind: (azione) => { state.rebind = azione; refreshTimoneria(); },
     onNavBack: () => shell && shell.navBack(),
     onNavFwd: () => shell && shell.navFwd(),
     onNavReload: () => shell && shell.navReload(),
@@ -106,14 +133,17 @@ async function boot() {
   ui.setShipName(state.profile.name);
   saveProfile();
 
-  // preferenze audio dal profilo (default: tutto acceso, volume 80%)
+  // preferenze audio dal profilo (default: tutto acceso, volume 80%);
+  // il mare calmo eredita la preferenza di sistema sul movimento ridotto
   const prefs = {
     music: state.profile.musicOn !== false,
     sfx: state.profile.sfxOn !== false,
     guard: state.profile.guardOn !== false,
+    calma: state.profile.calmaOn ?? matchMedia('(prefers-reduced-motion: reduce)').matches,
     volume: state.profile.volume ?? 0.8,
   };
   applySettings(prefs, true);
+  applyKeymap();
   wireAncora();
 
   wireNet();
@@ -131,7 +161,7 @@ async function boot() {
     }, 6000);
   }
   if (devParams.get('vela')) {
-    keys.add('KeyW');
+    keys.add(state.keymap.su);
     setInterval(pushInput, 500);
   }
   if (devParams.get('autofuoco')) {
@@ -317,18 +347,63 @@ function wireAncora() {
   });
 }
 
-function applySettings({ music: m, sfx: s, guard: g, volume: v }, skipSave) {
+function applySettings({ music: m, sfx: s, guard: g, calma: c, volume: v }, skipSave) {
   state.profile.musicOn = m;
   state.profile.sfxOn = s;
   state.profile.guardOn = g;
+  state.profile.calmaOn = c;
   state.profile.volume = v;
   if (!skipSave) saveProfile();
   sfx.setEnabled(s);
   sfx.setVolume(v);
   music.setEnabled(m);
   music.setVolume(v);
+  renderer.setCalma(!!c);
   if (shell) shell.setGuard(g);
-  ui.setSettings({ music: m, sfx: s, guard: g, volume: v });
+  ui.setSettings({ music: m, sfx: s, guard: g, calma: c, volume: v });
+}
+
+// --- la timoneria: tasti rimappabili ---
+
+function applyKeymap() {
+  const scelte = state.profile.tasti || {};
+  state.keymap = {};
+  state.tastoDi = {};
+  for (const [azione, , base] of AZIONI) {
+    let code = typeof scelte[azione] === 'string' && /^[A-Za-z0-9]{2,25}$/.test(scelte[azione])
+      && !TASTI_RISERVATI.includes(scelte[azione]) ? scelte[azione] : base;
+    state.keymap[azione] = code;
+  }
+  for (const [azione] of AZIONI) state.tastoDi[state.keymap[azione]] = azione;
+  const etichette = {};
+  for (const [azione] of AZIONI) etichette[azione] = keyLabel(state.keymap[azione]);
+  ui.setKeymap(etichette);
+  refreshTimoneria();
+}
+
+function refreshTimoneria() {
+  ui.setTimoneria(AZIONI.map(([azione, nome]) => ({
+    azione, nome, label: keyLabel(state.keymap[azione]), inAscolto: state.rebind === azione,
+  })));
+}
+
+function captureRebind(e) {
+  e.preventDefault();
+  const azione = state.rebind;
+  state.rebind = null;
+  if (e.code !== 'Escape') {
+    if (TASTI_RISERVATI.includes(e.code)) {
+      ui.toast('Quel tasto serve alla navigazione: scegline un altro.');
+    } else {
+      const occupato = AZIONI.find(([a]) => a !== azione && state.keymap[a] === e.code);
+      if (occupato) ui.toast(`«${keyLabel(e.code)}» è già il tasto di ${occupato[1]}.`);
+      else {
+        state.profile.tasti = { ...(state.profile.tasti || {}), [azione]: e.code };
+        saveProfile();
+      }
+    }
+  }
+  applyKeymap();
 }
 
 function weaponReloadMs(w) {
@@ -554,11 +629,12 @@ const keys = new Set();
 let lastInputJson = '';
 
 function currentInput() {
+  const k = state.keymap;
   return {
-    up: keys.has('KeyW') || keys.has('ArrowUp'),
-    down: keys.has('KeyS') || keys.has('ArrowDown'),
-    left: keys.has('KeyA') || keys.has('ArrowLeft'),
-    right: keys.has('KeyD') || keys.has('ArrowRight'),
+    up: keys.has(k.su) || keys.has('ArrowUp'),
+    down: keys.has(k.giu) || keys.has('ArrowDown'),
+    left: keys.has(k.sinistra) || keys.has('ArrowLeft'),
+    right: keys.has(k.destra) || keys.has('ArrowRight'),
   };
 }
 
@@ -580,35 +656,37 @@ function fireGroup(group) {
 function wireInput() {
   addEventListener('pointerdown', () => { sfx.unlock(); music.start(); }, { once: true });
   addEventListener('keydown', (e) => {
+    // la timoneria in ascolto cattura il prossimo tasto (ESC annulla)
+    if (state.rebind) { captureRebind(e); return; }
     if (e.code === 'Escape') { ui.escape(); return; }
-    if (ui.typing()) return;
+    // col fuoco su un campo comanda il campo; su un bottone, SPAZIO e INVIO
+    // sono suoi; TAB resta SEMPRE della navigazione (WCAG 2.1.1)
+    if (ui.typing() || e.code === 'Tab') return;
+    if (ui.bottoneAlFuoco() && (e.code === 'Space' || e.code === 'Enter')) return;
     sfx.unlock();
     music.start();
-    if (e.code === 'Tab') { e.preventDefault(); ui.showBoard(true); return; }
-    if (e.code === 'KeyQ') { e.preventDefault(); fireGroup('left'); return; }
-    if (e.code === 'KeyE') { e.preventDefault(); fireGroup('right'); return; }
-    if (e.code === 'Space') {
-      e.preventDefault();
-      fireGroup('bow'); fireGroup('stern');
-      return;
-    }
-    if (e.code === 'KeyF') {
-      e.preventDefault();
-      if (state.docked) undock(); else net.send({ t: 'dock' });
-      return;
-    }
-    if (e.code === 'KeyR') {
-      e.preventDefault();
-      if (!state.docked && state.profile.tipo) net.send({ t: 'abilita' });
-      return;
+    const azione = state.tastoDi[e.code];
+    switch (azione) {
+      case 'bordataSin': e.preventDefault(); fireGroup('left'); return;
+      case 'bordataDes': e.preventDefault(); fireGroup('right'); return;
+      case 'pruaPoppa': e.preventDefault(); fireGroup('bow'); fireGroup('stern'); return;
+      case 'attracca':
+        e.preventDefault();
+        if (state.docked) undock(); else net.send({ t: 'dock' });
+        return;
+      case 'abilita':
+        e.preventDefault();
+        if (!state.docked && state.profile.tipo) net.send({ t: 'abilita' });
+        return;
+      case 'zoom': e.preventDefault(); cycleZoom(); return;
+      case 'classifica': e.preventDefault(); ui.showBoard(true); return;
     }
     if (e.code === 'Enter') { document.getElementById('courseInput').focus(); e.preventDefault(); return; }
-    if (e.code === 'KeyZ') { e.preventDefault(); cycleZoom(); return; }
     keys.add(e.code);
     pushInput();
   });
   addEventListener('keyup', (e) => {
-    if (e.code === 'Tab') { ui.showBoard(false); return; }
+    if (state.tastoDi[e.code] === 'classifica') { ui.showBoard(false); return; }
     keys.delete(e.code);
     pushInput();
   });

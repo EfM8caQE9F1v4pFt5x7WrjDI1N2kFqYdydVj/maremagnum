@@ -11,7 +11,8 @@
     "dev": "node scripts/dev.js",
     "start": "node scripts/dev.js",
     "test": "node scripts/test-protocol.js",
-    "test:guardia": "node scripts/test-guard.js"
+    "test:guardia": "node scripts/test-guard.js",
+    "test:a11y": "node scripts/test-a11y.js"
   },
   "keywords": [
     "browser",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@electron/packager": "^20.0.2",
+    "axe-core": "^4.12.1",
     "electron": "^43.0.0",
     "esbuild": "^0.28.1",
     "three": "^0.185.1"

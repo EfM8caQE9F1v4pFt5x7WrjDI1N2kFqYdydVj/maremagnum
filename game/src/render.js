@@ -37,6 +37,9 @@ export class Renderer {
     this.app = new Application();
     await this.app.init({ resizeTo: window, background: COL.sea, antialias: false, autoDensity: true });
     mount.appendChild(this.app.canvas);
+    // il mondo dipinto è descritto dal testo dentro #stage: il canvas in sé
+    // non ha nulla da dire a uno screen reader
+    this.app.canvas.setAttribute('aria-hidden', 'true');
 
     // Qualità adattiva: su renderer software (SwiftShader/llvmpipe) lo shader
     // a schermo pieno mangia la CPU → mezza risoluzione, shader magro, 30 fps.
@@ -327,7 +330,15 @@ export class Renderer {
     return Texture.from(c);
   }
 
-  addShake(amount) { this.shake = Math.min(14, this.shake + amount); }
+  addShake(amount) { if (!this.calmo) this.shake = Math.min(14, this.shake + amount); }
+
+  // Mare calmo (movimento ridotto, WCAG 2.3.3): niente scosse dello schermo
+  // né ombre di nuvole alla deriva; il gioco resta identico.
+  setCalma(v) {
+    this.calmo = !!v;
+    if (this.calmo) this.shake = 0;
+    if (this.cloudShadows) this.cloudShadows.visible = !this.lowSpec && !this.calmo;
+  }
 
   setWorld(world) {
     this.W = world.W; this.H = world.H;

@@ -16,6 +16,21 @@ body { font-family: Georgia, 'Palatino Linotype', serif; color: #f3e6c2; }
 
 .hidden { display: none !important; }
 
+/* testo per i soli screen reader: presente nel flusso, invisibile a schermo */
+.visuallyhidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+
+/* focus visibile ovunque: anello blu su alone chiaro — si vede sia sulla
+   pergamena sia sul legno scuro e sull'acqua (WCAG 2.4.7 / 2.4.13) */
+:focus-visible {
+  outline: 3px solid #0b63ce !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px #fff8e4 !important;
+  border-radius: 4px;
+}
+
 /* ---- barra superiore: la plancia di comando ---- */
 #topbar {
   position: fixed; top: 0; left: 0; right: 0; height: 54px;
@@ -31,9 +46,7 @@ body { font-family: Georgia, 'Palatino Linotype', serif; color: #f3e6c2; }
 #courseInput {
   flex: 1; padding: 8px 14px; font: inherit; font-size: 15px;
   background: #efe0b9; color: #3a2512; border: 2px solid #2a1a0c; border-radius: 20px;
-  outline: none;
 }
-#courseInput:focus { box-shadow: 0 0 0 3px rgba(232,194,104,.45); }
 button {
   font: inherit; font-size: 14px; cursor: pointer;
   background: linear-gradient(#e8c268, #c89a3c); color: #3a2512;
@@ -55,14 +68,22 @@ button:disabled { opacity: .45; cursor: default; }
 #dockUrl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .75; font-style: italic; }
 
 /* ---- HUD nave ---- */
-#hud { position: fixed; left: 16px; bottom: 16px; z-index: 20; width: 260px; }
+/* il fondale scuro garantisce il contrasto dei testi sull'acqua (1.4.3) */
+#hud {
+  position: fixed; left: 16px; bottom: 16px; z-index: 20; width: 260px;
+  background: rgba(14,9,4,.75); border-radius: 12px; padding: 10px 12px;
+}
 #shipName { font-size: 17px; font-weight: bold; text-shadow: 0 2px 4px #000; margin-bottom: 6px; color: #f3e6c2; }
 #hpWrap {
   position: relative; height: 20px; border: 2px solid #2a1a0c; border-radius: 10px;
   background: rgba(20,12,5,.75); overflow: hidden;
 }
 #hpBar { height: 100%; width: 100%; background: linear-gradient(#6cd072, #3d9944); transition: width .2s; }
-#hpText { position: absolute; inset: 0; text-align: center; font-size: 12px; line-height: 17px; color: #fff; text-shadow: 0 1px 2px #000; }
+#hpText {
+  position: absolute; inset: 0; text-align: center; font-size: 12px; line-height: 17px; color: #fff;
+  /* orlo scuro su ogni lato: leggibile anche sul verde pieno della barra */
+  text-shadow: 1px 0 0 #0d1607, -1px 0 0 #0d1607, 0 1px 0 #0d1607, 0 -1px 0 #0d1607, 0 1px 3px #000;
+}
 #reloads { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
 .rl { display: flex; align-items: center; gap: 7px; }
 .rl span { font-size: 11.5px; color: #e8c268; min-width: 34px; text-shadow: 0 1px 2px #000; }
@@ -72,7 +93,8 @@ button:disabled { opacity: .45; cursor: default; }
 
 #hint {
   position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-  font-size: 13px; color: rgba(243,230,194,.75); text-shadow: 0 1px 3px #000; z-index: 20;
+  font-size: 13px; color: #e9dbb8; z-index: 20;
+  background: rgba(14,9,4,.75); border-radius: 10px; padding: 5px 14px;
 }
 #hint b { color: #e8c268; }
 
@@ -130,7 +152,7 @@ button:disabled { opacity: .45; cursor: default; }
   border: 2px solid #6d4c22; border-radius: 18px; background: #fff8e4; color: #3a2512;
   outline: none; width: 280px;
 }
-.linkish { background: none; border: none; font-style: italic; text-decoration: underline; font-weight: normal; }
+.linkish { background: none; border: none; font-style: italic; text-decoration: underline; font-weight: normal; min-height: 24px; }
 .panel.death { background: #241708; color: #f3e6c2; border-color: #a1261a; }
 #deathCount { font-size: 56px; font-weight: bold; color: #e8c268; margin-top: 6px; }
 
@@ -179,17 +201,17 @@ button:disabled { opacity: .45; cursor: default; }
   padding: 8px 12px; margin-bottom: 9px; text-align: left;
 }
 .wgroupHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-.wgroupHead span { font-size: 12px; opacity: .7; font-style: italic; }
+.wgroupHead span { font-size: 12px; color: #5a3d1c; font-style: italic; }
 .wslot {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 5px 8px; border-bottom: 1px dashed rgba(109,76,34,.3);
 }
 .wslot:last-of-type { border-bottom: none; }
-.wname .tier { font-size: 11.5px; color: #8a5a17; margin-left: 8px; font-variant: small-caps; }
-.wname .pips { color: #8a5a17; letter-spacing: 2px; margin-left: 10px; font-size: 12px; }
+.wname .tier { font-size: 11.5px; color: #6d4c22; margin-left: 8px; font-variant: small-caps; }
+.wname .pips { color: #6d4c22; letter-spacing: 2px; margin-left: 10px; font-size: 12px; }
 .wslot button { padding: 4px 12px; font-size: 13px; min-width: 150px; }
-.wslot .tierUp { background: linear-gradient(#c9a2e8, #9a6ac2); }
-.wslot .maxed { font-style: italic; font-size: 12.5px; opacity: .7; }
+.wslot .tierUp { background: linear-gradient(#d4b3ee, #b18ad8); }
+.wslot .maxed { font-style: italic; font-size: 12.5px; color: #5a3d1c; }
 .addSlot { margin-top: 7px; width: 100%; font-size: 13px; background: linear-gradient(#b9c99b, #93a877); color: #25330f; }
 
 /* ---- cantiere (righe nave) ---- */
@@ -200,8 +222,8 @@ button:disabled { opacity: .45; cursor: default; }
 }
 .shopInfo { display: flex; flex-direction: column; }
 .shopInfo span { font-size: 12.5px; font-style: italic; opacity: .8; }
-.shopInfo .pips { color: #8a5a17; letter-spacing: 3px; font-style: normal; font-size: 13px; }
-.shopInfo .effetti { color: #8a5a17; font-style: normal; font-size: 12px; }
+.shopInfo .pips { color: #6d4c22; letter-spacing: 3px; font-style: normal; font-size: 13px; }
+.shopInfo .effetti { color: #5a3d1c; font-style: normal; font-size: 12px; }
 .shopRow button { min-width: 96px; }
 
 /* ---- impostazioni di bordo ---- */
@@ -219,7 +241,7 @@ button:disabled { opacity: .45; cursor: default; }
   margin: 12px auto; max-width: 320px; font-size: 15.5px; cursor: pointer; text-align: left;
 }
 .setRow.vol { display: flex; gap: 10px; }
-.setRow input[type="checkbox"] { width: 18px; height: 18px; accent-color: #c89a3c; }
+.setRow input[type="checkbox"] { width: 24px; height: 24px; accent-color: #8a5a17; }
 .setRow input[type="range"] { flex: 1; accent-color: #c89a3c; }
 #guardInfo { font-weight: bold; color: #2e5d2e; white-space: nowrap; }
 #guardInfo.spento { opacity: .4; text-decoration: line-through; }
@@ -228,7 +250,7 @@ button:disabled { opacity: .45; cursor: default; }
 body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killfeed { top: 108px; }
 
 /* ruoli dell'assedio, spiegati in una riga */
-.ruoli { font-size: 12.5px; font-style: italic; opacity: .78; margin-bottom: 10px; }
+.ruoli { font-size: 12.5px; font-style: italic; color: #4c3317; margin-bottom: 10px; }
 
 /* ---- ancoraggio del profilo ---- */
 #ancoraSez { border-top: 1px solid rgba(109,76,34,.35); margin-top: 14px; padding-top: 2px; }
@@ -246,4 +268,27 @@ body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killf
 #benvenutoCodice, #benvenutoEntraCodice { width: 170px; text-align: center; letter-spacing: 4px; }
 #benvenutoEntraForm { flex-wrap: wrap; }
 
-.credits { font-size: 11.5px; opacity: .65; margin-top: 12px; font-style: italic; }
+.credits { font-size: 11.5px; color: #5a3d1c; margin-top: 12px; font-style: italic; }
+
+/* ---- timoneria: rimappatura dei tasti (WCAG 2.1.4) ---- */
+#tastiRows { display: flex; flex-direction: column; gap: 4px; max-width: 340px; margin: 0 auto; }
+.tastoRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
+.tastoRow button { min-width: 110px; padding: 4px 10px; font-size: 13px; }
+.tastoRow button.inAscolto { background: linear-gradient(#b9c99b, #93a877); color: #25330f; }
+
+/* ---- reflow (WCAG 1.4.10): niente perdite a 320px ---- */
+.panel, .panel.wide { max-width: min(760px, 96vw); }
+.panel:not(.wide) { max-width: min(560px, 96vw); }
+#board { min-width: min(420px, 94vw); }
+@media (max-width: 720px) {
+  #brand { display: none; }
+  #hud { width: min(260px, 46vw); }
+  #minimap { width: 140px; height: 140px; }
+  #hint { display: none; } /* aiuto ridondante: vive nel Manuale */
+  #killfeed { max-width: 46vw; }
+}
+
+/* ---- movimento ridotto: si rispetta la preferenza di sistema ---- */
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

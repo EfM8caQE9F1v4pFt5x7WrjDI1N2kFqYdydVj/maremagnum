@@ -4,13 +4,11 @@ import { drawTreasureMap } from './mapgen.js';
 
 const $ = (id) => document.getElementById(id);
 
-const GROUP_LABELS = {
-  left: '◀ Fiancata sinistra (Q)',
-  right: '▶ Fiancata destra (E)',
-  bow: '▲ Prua (SPAZIO)',
-  stern: '▼ Poppa (SPAZIO)',
-};
 const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
+
+// ordine di priorità degli overlay quando sono impilati (es. Manuale sul Cantiere)
+const OVERLAY_ORDINE = ['helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay',
+  'shopOverlay', 'searchOverlay', 'siteOverlay', 'deathOverlay', 'nameOverlay'];
 
 export class UI {
   constructor(handlers) {
@@ -46,18 +44,19 @@ export class UI {
       e.preventDefault();
       this.h.onRiscatto($('riscattoDominio').value.trim(), $('riscattoContatto').value.trim());
     });
-    const emitSettings = (e) => {
+    const emitSettings = () => {
       this.h.onSettings({
         music: $('setMusic').checked,
         sfx: $('setSfx').checked,
         guard: $('setGuard').checked,
+        calma: $('setCalma').checked,
         volume: $('setVol').valueAsNumber / 100,
       });
-      if (e.target.type === 'checkbox') e.target.blur(); // non rubare il timone
     };
     $('setMusic').addEventListener('change', emitSettings);
     $('setSfx').addEventListener('change', emitSettings);
     $('setGuard').addEventListener('change', emitSettings);
+    $('setCalma').addEventListener('change', emitSettings);
     $('setVol').addEventListener('input', emitSettings);
     $('assedioOpen').addEventListener('click', () => { this.show('assedioOverlay'); });
     $('assedioClose').addEventListener('click', () => this.hide('assedioOverlay'));
@@ -68,6 +67,34 @@ export class UI {
     for (const oid of ['mapOverlay', 'settingsOverlay', 'assedioOverlay', 'helpOverlay']) {
       $(oid).addEventListener('click', (e) => { if (e.target.id === oid) this.hide(oid); });
     }
+
+    // dialoghi: il fuoco entra all'apertura, torna indietro alla chiusura
+    // (WCAG 2.4.3) e Tab gira DENTRO il pannello senza mai restare in trappola
+    // (2.1.2: ESC chiude sempre)
+    this._focusStack = [];
+    addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const panel = this.topPanel();
+      if (!panel) return;
+      const fuochi = [...panel.querySelectorAll('button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])')]
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if (!fuochi.length) { e.preventDefault(); return; }
+      const primo = fuochi[0], ultimo = fuochi[fuochi.length - 1];
+      const dentro = panel.contains(document.activeElement);
+      if (!dentro) { e.preventDefault(); primo.focus(); }
+      else if (e.shiftKey && document.activeElement === primo) { e.preventDefault(); ultimo.focus(); }
+      else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primo.focus(); }
+    });
+  }
+
+  topPanel() {
+    for (const oid of OVERLAY_ORDINE) {
+      const el = $(oid);
+      if (el && !el.classList.contains('hidden')) {
+        return el.querySelector('[role="dialog"], [role="alertdialog"]') || el;
+      }
+    }
+    return null;
   }
 
   // il Manuale del Corsaro; se siamo attraccati a un sito, il riscatto
@@ -79,11 +106,14 @@ export class UI {
   }
   setRiscattoEsito(msg) { $('riscattoEsito').textContent = msg; }
 
-  // ESC: prima libera il timone dagli input, poi chiude l'overlay in cima.
-  // Sui pannelli d'attracco (cantiere/oracolo/sito) equivale a salpare.
+  // ESC: prima libera il timone dai campi di DIGITAZIONE, poi chiude
+  // l'overlay in cima (su checkbox e bottoni chiude subito: niente vicoli
+  // ciechi da tastiera). Sui pannelli d'attracco equivale a salpare.
   escape() {
     const a = document.activeElement;
-    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) { a.blur(); return; }
+    const digitando = a && (a.tagName === 'TEXTAREA' ||
+      (a.tagName === 'INPUT' && !['checkbox', 'radio', 'range', 'button', 'submit'].includes(a.type)));
+    if (digitando) { a.blur(); return; }
     for (const oid of ['helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay']) {
       if (!$(oid).classList.contains('hidden')) { this.hide(oid); return; }
     }
@@ -92,19 +122,91 @@ export class UI {
     }
   }
 
-  show(id) { $(id).classList.remove('hidden'); }
-  hide(id) { $(id).classList.add('hidden'); }
+  show(id) {
+    const el = $(id);
+    const eraNascosto = el.classList.contains('hidden');
+    el.classList.remove('hidden');
+    if (eraNascosto && el.classList.contains('overlay')) {
+      this._focusStack.push(document.activeElement);
+      const panel = el.querySelector('[role="dialog"], [role="alertdialog"]') || el;
+      const primo = panel.querySelector('input:not([type="checkbox"]), button');
+      if (primo) primo.focus();
+      else { panel.tabIndex = -1; panel.focus(); }
+    }
+  }
+  hide(id) {
+    const el = $(id);
+    const eraVisibile = !el.classList.contains('hidden');
+    el.classList.add('hidden');
+    if (eraVisibile && el.classList.contains('overlay')) {
+      const prima = this._focusStack.pop();
+      if (prima && prima !== document.body && document.contains(prima)) prima.focus();
+      else if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    }
+  }
+  // il timone tace quando il fuoco è su un campo (SPAZIO su una casella la
+  // spunta, le frecce muovono il volume — non la nave); sui BOTTONI invece
+  // solo SPAZIO e INVIO appartengono al bottone: il resto governa
   typing() {
     const a = document.activeElement;
-    return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA');
+    return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'
+      || a.isContentEditable);
+  }
+  bottoneAlFuoco() {
+    const a = document.activeElement;
+    return !!a && (a.tagName === 'BUTTON' || a.tagName === 'A');
   }
 
-  setSettings({ music, sfx, guard, volume }) {
+  setSettings({ music, sfx, guard, calma, volume }) {
     $('setMusic').checked = music;
     $('setSfx').checked = sfx;
     $('setGuard').checked = guard;
+    $('setCalma').checked = !!calma;
     $('setVol').value = Math.round(volume * 100);
     $('guardInfo').classList.toggle('spento', !guard);
+  }
+
+  // --- timoneria: tasti rimappabili (WCAG 2.1.4) ---
+
+  setKeymap(l) {
+    this.tasti = l;
+    $('rlKeyLeft').textContent = `${l.bordataSin} ◀`;
+    $('rlKeyRight').textContent = `${l.bordataDes} ▶`;
+    $('rlKeyAxial').textContent = `${l.pruaPoppa === 'SPAZIO' ? '␣' : l.pruaPoppa} ⇅`;
+    if (this._abilityEmoji) $('abilityKey').textContent = `${l.abilita} ${this._abilityEmoji}`;
+    $('hint').innerHTML =
+      `Vela <b>${esc(l.su)} ${esc(l.sinistra)} ${esc(l.giu)} ${esc(l.destra)}</b> · ` +
+      `Bordata sin. <b>${esc(l.bordataSin)}</b> / des. <b>${esc(l.bordataDes)}</b> · ` +
+      `Prua/Poppa <b>${esc(l.pruaPoppa)}</b> · Abilità <b>${esc(l.abilita)}</b> · ` +
+      `Attracca <b>${esc(l.attracca)}</b> · Zoom <b>${esc(l.zoom)}</b> · Classifica <b>${esc(l.classifica)}</b>`;
+  }
+
+  groupLabel(g) {
+    const l = this.tasti || { bordataSin: 'Q', bordataDes: 'E', pruaPoppa: 'SPAZIO' };
+    return {
+      left: `◀ Fiancata sinistra (${l.bordataSin})`,
+      right: `▶ Fiancata destra (${l.bordataDes})`,
+      bow: `▲ Prua (${l.pruaPoppa})`,
+      stern: `▼ Poppa (${l.pruaPoppa})`,
+    }[g];
+  }
+
+  setTimoneria(azioni) {
+    const box = $('tastiRows');
+    box.innerHTML = '';
+    for (const a of azioni) {
+      const row = document.createElement('div');
+      row.className = 'tastoRow';
+      const nome = document.createElement('span');
+      nome.textContent = a.nome;
+      const btn = document.createElement('button');
+      btn.textContent = a.inAscolto ? 'premi un tasto…' : a.label;
+      if (a.inAscolto) btn.className = 'inAscolto';
+      btn.setAttribute('aria-label', `Tasto per ${a.nome}: ora ${a.label}. Attiva e premi il nuovo tasto (ESC annulla)`);
+      btn.addEventListener('click', () => this.h.onRebind(a.azione));
+      row.append(nome, btn);
+      box.appendChild(row);
+    }
   }
 
   setGuardCount(n) {
@@ -118,7 +220,14 @@ export class UI {
     const frac = Math.max(0, Math.min(1, hp / maxHp));
     bar.style.width = (frac * 100) + '%';
     bar.style.background = frac > 0.35 ? 'linear-gradient(#6cd072,#3d9944)' : 'linear-gradient(#e8783f,#b23a1a)';
-    $('hpText').textContent = `${Math.ceil(hp)} / ${maxHp}`;
+    const v = Math.ceil(hp);
+    if (v !== this._hpDetto) {
+      this._hpDetto = v;
+      $('hpText').textContent = `${v} / ${maxHp}`;
+      const wrap = $('hpWrap');
+      wrap.setAttribute('aria-valuenow', v);
+      wrap.setAttribute('aria-valuemax', maxHp);
+    }
   }
 
   setReloads({ left, right, axial, ability }) {
@@ -131,15 +240,21 @@ export class UI {
   // La riga dell'abilità di tipo (tasto R): compare solo dopo il varo.
   setAbility(tipo) {
     const EMO = { goletta: '🐏', guerra: '💨', galeone: '💥' };
+    this._abilityEmoji = EMO[tipo] || null;
     $('abilityRow').classList.toggle('hidden', !EMO[tipo]);
-    if (EMO[tipo]) $('abilityKey').textContent = `R ${EMO[tipo]}`;
+    if (EMO[tipo]) $('abilityKey').textContent = `${(this.tasti && this.tasti.abilita) || 'R'} ${EMO[tipo]}`;
   }
 
   setGroupsAvailable({ axial }) {
     $('rlAxialRow').classList.toggle('hidden', !axial);
   }
 
-  setDockHint(text) { $('dockHint').textContent = text || ''; }
+  setDockHint(text) {
+    // solo ai cambi: è una live region, non deve balbettare a ogni frame
+    if (this._dockHint === (text || '')) return;
+    this._dockHint = text || '';
+    $('dockHint').textContent = this._dockHint;
+  }
 
   setMission(m) {
     $('missionHud').innerHTML =
@@ -195,7 +310,7 @@ export class UI {
   showBoard(visible) {
     if (!visible) { this.hide('board'); return; }
     const rows = this._board || [];
-    $('boardTable').innerHTML = '<tr><th>Corsaro</th><th>Affondate</th><th>Perdute</th><th>🪙</th></tr>' +
+    $('boardTable').innerHTML = '<tr><th scope="col">Corsaro</th><th scope="col">Affondate</th><th scope="col">Perdute</th><th scope="col">Monete 🪙</th></tr>' +
       rows.map(r => `<tr><td>${esc(r.name)}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.gold}</td></tr>`).join('');
     this.show('board');
   }
@@ -204,6 +319,8 @@ export class UI {
     const canvas = $('mapCanvas');
     const w = Math.min(1060, innerWidth * 0.82);
     canvas.width = w; canvas.height = Math.round(w * 0.62);
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', `Mappa del tesoro: rotta tracciata verso ${island.name}`);
     drawTreasureMap(canvas, { from, island });
     this.show('mapOverlay');
     // niente auto-chiusura: la pergamena resta finché il capitano non salpa
@@ -213,6 +330,10 @@ export class UI {
   // --- Cantiere ---
 
   showShop(m) {
+    // il pannello si ricostruisce a ogni acquisto: ricordati dov'era il
+    // fuoco della tastiera per rimettercelo (WCAG 2.4.3)
+    const fk = document.activeElement && document.activeElement.dataset
+      ? document.activeElement.dataset.fk : null;
     $('shopGold').textContent = m.gold;
     const ship = $('shopShip');
     ship.innerHTML = '';
@@ -234,15 +355,15 @@ export class UI {
     }
     ship.appendChild(banner);
     ship.appendChild(this.statRow('🛡 Scafo', 'Legno di quercia, ossa dure', m.ship.hullLvl, 4, m.ship.hullCost, m.gold,
-      () => this.h.onBuyShip('hull')));
+      () => this.h.onBuyShip('hull'), 'stat-hull'));
     ship.appendChild(this.statRow('⛵ Vele', 'Chi fugge vive per combattere domani', m.ship.sailsLvl, 4, m.ship.sailsCost, m.gold,
-      () => this.h.onBuyShip('sails')));
+      () => this.h.onBuyShip('sails'), 'stat-sails'));
     ship.appendChild(this.statRow('☸ Timone', 'Vira come un pesce, non come un tronco', m.ship.helmLvl | 0, 4, m.ship.helmCost ?? null, m.gold,
-      () => this.h.onBuyShip('helm')));
+      () => this.h.onBuyShip('helm'), 'stat-helm'));
     ship.appendChild(this.statRow('💪 Ciurma', 'Più braccia, bordate più fitte', m.ship.crewLvl | 0, 4, m.ship.crewCost ?? null, m.gold,
-      () => this.h.onBuyShip('crew')));
+      () => this.h.onBuyShip('crew'), 'stat-crew'));
     ship.appendChild(this.statRow('🛢 Stiva', 'Un doppiofondo che i vincitori non trovano', m.ship.holdLvl | 0, 4, m.ship.holdCost ?? null, m.gold,
-      () => this.h.onBuyShip('hold')));
+      () => this.h.onBuyShip('hold'), 'stat-hold'));
     if (m.varo) ship.appendChild(this.varoBlock(m.varo, m.gold));
 
     const wep = $('shopWeapons');
@@ -252,7 +373,7 @@ export class UI {
       block.className = 'wgroup';
       const head = document.createElement('div');
       head.className = 'wgroupHead';
-      head.innerHTML = `<b>${GROUP_LABELS[g]}</b><span>${data.slots.length}/${data.max} slot</span>`;
+      head.innerHTML = `<b>${this.groupLabel(g)}</b><span>${data.slots.length}/${data.max} slot</span>`;
       block.appendChild(head);
       for (const s of data.slots) {
         const row = document.createElement('div');
@@ -262,6 +383,8 @@ export class UI {
         if (s.upCost !== null) {
           const b = document.createElement('button');
           b.textContent = `Potenzia · ${s.upCost} 🪙`;
+          b.setAttribute('aria-label', `Potenzia ${s.name} (${this.groupLabel(g)}) per ${s.upCost} monete`);
+          b.dataset.fk = `up-${g}-${s.slot}`;
           b.disabled = m.gold < s.upCost;
           b.addEventListener('click', () => this.h.onUpgradeWeapon(g, s.slot));
           row.appendChild(b);
@@ -269,6 +392,8 @@ export class UI {
           const b = document.createElement('button');
           b.className = 'tierUp';
           b.textContent = `→ ${s.replace.name} · ${s.replace.cost} 🪙`;
+          b.setAttribute('aria-label', `Sostituisci ${s.name} con ${s.replace.name} per ${s.replace.cost} monete`);
+          b.dataset.fk = `rep-${g}-${s.slot}`;
           b.disabled = m.gold < s.replace.cost;
           b.addEventListener('click', () => this.h.onReplaceWeapon(g, s.slot));
           row.appendChild(b);
@@ -284,6 +409,7 @@ export class UI {
         const add = document.createElement('button');
         add.className = 'addSlot';
         add.textContent = `+ Nuovo slot (con colubrina) · ${data.nextSlotCost} 🪙`;
+        add.dataset.fk = `slot-${g}`;
         add.disabled = m.gold < data.nextSlotCost;
         add.addEventListener('click', () => this.h.onBuySlot(g));
         block.appendChild(add);
@@ -291,6 +417,10 @@ export class UI {
       wep.appendChild(block);
     }
     this.show('shopOverlay');
+    if (fk) {
+      const di_nuovo = $('shopOverlay').querySelector(`[data-fk="${fk}"]`);
+      if (di_nuovo && !di_nuovo.disabled) di_nuovo.focus();
+    }
   }
 
   // Il varo: tre tipi di nave, uno alla volta. Effetti riassunti dai
@@ -317,9 +447,11 @@ export class UI {
       row.innerHTML = `<div class="shopInfo"><b>${EMOJI[key] || '⚓'} ${esc(t.nome)}</b><span>${esc(t.motto)}</span>
         <span class="effetti">${esc(eff.join(' · '))} · esclusiva: ${esc(t.esclusiva)}</span></div>`;
       const btn = document.createElement('button');
+      btn.dataset.fk = `varo-${key}`;
       if (varo.tipo === key) { btn.textContent = 'La tua nave'; btn.disabled = true; }
       else {
         btn.textContent = `Vara · ${varo.cost} 🪙`;
+        btn.setAttribute('aria-label', `Vara ${t.nome} per ${varo.cost} monete`);
         btn.disabled = gold < varo.cost;
         btn.addEventListener('click', () => this.h.onVaro(key));
       }
@@ -329,15 +461,17 @@ export class UI {
     return block;
   }
 
-  statRow(title, desc, lvl, maxLvl, cost, gold, onBuy) {
+  statRow(title, desc, lvl, maxLvl, cost, gold, onBuy, fk) {
     const row = document.createElement('div');
     row.className = 'shopRow';
     row.innerHTML = `<div class="shopInfo"><b>${title}</b><span>${desc}</span>
-      <span class="pips">${'●'.repeat(lvl)}${'○'.repeat(maxLvl - lvl)}</span></div>`;
+      <span class="pips" role="img" aria-label="livello ${lvl} di ${maxLvl}">${'●'.repeat(lvl)}${'○'.repeat(maxLvl - lvl)}</span></div>`;
     const btn = document.createElement('button');
+    if (fk) btn.dataset.fk = fk;
     if (cost === null) { btn.textContent = 'Massimo'; btn.disabled = true; }
     else {
       btn.textContent = `${cost} 🪙`;
+      btn.setAttribute('aria-label', `Compra un punto ${title.replace(/^\S+ /, '')} per ${cost} monete`);
       btn.disabled = gold < cost;
       btn.addEventListener('click', onBuy);
     }

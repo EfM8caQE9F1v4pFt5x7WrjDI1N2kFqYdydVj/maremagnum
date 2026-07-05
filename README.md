@@ -93,6 +93,11 @@ vedrete in mare. Il server è il solo arbitro di danni, oro e upgrade.
   Bacheca del porto si bandiscono gli **Assedi**: Corridori che devono attraccare
   a un'isola bersaglio contro Bloccatori che lo impediscono.
 - **I mercantili PNG** vagano per il mare: oro facile, se non ti dispiace la fedina.
+- **Un mare per tutti**: conformità **WCAG 2.2 AA** (più i AAA fattibili) —
+  tasti rimappabili dalla Timoneria, interfaccia navigabile da tastiera, stato
+  annunciato agli screen reader, contrasti verificati, Mare calmo per il
+  movimento ridotto. Dettagli e verifiche in
+  [`docs/ACCESSIBILITA.md`](docs/ACCESSIBILITA.md) (`npm run test:a11y`).
 - **Le Fortezze Proibite** nascono dalla blocklist **oisd NSFW** (~370k domini,
   scaricata e cacheata dal server): il blocco è reale, non si attracca finché le
   difese sono in piedi. Arsenale: 8 Torri Colossali, 2 Bombarde ad area e lo
