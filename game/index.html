@@ -22,6 +22,7 @@
   </form>
   <div id="gold">🪙 <span class="visuallyhidden">monete d'oro: </span><b id="goldVal">0</b></div>
   <button id="gazzettaBtn" aria-label="Gazzetta del Corsaro" title="La Gazzetta del Corsaro — le notizie del mare">🗞<span id="gazzettaBadge" class="hidden" aria-hidden="true"></span></button>
+  <button id="registroBtn" aria-label="Registro delle Collezioni" title="Il Registro delle Collezioni — ciò che hai conquistato">🏆</button>
   <button id="helpBtn" aria-label="Manuale del Corsaro" title="Il Manuale del Corsaro — come funziona Maremagnum">📜</button>
   <button id="settingsBtn" aria-label="Impostazioni di bordo" title="Impostazioni di bordo">⚙</button>
 </header>
@@ -80,10 +81,12 @@
       <button id="tabNave" aria-pressed="true">⛵ Nave</button>
       <button id="tabVaro" aria-pressed="false">⚓ Varo</button>
       <button id="tabArmi" aria-pressed="false">⚔ Armamenti</button>
+      <button id="tabLivree" aria-pressed="false">🎨 Livree</button>
     </div>
     <div id="shopShip"></div>
     <div id="shopVaro" class="hidden"></div>
     <div id="shopWeapons" class="hidden"></div>
+    <div id="shopLivree" class="hidden"></div>
     <div class="row azioni">
       <button id="assedioOpen">⚔ Bacheca degli Assedi</button>
       <button id="gildaOpen">🏴 Fratellanze</button>
@@ -242,6 +245,18 @@
       perso mentre eri a terra. Tutto vive <b>solo in gioco</b>: niente email, niente
       notifiche fuori dal mare.</p>
 
+      <h3 class="shopSection">🎨 Il Negozio delle Livree e il Registro</h3>
+      <p>Al Cantiere, la scheda <b>Livree</b>: vesti la nave di colori — vele nere,
+      scarlatte, verderame — o compra una <b>scia</b> che colora la spuma dietro la
+      poppa. Regola d'oro del Maremagnum: <b>pay to show, mai pay to win</b> — le
+      livree sono SOLO estetica, zero vantaggi, prezzi in chiaro e niente casse
+      cieche. La livrea <i>Mare delle Ombre</i> non si compra: si <b>guadagna</b>
+      compiendo la campagna del Mastro di Rotte. Lì issi anche il tuo <b>vessillo
+      personale</b> (gratis), che sventola accanto al nome — a meno che tu non
+      abbia una Fratellanza: la bandiera di gilda vince. Il bottone 🏆 lassù apre
+      il <b>Registro delle Collezioni</b>: fortezze espugnate, arsenale, guardaroba
+      — la tua leggenda, agli atti.</p>
+
       <h3 class="shopSection">🏴 Le Fratellanze</h3>
       <p>Le gilde del Maremagnum. Si fondano al Porto Franco (costano care), hanno
       categoria, motto e una <b>bandiera composta al Cantiere</b> — campi, tagli ed
@@ -347,6 +362,15 @@
     <p class="sub">Le notizie del Maremagnum — anche quelle accadute mentre eri a terra.</p>
     <div id="gazzettaVoci"></div>
     <button id="gazzettaClose" class="linkish">Chiudi</button>
+  </div>
+</div>
+
+<div id="registroOverlay" class="overlay hidden">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloRegistro">
+    <h2 id="titoloRegistro">🏆 Il Registro delle Collezioni</h2>
+    <p class="sub">Ciò che hai conquistato, scoperto e collezionato — la tua leggenda, agli atti.</p>
+    <div id="registroVoci"></div>
+    <button id="registroClose" class="linkish">Chiudi</button>
   </div>
 </div>
 

@@ -42,6 +42,19 @@ const TINTA = {
   oro: 0xf0c14e,
 };
 
+// Le LIVREE (issue #25): SOLO colori, mai geometria — pay to show. Ogni
+// livrea sovrascrive pochi campi di TUTTE le palette dei giocatori (il
+// fasciame ha la sua texture: si ricolora con `fasciame`). Il runner
+// bake-livree.js cuoce un atlante per id (?livrea=<id>), senza gli NPC.
+const LIVREE = {
+  nera: { sail: 0x3a3a42, flag: 0x101014, trim: 0xb8b29a, accento: 0x23262e, fasciame: '#4a3b2a' },
+  scarlatta: { sail: 0xc65545, flag: 0x6e1410, accento: 0x8a2418, wale: 0x1d1210 },
+  verderame: { sail: 0xdde8d8, flag: 0x1f4d40, accento: 0x3f9a8d, trim: 0xc8b978 },
+  indaco: { sail: 0xf3efe2, flag: 0x2b3a8f, accento: 0x33418f, trim: 0xd9cfb4, fasciame: '#9a8b68', wale: 0x23283f },
+  ombre: { sail: 0xcac3e8, flag: 0x3a2b66, accento: 0x5b4a9e, mast: 0x3d3450, wale: 0x241f33, fasciame: '#584a6b' },
+};
+const LIVREA = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('livrea')) || null;
+
 // La flotta: geometria parametrica per classe.
 const CLASSI = {
   sloop:      { L: 0.78, alberi: 1, castello: 0, gabbia: false, fiocco: true,  pal: 'legno' },
@@ -61,7 +74,10 @@ const CLASSI = {
   galeonetipo: { L: 1.22, alberi: 3, castello: 2, gabbia: true,  fiocco: true,  pal: 'regale' },
   sciabecco:   { L: 0.95, alberi: 2, castello: 0, gabbia: false, fiocco: true,  pal: 'sciabecco', latine: true },
 };
-const VARIANTS = Object.keys(CLASSI);
+// le livree vestono solo i GIOCATORI: fantasmi e mercantili restano del mare
+const VARIANTS = LIVREA
+  ? Object.keys(CLASSI).filter(v => v !== 'fantasma' && v !== 'mercantile')
+  : Object.keys(CLASSI);
 
 function mat(color, extra = {}) {
   return new THREE.MeshStandardMaterial({ color, roughness: 1, metalness: 0, flatShading: true, ...extra });
@@ -117,7 +133,7 @@ const PLANK_TEX = {};
 
 function buildShip(nome) {
   const cfg = CLASSI[nome];
-  const p = TINTA[cfg.pal];
+  const p = { ...TINTA[cfg.pal], ...(LIVREA ? LIVREE[LIVREA] : null) };
   const L = cfg.L;
   const oro = !!cfg.dorata;
   const ship = new THREE.Group();
@@ -143,14 +159,15 @@ function buildShip(nome) {
   hullShape.quadraticCurveTo(1.9 * L, 0.45, 0.8 * L, 0.85);
   hullShape.lineTo(-1.9 * L, 0.85);
   hullShape.quadraticCurveTo(-2.15 * L, 0, -1.9 * L, -0.85);
-  if (!PLANK_TEX[cfg.pal]) {
-    PLANK_TEX[cfg.pal] = cfg.pal === 'fantasma'
-      ? plankTexture('#3d4750', 'rgba(20,28,34,0.5)')
-      : plankTexture('#7a5230', 'rgba(43,26,12,0.5)');
+  // il fasciame ha la sua texture: la livrea lo ricolora dalla base
+  const fasciame = p.fasciame || (cfg.pal === 'fantasma' ? '#3d4750' : '#7a5230');
+  const kTex = cfg.pal + '|' + fasciame;
+  if (!PLANK_TEX[kTex]) {
+    PLANK_TEX[kTex] = plankTexture(fasciame, cfg.pal === 'fantasma' ? 'rgba(20,28,34,0.5)' : 'rgba(43,26,12,0.5)');
   }
   const hull = new THREE.Mesh(
     new THREE.ExtrudeGeometry(hullShape, { depth: 0.75, bevelEnabled: true, bevelSize: 0.18, bevelThickness: 0.22, bevelSegments: 1 }),
-    mat(0xffffff, { map: PLANK_TEX[cfg.pal] }),
+    mat(0xffffff, { map: PLANK_TEX[kTex] }),
   );
   hull.rotation.x = -Math.PI / 2;
   hull.position.y = 0.75;
@@ -434,6 +451,7 @@ function buildShip(nome) {
 }
 
 async function main() {
+  if (LIVREA && !LIVREE[LIVREA]) throw new Error('livrea sconosciuta: ' + LIVREA);
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setSize(FRAME, FRAME);
   renderer.setClearColor(0x000000, 0);

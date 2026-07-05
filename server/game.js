@@ -7,6 +7,7 @@ const atlante = require('./atlante-core');
 const gazzetta = require('./gazzetta-core');
 const campagna = require('./campagna-core');
 const gilde = require('./gilde-core');
+const livree = require('./livree');
 
 const TICK = 1 / 30;          // simulazione a 30Hz
 const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
@@ -153,6 +154,7 @@ class Game {
       blockedUntil: 0, blockedBy: null, bloccoSalvo: 0, immuneUntil: 0,
       abilityAt: 0, ramUntil: 0, doubleUntil: 0, ventoUntil: 0,
       visited: new Set(), conquered: new Set(), preferiti: new Set(),
+      livree: new Set(), livrea: null, scia: null, bandiera: null,
       mission: null, wp: null, fleeUntil: 0,
     };
   }
@@ -236,6 +238,8 @@ class Game {
         if (typeof d === 'string' && DOMINIO_OK.test(d)) ship.preferiti.add(d.toLowerCase().slice(0, 100));
       }
     }
+    // il guardaroba (issue #25): livree possedute/indossate e bandiera personale
+    Object.assign(ship, livree.sanificaGuardaroba(p));
     this.syncReady(ship);
     ship.hp = shipStats(ship).maxHp;
     // la scelta del punto di partenza (issue #13, campo ADDITIVO nel join):
@@ -256,6 +260,7 @@ class Game {
       islands: this.archipelago.list().map(publicIsland),
       you: this.youFor(ship),
       arsenal: W.publicConfig(),
+      livree: livree.publicCatalogo(),
     });
     if (ship.riscattoAlJoin && ship.riscattoAlJoin.riscatto) {
       const { riscatto, tolte } = ship.riscattoAlJoin;
@@ -306,6 +311,7 @@ class Game {
       tipo: ship.tipo, vari: ship.vari,
       mounts: ship.mounts, conquered: [...ship.conquered],
       preferiti: [...ship.preferiti],
+      livree: [...ship.livree], livrea: ship.livrea, scia: ship.scia, bandiera: ship.bandiera,
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
       sfide: ship.sfide || {},
@@ -499,6 +505,11 @@ class Game {
         ship.gold += c.premio;
         this.sendGold(ship, c.premio, `Campagna "${c.nome}" compiuta!`);
         this.annuncia('campagna', `⚔ ${ship.name} ha compiuto la campagna "${c.nome}"! (+${c.premio} 🪙)`);
+        // l'edizione-impresa (issue #25): la livrea che non si compra
+        if (!ship.livree.has('ombre')) {
+          ship.livree.add('ombre');
+          this.sendTo(ship, { t: 'toast', msg: '🎨 Guadagnata la livrea "Mare delle Ombre"! Indossala al Cantiere.' });
+        }
       } else {
         this.sendTo(ship, { t: 'toast', msg: `⚔ Tappa compiuta! Ora: ${c.tappe[st.tappa].desc}` });
       }
@@ -527,6 +538,9 @@ class Game {
       case 'varo': this.varo(ship, msg.tipo); break;
       case 'abilita': this.abilita(ship); break;
       case 'buySlot': this.buySlot(ship, msg.group); break;
+      case 'compraLivrea': this.compraLivrea(ship, msg.id); break;
+      case 'indossaLivrea': this.indossaLivrea(ship, msg.id, msg.genere); break;
+      case 'bandiera': this.bandieraPersonale(ship, msg.bandiera); break;
       case 'upgradeWeapon': this.upgradeWeapon(ship, msg.group, msg.slot); break;
       case 'replaceWeapon': this.replaceWeapon(ship, msg.group, msg.slot); break;
       case 'assedio': this.missions.assedioJoin(ship, msg.role); break;
@@ -707,7 +721,45 @@ class Game {
       mounts: ship.mounts,
       groups,
       varo: { tipo: ship.tipo, vari: ship.vari, cost: varoCost(ship), tipi: TIPI_PUB },
+      negozio: {
+        catalogo: livree.publicCatalogo(), possedute: [...ship.livree],
+        livrea: ship.livrea, scia: ship.scia, bandiera: ship.bandiera,
+      },
     });
+  }
+
+  // --- il Negozio delle Livree (issue #25): pay to show, mai pay to win ---
+
+  compraLivrea(ship, id) {
+    const l = livree.CATALOGO[typeof id === 'string' ? id : ''];
+    if (ship.docked !== 'porto' || !l) return;
+    if (ship.livree.has(id)) { this.sendTo(ship, { t: 'toast', msg: 'Ce l\'hai già nel guardaroba, capitano.' }); return; }
+    if (l.prezzo === null) { this.sendTo(ship, { t: 'toast', msg: 'Questa non si compra: si guadagna.' }); return; }
+    if (!this.charge(ship, l.prezzo)) return;
+    ship.livree.add(id);
+    // appena comprata, addosso: nessun secondo click per pavoneggiarsi
+    if (l.genere === 'livrea') ship.livrea = id; else ship.scia = id;
+    this.annuncia('livrea', `🎨 ${ship.name} sfoggia una livrea nuova: "${l.nome}"!`);
+    this.sendShop(ship);
+  }
+
+  indossaLivrea(ship, id, genere) {
+    if (ship.docked !== 'porto') return;
+    if (id === null || id === undefined) {
+      // si torna al legno nudo (o alla scia del mare)
+      if (genere === 'scia') ship.scia = null; else ship.livrea = null;
+    } else {
+      const l = livree.CATALOGO[typeof id === 'string' ? id : ''];
+      if (!l || !ship.livree.has(id)) return;
+      if (l.genere === 'livrea') ship.livrea = id; else ship.scia = id;
+    }
+    this.sendShop(ship);
+  }
+
+  bandieraPersonale(ship, b) {
+    // identità, non merce: si issa (o si ammaina con null) anche in mare
+    ship.bandiera = livree.sanificaBandiera(b);
+    if (ship.docked === 'porto') this.sendShop(ship);
   }
 
   // Il varo: si sceglie (o si cambia) il tipo di nave. Le esclusive
@@ -1257,6 +1309,7 @@ class Game {
   sendSnapshot() {
     const ships = [];
     for (const s of this.ships.values()) {
+      const scia = livree.sciaDi(s);
       ships.push({
         id: s.id, name: s.name, x: r1(s.x), y: r1(s.y), rot: r2(s.rot),
         vel: r1(s.vel), hp: Math.ceil(s.hp),
@@ -1275,6 +1328,12 @@ class Game {
           ? { bk: Math.ceil(s.blockedUntil - this.now), bb: s.blockedBy } : {}),
         ...(s.immuneUntil > this.now ? { im: 1 } : {}),
         ...(s.gilda ? { gt: s.gilda.tag } : {}), // la bandierina della gilda
+        // il guardaroba in mare (issue #25), campi ADDITIVI: lv = livrea,
+        // sc = colore scia, bf = bandiera personale (la gilda vince)
+        ...(s.livrea ? { lv: s.livrea } : {}),
+        ...(scia !== null ? { sc: scia } : {}),
+        ...(s.bandiera && !s.gilda
+          ? { bf: [s.bandiera.fondo, s.bandiera.taglio, s.bandiera.tinta2, s.bandiera.emblema, s.bandiera.tintaEmblema] } : {}),
       });
     }
     const forts = [];

@@ -85,6 +85,18 @@ function loadProfile() {
         .map(s => ({ type: nomi[s[0]] || 'cannone', lvl: Math.min(3, Math.max(1, +s.slice(1) || 1)) }));
       p.mounts = { left: list, right: list.map(w => ({ ...w })), bow: [], stern: [] };
     }
+    // ?livrea=nera&scia=sciaoro&vessillo=1.2.4.0.5 (sviluppo): guardaroba
+    // per il collaudo visivo — il possesso lo aggiunge il knob stesso
+    for (const genere of ['livrea', 'scia']) {
+      if (dp.get(genere)) {
+        p.livree = [...new Set([...(p.livree || []), dp.get(genere)])];
+        p[genere] = dp.get(genere);
+      }
+    }
+    if (dp.get('vessillo')) {
+      const v = dp.get('vessillo').split('.').map(n => n | 0);
+      p.bandiera = { fondo: v[0], taglio: v[1], tinta2: v[2], emblema: v[3], tintaEmblema: v[4] };
+    }
     return p;
   } catch { return {}; }
 }
@@ -124,6 +136,11 @@ async function boot() {
     onFav: toggleFav,
     onGazzetta: apriGazzetta,
     onFratellanze: apriFratellanze,
+    // il Negozio delle Livree e il Registro (issue #25)
+    onCompraLivrea: (id) => net.send({ t: 'compraLivrea', id }),
+    onIndossaLivrea: (id, genere) => net.send({ t: 'indossaLivrea', id, genere }),
+    onVessillo: (bandiera) => net.send({ t: 'bandiera', bandiera }),
+    onRegistro: apriRegistro,
     onGildaFonda: (dati) => net.send({ t: 'gildaFonda', ...dati }),
     onGildaRichiesta: (id) => net.send({ t: 'gildaRichiesta', id }),
     onGildaApprova: (uid) => net.send({ t: 'gildaApprova', uid }),
@@ -256,6 +273,19 @@ function apriGazzetta() {
     net.send({ t: 'gazzettaLetta', fino: max });
     ui.setGazzettaBadge(0);
   }
+}
+
+// Il Registro delle Collezioni (issue #25): vetrina del profilo, si apre ovunque.
+function apriRegistro() {
+  const p = state.profile;
+  ui.showRegistro({
+    tipo: p.tipo, vari: p.vari, kills: p.kills, deaths: p.deaths,
+    mounts: p.mounts, arsenal: state.arsenal,
+    conquered: p.conquered || [], preferiti: p.preferiti || [],
+    livree: p.livree || [], livrea: p.livrea, scia: p.scia,
+    catalogo: state.livreeCatalogo || {},
+    campagna: p.campagna,
+  });
 }
 
 // Le Fratellanze (issue #5): il pannello vive di due messaggi del server.
@@ -555,6 +585,11 @@ function applyYou(you) {
     gazzettaLetta: Math.max(you.gazzettaLetta || 0, state.profile.gazzettaLetta || 0),
     campagna: you.campagna ?? state.profile.campagna ?? null,
     sfide: you.sfide ?? state.profile.sfide ?? {},
+    // il guardaroba (issue #25): livrea/scia possono essere legittimamente null
+    livree: you.livree ?? state.profile.livree ?? [],
+    livrea: you.livrea !== undefined ? you.livrea : state.profile.livrea ?? null,
+    scia: you.scia !== undefined ? you.scia : state.profile.scia ?? null,
+    bandiera: you.bandiera !== undefined ? you.bandiera : state.profile.bandiera ?? null,
     kills: you.kills ?? state.profile.kills, deaths: you.deaths ?? state.profile.deaths,
   });
   saveProfile();
@@ -579,6 +614,7 @@ function wireNet() {
     state.world = m.world;
     state.port = m.port;
     state.arsenal = m.arsenal;
+    state.livreeCatalogo = m.livree || {};
     renderer.setWorld(m.world);
     for (const i of m.islands) { state.islands.set(i.id, i); renderer.addIsland(i); }
     applyYou(m.you);
@@ -667,6 +703,10 @@ function wireNet() {
       helmLvl: m.ship.helmLvl, crewLvl: m.ship.crewLvl, holdLvl: m.ship.holdLvl,
       tipo: m.varo ? m.varo.tipo : undefined, vari: m.varo ? m.varo.vari : undefined,
       mounts: m.mounts,
+      ...(m.negozio ? {
+        livree: m.negozio.possedute, livrea: m.negozio.livrea,
+        scia: m.negozio.scia, bandiera: m.negozio.bandiera,
+      } : {}),
     });
     ui.showShop(m);
   });

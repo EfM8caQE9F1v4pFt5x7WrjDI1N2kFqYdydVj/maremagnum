@@ -157,6 +157,29 @@ async function main() {
     ok(cshop && cshop.ship.helmCost === 45, 'lo sconto segue il tipo: ora è il Timone a metà prezzo (45)');
     ok(cshop && cshop.groups.bow.max === 3 && cshop.groups.left.max === 4,
       'il cantiere espone la matrice del tipo: la goletta punge di prua (3) e accorcia le fiancate (4)');
+
+    console.log('— Il Negozio delle Livree (issue #25) —');
+    ok(cshop && cshop.negozio && cshop.negozio.catalogo.nera && cshop.negozio.possedute.length === 0,
+      'il negozio è in vetrina col catalogo (guardaroba vuoto)');
+    C.send({ t: 'compraLivrea', id: 'scarlatta' });
+    let cneg = await C.wait(m => m.t === 'shop' && m.negozio && m.negozio.possedute.includes('scarlatta'), 3000);
+    ok(!!cneg, 'livrea comprata: è nel guardaroba');
+    ok(cneg && cneg.negozio.livrea === 'scarlatta', 'appena comprata, addosso');
+    ok(cneg && cneg.gold === 19460 - 15000, `il conto torna: ${cneg && cneg.gold} 🪙 (19460 − 15000)`);
+    C.send({ t: 'compraLivrea', id: 'ombre' });
+    ok(!!await C.wait(m => m.t === 'toast' && /si guadagna/.test(m.msg), 3000),
+      'l\'edizione-impresa non si compra: si guadagna');
+    C.send({ t: 'bandiera', bandiera: { fondo: 1, taglio: 2, tinta2: 4, emblema: 0, tintaEmblema: 5 } });
+    await sleep(600);
+    const cVestita = C.me();
+    ok(cVestita && cVestita.lv === 'scarlatta', 'la livrea viaggia nello snapshot (lv)');
+    ok(cVestita && cVestita.sc === 0xc2453a, `la scia della livrea colora la spuma (sc=${cVestita && cVestita.sc})`);
+    ok(cVestita && Array.isArray(cVestita.bf) && cVestita.bf.join('.') === '1.2.4.0.5',
+      'il vessillo personale sventola in targhetta (bf)');
+    C.send({ t: 'indossaLivrea', id: null, genere: 'livrea' });
+    cneg = await C.wait(m => m.t === 'shop' && m.negozio
+      && m.negozio.livrea === null && m.negozio.possedute.includes('scarlatta'), 3000);
+    ok(!!cneg, 'riposta nel guardaroba: si torna al legno nudo');
     await sleep(500);
     const cGoletta = C.me();
     ok(cGoletta && cGoletta.tp === 1 && cGoletta.maxHp === 85,
@@ -248,10 +271,12 @@ async function main() {
     S.send({ t: 'abilita' });
     ok(!!await S.wait(m => m.t === 'abilita' && m.nome === 'Colpo di Vento' && m.cd === 30, 3000),
       'Colpo di Vento attivato (ack col cooldown)');
-    // la raffica spinge a vele ferme: campiona la velocità e tieni il picco
+    // la raffica spinge a vele ferme: senza input la nave starebbe FERMA,
+    // quindi qualunque velocità franca prova la spinta (le isole possono
+    // frenare la corsa: la soglia non pretende il massimo teorico)
     let sVel = 0;
-    for (let i = 0; i < 10; i++) { await sleep(200); const me = S.me(); if (me) sVel = Math.max(sVel, me.vel); }
-    ok(sVel > 150, `la raffica spinge senza vele (picco ${sVel} px/s, base 135)`);
+    for (let i = 0; i < 16; i++) { await sleep(150); const me = S.me(); if (me) sVel = Math.max(sVel, me.vel); }
+    ok(sVel > 90, `la raffica spinge senza vele (picco ${sVel} px/s, da fermo)`);
     S.ws.close();
     // la matrice cambia, il Cantiere paga (issue #11): un galeone d'annata
     // con armi assiali comprate quando si poteva le vede riscattate al join

@@ -325,8 +325,31 @@ body.conPannello #hint { opacity: 0; }
 .shopInfo .effetti { color: #5a3d1c; font-style: normal; font-size: 12px; }
 .shopRow button { min-width: 96px; }
 
+/* ---- il Negozio delle Livree e il Registro (issue #25) ---- */
+.swatch {
+  display: inline-block; width: 14px; height: 14px; border-radius: 50%;
+  border: 1.5px solid #3a2a12; vertical-align: -2px; margin-right: 4px;
+}
+.shopRow.indossata { outline: 2px solid #b1892f; outline-offset: -2px; }
+.vessillo {
+  display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap;
+  padding: 8px; justify-content: flex-start;
+}
+.vessillo canvas { border: 2px solid #6d4c22; border-radius: 4px; }
+.vessillo .gfScelte { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13.5px; }
+.vessillo .gfScelte select { font: inherit; font-size: 13px; margin-left: 4px; }
+.vessillo button { align-self: center; }
+/* niente scroll interno: scrolla il .panel, come la Gazzetta (a11y: una
+   regione scrollabile non-focusabile sarebbe irraggiungibile da tastiera) */
+#registroVoci { text-align: left; }
+.registroRiga {
+  padding: 4px 8px; border-bottom: 1px dashed rgba(109,76,34,.3); font-size: 13.5px;
+}
+.registroRiga:last-of-type { border-bottom: none; }
+.registroRiga .pips { color: #6d4c22; letter-spacing: 2px; margin-left: 8px; font-size: 12px; }
+
 /* ---- impostazioni di bordo ---- */
-#settingsBtn, #helpBtn { padding: 4px 10px; font-size: 17px; border-radius: 12px; }
+#settingsBtn, #helpBtn, #registroBtn { padding: 4px 10px; font-size: 17px; border-radius: 12px; }
 
 /* Il Manuale del Corsaro */
 .manuale { text-align: left; }

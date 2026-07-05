@@ -183,6 +183,12 @@ app.whenReady().then(async () => {
   await axeState('manuale');
   await J(`document.getElementById('helpClose').click()`);
 
+  // 7b. il Registro delle Collezioni (issue #25)
+  await J(`document.getElementById('registroBtn').click()`);
+  await sleep(400);
+  await axeState('registro');
+  await J(`document.getElementById('registroClose').click()`);
+
   // 8. bacheca degli assedi
   await mostra('assedioOverlay');
   await axeState('assedi');
@@ -276,8 +282,13 @@ app.whenReady().then(async () => {
       await key('KeyW'); await sleep(900); await key('KeyW', 'keyup');
     } else { await sleep(500); }
   }
-  if (cantiere) await axeState('cantiere');
-  else { console.log('  ⚠ attracco fallito: cantiere non verificato'); fallimenti++; }
+  if (cantiere) {
+    await axeState('cantiere');
+    // la scheda Livree (issue #25): negozio + vessillo personale
+    await J(`document.getElementById('tabLivree').click()`);
+    await sleep(400);
+    await axeState('cantiere-livree');
+  } else { console.log('  ⚠ attracco fallito: cantiere non verificato'); fallimenti++; }
 
   console.log(fallimenti === 0 ? '\nACCESSIBILE COME UNA BANCHINA ⚓' : `\n${fallimenti} PROBLEMI ❌`);
   app.exit(fallimenti === 0 ? 0 : 1);

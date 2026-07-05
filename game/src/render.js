@@ -8,6 +8,7 @@ import { Water } from './water.js';
 import { CanvasWater } from './water-canvas.js';
 import { lightNow } from './daycycle.js';
 import { drawGun as drawGunNuovo } from './guns.js';
+import { disegnaBandiera } from './bandiera.js';
 
 // Miscela lineare fra due colori esadecimali (k: 0=a, 1=b).
 function mixHex(a, b, k) {
@@ -143,6 +144,8 @@ export class Renderer {
     this.lightNow = lightNow();
 
     this.navi = null; // atlas delle navi cotte; finché manca si resta sul vettoriale
+    this.livree = {}; // atlanti delle livree (issue #25), caricati solo se qualcuno le indossa
+    this._bandTex = {}; // texture dei vessilli personali, per chiave bf
     this.loadNavi();
     // le bocche da fuoco cotte (issue #17); ?armicotte=off forza il
     // fallback vettoriale (utile per i confronti e per collaudarlo)
@@ -192,6 +195,43 @@ export class Renderer {
     } catch (e) {
       console.warn('Navi cotte non disponibili, resto sul vettoriale:', e.message);
     }
+  }
+
+  // le livree (issue #25): stesso schema delle navi, un atlante per id,
+  // scaricato SOLO quando qualcuno in mare la indossa (lazy, una volta)
+  async loadLivrea(id) {
+    if (!/^[a-z0-9]{1,24}$/.test(id) || this.livree[id] !== undefined) return;
+    this.livree[id] = null; // in caricamento: non richiedere due volte
+    try {
+      const meta = await (await fetch('assets/livree/' + id + '.json')).json();
+      const tex = await Assets.load('assets/livree/' + id + '.webp');
+      const frames = {};
+      for (const [name, vi] of Object.entries(meta.variants)) {
+        const arr = [];
+        for (let k = 0; k < meta.steps; k++) {
+          const col = k % meta.cols, row = ((k / meta.cols) | 0) + vi * meta.rows;
+          arr.push(new Texture({
+            source: tex.source,
+            frame: new Rectangle(col * meta.frame, row * meta.frame, meta.frame, meta.frame),
+          }));
+        }
+        frames[name] = arr;
+      }
+      this.livree[id] = { meta, frames };
+      for (const c of this.ships.values()) c.buildKey = ''; // rivesti chi la indossa
+    } catch { /* la nave resta di legno: pazienza */ }
+  }
+
+  // il vessillo personale (issue #25): canvas → texture, memoizzato
+  bandieraTex(bf) {
+    const k = bf.join('.');
+    if (!this._bandTex[k]) {
+      const cv = document.createElement('canvas');
+      cv.width = 30; cv.height = 20;
+      disegnaBandiera(cv, { fondo: bf[0], taglio: bf[1], tinta2: bf[2], emblema: bf[3], tintaEmblema: bf[4] });
+      this._bandTex[k] = Texture.from(cv);
+    }
+    return this._bandTex[k];
   }
 
   // prototipo issue #17: atlas delle bocche da fuoco, stesso schema delle navi
@@ -564,7 +604,11 @@ export class Renderer {
   buildShipBody(c, s, selfId) {
     const mode = this.navi ? 'S' : 'V';
     const classe = this.shipClass(s);
-    const key = mode + '|' + s.k + '|' + classe + '|' + (s.gp || []).join(',') + '|' + (s.gw || []).join(',') + (s.id === selfId ? '|S' : '');
+    // la livrea (issue #25): se indossata e l'atlante è pronto, veste lei;
+    // finché scarica (o se manca) si resta sul legno — mai un buco
+    if (s.lv && this.livree[s.lv] === undefined) this.loadLivrea(s.lv);
+    const liv = s.lv && this.livree[s.lv] && this.livree[s.lv].frames[classe] ? this.livree[s.lv] : null;
+    const key = mode + '|' + s.k + '|' + classe + '|' + (liv ? s.lv : '') + '|' + (s.gp || []).join(',') + '|' + (s.gw || []).join(',') + (s.id === selfId ? '|S' : '');
     if (c.buildKey === key) return;
     c.buildKey = key;
     if (c.body) c.body.destroy({ children: true });
@@ -577,8 +621,9 @@ export class Renderer {
 
     if (this.navi) {
       // nave cotta: sprite pre-renderizzato + portelli che ruotano continui
-      const variant = this.navi.frames[classe] ? classe
-        : this.navi.frames.pirata ? 'pirata' : Object.keys(this.navi.frames)[0];
+      const atlante = liv || this.navi;
+      const variant = atlante.frames[classe] ? classe
+        : atlante.frames.pirata ? 'pirata' : Object.keys(atlante.frames)[0];
       // lo scafo si allunga con la classe (solo in lunghezza: il baglio è fisso)
       const fL = variant === 'sloop' ? 0.82 : variant === 'goletta' ? 0.88
         : variant === 'golettavet' ? 0.92 : variant === 'sciabecco' ? 0.94
@@ -588,11 +633,12 @@ export class Renderer {
       shadow.ellipse(2, 7, 27 * fL, 11).fill({ color: 0x061018, alpha: 0.17 });
       c.addChildAt(shadow, (c.glow ? 1 : 0));
       c.shadow = shadow;
-      const spr = new Sprite(this.navi.frames[variant][0]);
+      const spr = new Sprite(atlante.frames[variant][0]);
       spr.anchor.set(0.5, 0.53);
-      spr.scale.set((this.navi.meta.scala || 98.4) / this.navi.meta.frame); // la stazza la detta il bake (79 × D/13)
+      spr.scale.set((atlante.meta.scala || 98.4) / atlante.meta.frame); // la stazza la detta il bake (79 × D/13)
       if (ghost) spr.alpha = 0.88;
       body.addChild(spr);
+      body.atlante = atlante;
       const ports = new Graphics();
       const gp = s.gp || [1, 1, 0, 0];
       // slot d'arma: se il server manda gw usiamo la sagoma vera, altrimenti
@@ -779,13 +825,14 @@ export class Renderer {
       const c = this.ensureShip(s, selfId);
       c.position.set(s.x, s.y);
       if (c.body.shipSprite && this.navi) {
-        const steps = this.navi.meta.steps;
+        const atl = c.body.atlante || this.navi;
+        const steps = atl.meta.steps;
         const step = (2 * Math.PI) / steps;
         let f = Math.round(-s.rot / step) % steps;
         if (f < 0) f += steps;
         if (c.body.frameIdx !== f) {
           c.body.frameIdx = f;
-          c.body.shipSprite.texture = this.navi.frames[c.body.variant][f];
+          c.body.shipSprite.texture = atl.frames[c.body.variant][f];
         }
         c.body.rotation = 0;
         c.body.ports.rotation = s.rot;
@@ -819,14 +866,26 @@ export class Renderer {
       c.visible = !s.docked;
       // il nome resta leggibile, non ingigantisce col cannocchiale
       if (c.tag) c.tag.scale.set(1 / this.zoom);
-      // la bandierina di gilda (issue #5): [TAG] davanti al nome; il fondino
+      // la bandierina di gilda (issue #5): [TAG] davanti al nome; il vessillo
+      // personale (issue #25) sventola accanto se NON c'è gilda; il fondino
       // si ridisegna quando il testo cambia larghezza
       if (c.tag && c.fondino) {
         const testo = (s.gt ? '[' + s.gt + '] ' : '') + s.name;
-        if (c.label.text !== testo) {
+        const bfKey = (!s.gt && Array.isArray(s.bf)) ? s.bf.join('.') : '';
+        if (c.label.text !== testo || c.tagBf !== bfKey) {
           c.label.text = testo;
-          c.fondino.clear().roundRect(-c.label.width / 2 - 6, -10, c.label.width + 12, 20, 9)
+          c.tagBf = bfKey;
+          if (c.bandSpr) { c.bandSpr.destroy(); c.bandSpr = null; }
+          const sinistra = bfKey ? 26 : 0; // lo spazio del vessillo
+          c.fondino.clear().roundRect(-c.label.width / 2 - 6 - sinistra, -10, c.label.width + 12 + sinistra, 20, 9)
             .fill({ color: 0x0c141c, alpha: 0.42 });
+          if (bfKey) {
+            c.bandSpr = new Sprite(this.bandieraTex(s.bf));
+            c.bandSpr.anchor.set(0.5);
+            c.bandSpr.scale.set(0.62);
+            c.bandSpr.position.set(-c.label.width / 2 - 6 - 12, 0);
+            c.tag.addChild(c.bandSpr);
+          }
         }
       }
       const targetAlpha = s.sunk ? 0 : 1;
@@ -868,6 +927,7 @@ export class Renderer {
         this.wakes.push({
           x: s.x - Math.cos(s.rot) * 22, y: s.y - Math.sin(s.rot) * 22,
           life: 1.2, max: 1.2, size: 2 + Math.random() * 3,
+          color: s.sc || null, // la scia comprata (issue #25) colora la spuma
         });
       }
     }
@@ -1114,7 +1174,8 @@ export class Renderer {
     this.wakes = this.wakes.filter(p => {
       p.life -= dt;
       if (p.life <= 0) return false;
-      this.wakeGfx.circle(p.x, p.y, p.size * (1 + (1 - p.life / p.max))).fill({ color: 0xd9edf7, alpha: 0.3 * (p.life / p.max) });
+      this.wakeGfx.circle(p.x, p.y, p.size * (1 + (1 - p.life / p.max)))
+        .fill({ color: p.color || 0xd9edf7, alpha: (p.color ? 0.42 : 0.3) * (p.life / p.max) });
       return true;
     });
 

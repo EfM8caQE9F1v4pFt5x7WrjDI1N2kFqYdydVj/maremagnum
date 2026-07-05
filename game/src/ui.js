@@ -20,17 +20,17 @@ function faTempo(t) {
 }
 
 // ordine di priorità degli overlay quando sono impilati (es. Manuale sul Cantiere)
-const OVERLAY_ORDINE = ['gildaOverlay', 'gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay',
+const OVERLAY_ORDINE = ['gildaOverlay', 'gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay',
   'mapOverlay', 'shopOverlay', 'searchOverlay', 'siteOverlay', 'deathOverlay', 'salpaOverlay', 'nameOverlay'];
 
 // La disciplina dei pannelli (issue #18): i fluttuanti si ESCLUDONO a vicenda
 // (aprirne uno chiude l'altro), quelli di banchina si SOSPENDONO sotto e
 // tornano a galla alla chiusura — mai due pannelli impilati a schermo.
-const FLUTTUANTI = ['gildaOverlay', 'gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay'];
+const FLUTTUANTI = ['gildaOverlay', 'gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay'];
 const DI_BANCHINA = ['shopOverlay', 'searchOverlay', 'siteOverlay'];
 // I documenti lunghi si aprono dall'INIZIO: fuoco al pannello (2.4.3 resta:
 // il fuoco entra comunque nel dialogo), non al primo campo in fondo.
-const DALL_INIZIO = ['gildaOverlay', 'gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'shopOverlay'];
+const DALL_INIZIO = ['gildaOverlay', 'gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'shopOverlay'];
 
 export class UI {
   constructor(handlers) {
@@ -70,9 +70,12 @@ export class UI {
     $('gildaClose').addEventListener('click', () => this.hide('gildaOverlay'));
     // il Cantiere a schede (issue #24): meno muro, più bottega
     this._shopScheda = 'nave';
-    for (const [id, scheda] of [['tabNave', 'nave'], ['tabVaro', 'varo'], ['tabArmi', 'armi']]) {
+    for (const [id, scheda] of [['tabNave', 'nave'], ['tabVaro', 'varo'], ['tabArmi', 'armi'], ['tabLivree', 'livree']]) {
       $(id).addEventListener('click', () => this._shopMostra(scheda));
     }
+    // il Registro delle Collezioni (issue #25): vetrina, si apre ovunque
+    $('registroBtn').addEventListener('click', () => this.h.onRegistro());
+    $('registroClose').addEventListener('click', () => this.hide('registroOverlay'));
     // l'editor della bandiera: select popolati dai set fissi, anteprima viva
     const scelte = [
       ['gfFondo', 'Campo', TINTE.map(t => t[0])],
@@ -187,7 +190,7 @@ export class UI {
     const digitando = a && (a.tagName === 'TEXTAREA' ||
       (a.tagName === 'INPUT' && !['checkbox', 'radio', 'range', 'button', 'submit'].includes(a.type)));
     if (digitando) { a.blur(); return; }
-    for (const oid of ['gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay']) {
+    for (const oid of ['gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay']) {
       if (!$(oid).classList.contains('hidden')) { this.hide(oid); return; }
     }
     for (const oid of ['shopOverlay', 'searchOverlay', 'siteOverlay']) {
@@ -437,15 +440,17 @@ export class UI {
 
   // --- Cantiere ---
 
-  // le tre schede del Cantiere (issue #24): una alla volta, niente muro
+  // le schede del Cantiere (issue #24): una alla volta, niente muro
   _shopMostra(scheda) {
     this._shopScheda = scheda;
     $('shopShip').classList.toggle('hidden', scheda !== 'nave');
     $('shopVaro').classList.toggle('hidden', scheda !== 'varo');
     $('shopWeapons').classList.toggle('hidden', scheda !== 'armi');
+    $('shopLivree').classList.toggle('hidden', scheda !== 'livree');
     $('tabNave').setAttribute('aria-pressed', scheda === 'nave');
     $('tabVaro').setAttribute('aria-pressed', scheda === 'varo');
     $('tabArmi').setAttribute('aria-pressed', scheda === 'armi');
+    $('tabLivree').setAttribute('aria-pressed', scheda === 'livree');
   }
 
   // il mastro d'ascia consiglia: l'acquisto più grosso che ti puoi
@@ -540,6 +545,10 @@ export class UI {
     varoBox.innerHTML = '';
     $('tabVaro').classList.toggle('hidden', !m.varo);
     if (m.varo) varoBox.appendChild(this.varoBlock(m.varo, m.gold));
+    const livreeBox = $('shopLivree');
+    livreeBox.innerHTML = '';
+    $('tabLivree').classList.toggle('hidden', !m.negozio);
+    if (m.negozio) livreeBox.appendChild(this.livreeBlock(m.negozio, m.gold));
     this._shopConsiglia(m);
 
     const wep = $('shopWeapons');
@@ -642,6 +651,158 @@ export class UI {
       block.appendChild(row);
     }
     return block;
+  }
+
+  // Il Negozio delle Livree (issue #25): pay to show, mai pay to win —
+  // vendita diretta, prezzi in chiaro, l'edizione-impresa non si compra.
+  livreeBlock(negozio, gold) {
+    const block = document.createElement('div');
+    block.className = 'wgroup';
+    const head = document.createElement('div');
+    head.className = 'wgroupHead';
+    head.innerHTML = '<b>🎨 Il Negozio delle Livree</b><span>solo estetica, mai vantaggio</span>';
+    block.appendChild(head);
+    const possedute = new Set(negozio.possedute || []);
+    for (const [id, l] of Object.entries(negozio.catalogo || {})) {
+      const row = document.createElement('div');
+      row.className = 'shopRow';
+      const scia = '#' + (l.scia | 0).toString(16).padStart(6, '0');
+      const genere = l.genere === 'scia' ? 'scia' : 'livrea';
+      row.innerHTML = `<div class="shopInfo"><b><span class="swatch" style="background:${scia}" aria-hidden="true"></span> ${esc(l.nome)}</b>
+        <span>${esc(l.motto || '')}</span></div>`;
+      const btn = document.createElement('button');
+      btn.dataset.fk = `livrea-${id}`;
+      const indossata = negozio[genere] === id;
+      if (indossata) {
+        btn.textContent = 'Riponi';
+        btn.setAttribute('aria-label', `Riponi ${l.nome}`);
+        btn.addEventListener('click', () => this.h.onIndossaLivrea(null, genere));
+        row.classList.add('indossata');
+      } else if (possedute.has(id)) {
+        btn.textContent = 'Indossa';
+        btn.setAttribute('aria-label', `Indossa ${l.nome}`);
+        btn.addEventListener('click', () => this.h.onIndossaLivrea(id, genere));
+      } else if (l.prezzo === null) {
+        btn.textContent = 'Si guadagna';
+        btn.disabled = true;
+        btn.title = 'Compi la campagna del Mastro di Rotte per guadagnarla';
+      } else {
+        btn.textContent = `Compra · ${l.prezzo} 🪙`;
+        btn.setAttribute('aria-label', `Compra ${l.nome} per ${l.prezzo} monete`);
+        btn.disabled = gold < l.prezzo;
+        if (btn.disabled) btn.title = `Servono ${l.prezzo} 🪙 — ne hai ${gold}`;
+        btn.addEventListener('click', () => this.h.onCompraLivrea(id));
+      }
+      row.appendChild(btn);
+      block.appendChild(row);
+    }
+    // il vessillo personale: identità gratuita, come il nome. Sventola in
+    // targhetta per chi NON ha una Fratellanza (la bandiera di gilda vince).
+    const vHead = document.createElement('div');
+    vHead.className = 'wgroupHead';
+    vHead.innerHTML = '<b>🚩 Il tuo vessillo</b><span>gratis — la gilda, se ce l\'hai, vince</span>';
+    block.appendChild(vHead);
+    const vRow = document.createElement('div');
+    vRow.className = 'vessillo';
+    const canvas = document.createElement('canvas');
+    canvas.width = 90; canvas.height = 60;
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', 'Anteprima del vessillo');
+    const b = negozio.bandiera || { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 };
+    const scelte = document.createElement('div');
+    scelte.className = 'gfScelte';
+    const sels = {};
+    for (const [campo, label, voci] of [
+      ['fondo', 'Campo', TINTE.map(t => t[0])], ['taglio', 'Taglio', TAGLI],
+      ['tinta2', 'Seconda tinta', TINTE.map(t => t[0])], ['emblema', 'Emblema', EMBLEMI],
+      ['tintaEmblema', "Tinta dell'emblema", TINTE.map(t => t[0])],
+    ]) {
+      const wrap = document.createElement('label');
+      wrap.textContent = label + ' ';
+      const sel = document.createElement('select');
+      sel.setAttribute('aria-label', label + ' del vessillo');
+      voci.forEach((v, i) => {
+        const o = document.createElement('option');
+        o.value = i; o.textContent = v;
+        sel.appendChild(o);
+      });
+      sel.value = b[campo] | 0;
+      sel.addEventListener('change', () => ridisegna());
+      sels[campo] = sel;
+      wrap.appendChild(sel);
+      scelte.appendChild(wrap);
+    }
+    const bozza = () => Object.fromEntries(Object.entries(sels).map(([k, s]) => [k, +s.value]));
+    const ridisegna = () => disegnaBandiera(canvas, bozza());
+    ridisegna();
+    const issa = document.createElement('button');
+    issa.dataset.fk = 'vessillo-issa';
+    issa.textContent = negozio.bandiera ? 'Cambia il vessillo' : 'Issa il vessillo';
+    issa.addEventListener('click', () => this.h.onVessillo(bozza()));
+    vRow.append(canvas, scelte, issa);
+    if (negozio.bandiera) {
+      const ammaina = document.createElement('button');
+      ammaina.className = 'linkish';
+      ammaina.textContent = 'Ammaina';
+      ammaina.setAttribute('aria-label', 'Ammaina il vessillo personale');
+      ammaina.addEventListener('click', () => this.h.onVessillo(null));
+      vRow.appendChild(ammaina);
+    }
+    block.appendChild(vRow);
+    return block;
+  }
+
+  // Il Registro delle Collezioni (issue #25): la leggenda agli atti.
+  showRegistro(d) {
+    const box = $('registroVoci');
+    box.innerHTML = '';
+    const TIPI_NOMI = { goletta: 'Goletta', guerra: 'Brigantino da Guerra', galeone: 'Galeone', sciabecco: 'Sciabecco' };
+    const sez = (titolo, righe) => {
+      const s = document.createElement('div');
+      s.className = 'wgroup';
+      const head = document.createElement('div');
+      head.className = 'wgroupHead';
+      head.innerHTML = `<b>${titolo}</b>`;
+      s.appendChild(head);
+      for (const r of righe) {
+        const el = document.createElement('div');
+        el.className = 'registroRiga';
+        el.innerHTML = r;
+        s.appendChild(el);
+      }
+      box.appendChild(s);
+    };
+    sez('⛵ La nave', [
+      d.tipo ? `Tipo: <b>${esc(TIPI_NOMI[d.tipo] || d.tipo)}</b> (${d.vari | 0} vari all'attivo)` : 'Nessun varo ancora: il Cantiere aspetta',
+      `Battaglie: <b>${d.kills | 0}</b> vittorie · ${d.deaths | 0} naufragi`,
+    ]);
+    const armi = {};
+    for (const g of Object.values(d.mounts || {})) {
+      for (const w of g || []) {
+        const nome = (d.arsenal && d.arsenal.types[w.type] && d.arsenal.types[w.type].name) || w.type;
+        armi[nome] = Math.max(armi[nome] || 0, w.lvl);
+      }
+    }
+    sez('⚔ L\'arsenale a bordo', Object.entries(armi).length
+      ? Object.entries(armi).map(([n, l]) => `${esc(n)} <span class="pips">${'●'.repeat(l)}${'○'.repeat(3 - l)}</span>`)
+      : ['Nessuna bocca da fuoco (come ci sei arrivato fin qui?)']);
+    sez('🏰 Fortezze espugnate', (d.conquered || []).length
+      ? d.conquered.slice(0, 20).map(x => esc(x)).concat(d.conquered.length > 20 ? [`…e altre ${d.conquered.length - 20}`] : [])
+      : ['Ancora nessuna: le mura aspettano le tue bordate']);
+    sez('⭐ Approdi preferiti', (d.preferiti || []).length ? d.preferiti.map(x => esc(x)) : ['Il mare è grande: segna i porti che ami']);
+    const cat = d.catalogo || {};
+    const tot = Object.keys(cat).length;
+    sez(`🎨 Il guardaroba (${(d.livree || []).length}/${tot})`, tot
+      ? Object.entries(cat).map(([id, l]) => {
+        const ha = (d.livree || []).includes(id);
+        const addosso = d.livrea === id || d.scia === id;
+        return `${ha ? '✅' : '◻️'} ${esc(l.nome)}${addosso ? ' <b>(addosso)</b>' : ''}${!ha && l.impresa ? ' — si guadagna con la campagna' : ''}`;
+      })
+      : ['Il Negozio delle Livree apre al Porto Franco']);
+    if (d.campagna && d.campagna.completata) {
+      sez('⚔ Il Mastro di Rotte', ['Campagna della settimana: <b>compiuta</b>']);
+    }
+    this.show('registroOverlay');
   }
 
   statRow(title, desc, lvl, maxLvl, cost, gold, onBuy, fk) {
