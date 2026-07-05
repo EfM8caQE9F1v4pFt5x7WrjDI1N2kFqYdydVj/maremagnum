@@ -7,15 +7,15 @@ const TYPES = {
   colubrina: { name: 'Colubrina', tier: 1, dmg: 8, range: 270, reload: 2.0, speed: 430, cost: 120, upDmg: 3, upRange: 25, upReload: -0.15 },
   cannone: { name: 'Cannone da 24', tier: 2, dmg: 16, range: 330, reload: 2.3, speed: 460, cost: 360, upDmg: 5, upRange: 30, upReload: -0.15 },
   carronata: { name: 'Carronata', tier: 3, dmg: 34, range: 230, reload: 2.6, speed: 400, cost: 1080, upDmg: 9, upRange: 20, upReload: -0.2 },
-  mortaio: { name: 'Mortaio', tier: 4, dmg: 28, range: 500, reload: 4.2, speed: 250, cost: 3240, aoe: 70, arc: true, upDmg: 8, upRange: 45, upReload: -0.3 },
+  mortaio: { name: 'Mortaio', tier: 4, dmg: 34, range: 500, reload: 4.2, speed: 250, cost: 3240, aoe: 70, arc: true, upDmg: 8, upRange: 45, upReload: -0.3 },
   // il quinto gradino è l'ESCLUSIVA del tipo di nave: tre side-grade con
   // profili opposti (spilli da lontano / mazzata da vicino / grandine media)
-  organo: { name: 'Organo di Da Vinci', tier: 5, dmg: 9, range: 350, reload: 1.3, speed: 480, cost: 9700, burst: 3, upDmg: 3, upRange: 30, upReload: -0.1, tipo: 'galeone' },
-  lunga: { name: 'Colubrina Lunga', tier: 5, dmg: 14, range: 560, reload: 2.2, speed: 560, cost: 9700, upDmg: 4, upRange: 40, upReload: -0.1, tipo: 'goletta' },
-  pesante: { name: 'Carronata Pesante', tier: 5, dmg: 62, range: 210, reload: 3.0, speed: 380, cost: 9700, upDmg: 14, upRange: 15, upReload: -0.2, tipo: 'guerra' },
+  organo: { name: 'Organo di Da Vinci', tier: 5, dmg: 8, range: 350, reload: 1.6, speed: 480, cost: 9700, burst: 3, upDmg: 2, upRange: 30, upReload: -0.1, tipo: 'galeone' },
+  lunga: { name: 'Colubrina Lunga', tier: 5, dmg: 34, range: 560, reload: 2.2, speed: 560, cost: 9700, upDmg: 9, upRange: 40, upReload: -0.1, tipo: 'goletta' },
+  pesante: { name: 'Carronata Pesante', tier: 5, dmg: 44, range: 210, reload: 3.2, speed: 380, cost: 9700, upDmg: 9, upRange: 15, upReload: -0.2, tipo: 'guerra' },
   // l'esclusiva dello Sciabecco (issue #11): pressione costante in corsa —
   // metà del dps di organo/pesante, ma spara mentre sfrecci
-  falconetto: { name: 'Falconetto a Ripetizione', tier: 5, dmg: 9, range: 300, reload: 0.9, speed: 500, cost: 9700, upDmg: 2, upRange: 25, upReload: -0.08, tipo: 'sciabecco' },
+  falconetto: { name: 'Falconetto a Ripetizione', tier: 5, dmg: 14, range: 300, reload: 0.9, speed: 500, cost: 9700, upDmg: 4, upRange: 25, upReload: -0.08, tipo: 'sciabecco' },
 };
 
 // La scala comune sale fino al mortaio; il quinto gradino dipende dal varo.
