@@ -142,6 +142,20 @@ body.benvenuto #killfeed, body.benvenuto #missionHud { display: none; }
 #hint { transition: opacity .3s; }
 body.conPannello #hint { opacity: 0; }
 
+/* la Gazzetta del Corsaro (issue #4): badge dei non-letti e albo */
+#gazzettaBtn { position: relative; }
+#gazzettaBadge {
+  position: absolute; top: -4px; right: -6px;
+  min-width: 16px; height: 16px; padding: 0 3px;
+  border-radius: 9px; background: #e8c268; color: #2a1a0c;
+  font-size: 11px; font-weight: bold; line-height: 16px; text-align: center;
+  border: 1px solid #6d4c22;
+}
+.gazzettaVoce { padding: 8px 4px; border-bottom: 1px solid rgba(109,76,34,.25); text-align: left; }
+.gazzettaVoce time { display: block; font-size: 12px; font-style: italic; color: #5d4a26; margin-bottom: 2px; }
+.gazzettaVoce p { margin: 0; }
+.gazzettaVoce.nuova { background: rgba(232,194,104,.12); border-left: 3px solid #e8c268; padding-left: 8px; }
+
 /* gli approdi preferiti (issue #13): la stella e la pergamena del varo */
 #favBtn[aria-pressed="true"] { color: #e8c268; }
 #salpaScelte { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }

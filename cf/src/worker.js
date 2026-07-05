@@ -5,8 +5,9 @@
 import { MareDO } from './mare-do.js';
 import { ContiDO } from './conti-do.js';
 import { AtlanteDO } from './atlante-do.js';
+import { GazzettaDO } from './gazzetta-do.js';
 
-export { MareDO, ContiDO, AtlanteDO };
+export { MareDO, ContiDO, AtlanteDO, GazzettaDO };
 
 const PUBBLICHE_CONTI = { '/ancora/nuovo': '/nuovo', '/ancora/conferma': '/conferma', '/ancora/entra': '/entra' };
 
@@ -43,6 +44,21 @@ export default {
       }
       const atl = env.ATLANTE.get(env.ATLANTE.idFromName('atlante'));
       return atl.fetch('https://atlante/riscatti');
+    }
+
+    // L'Ammiragliato detta una notizia alla Gazzetta (annunci di release,
+    // esiti dei riscatti). SOLO in gioco: arriverà ai naviganti al join
+    // e sui WebSocket aperti, mai su canali fuori-gioco.
+    if (url.pathname === '/ammiragliato/gazzetta' && req.method === 'POST') {
+      if (!env.ADMIN_SECRET || req.headers.get('X-Ammiragliato') !== env.ADMIN_SECRET) {
+        return new Response('Chi va là?', { status: 401 });
+      }
+      const corpo = await req.text();
+      if (corpo.length > 2048) return new Response('{"errore":"troppo lungo"}', { status: 413 });
+      const gaz = env.GAZZETTA.get(env.GAZZETTA.idFromName('gazzetta'));
+      return gaz.fetch('https://gazzetta/pubblica', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: corpo,
+      });
     }
 
     // Ammiragliato: rotte d'amministrazione protette da segreto (mai nel git)

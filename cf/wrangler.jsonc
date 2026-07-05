@@ -13,12 +13,14 @@
     "bindings": [
       { "name": "MARE", "class_name": "MareDO" },
       { "name": "CONTI", "class_name": "ContiDO" },
-      { "name": "ATLANTE", "class_name": "AtlanteDO" }
+      { "name": "ATLANTE", "class_name": "AtlanteDO" },
+      { "name": "GAZZETTA", "class_name": "GazzettaDO" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["MareDO", "ContiDO"] },
-    { "tag": "v2", "new_sqlite_classes": ["AtlanteDO"] }
+    { "tag": "v2", "new_sqlite_classes": ["AtlanteDO"] },
+    { "tag": "v3", "new_sqlite_classes": ["GazzettaDO"] }
   ],
   "r2_buckets": [
     { "binding": "DEPOSITO", "bucket_name": "maremagnum" }

@@ -88,6 +88,31 @@ app.whenReady().then(async () => {
   await axeState('salpa-da');
   await J(`document.getElementById('salpaOverlay').classList.add('hidden')`);
 
+  // 2c. la Gazzetta del Corsaro (issue #4), in scena con voci e badge
+  await J(`(() => {
+    const box = document.getElementById('gazzettaVoci');
+    box.innerHTML = '';
+    for (const [quando, testo, nuova] of [
+      ['adesso', "🏰⚔️ Barbanera ha ESPUGNATO la Fortezza di Malware!", true],
+      ['2 ore fa', '⚔ Olonese ha ABBORDATO Rackham! (+300 🪙)', false],
+    ]) {
+      const riga = document.createElement('div');
+      riga.className = 'gazzettaVoce' + (nuova ? ' nuova' : '');
+      const t = document.createElement('time');
+      t.textContent = quando;
+      const p = document.createElement('p');
+      p.textContent = testo;
+      riga.append(t, p);
+      box.appendChild(riga);
+    }
+    const b = document.getElementById('gazzettaBadge');
+    b.textContent = '1';
+    b.classList.remove('hidden');
+    document.getElementById('gazzettaOverlay').classList.remove('hidden');
+  })()`);
+  await axeState('gazzetta');
+  await J(`document.getElementById('gazzettaOverlay').classList.add('hidden')`);
+
   // si salpa: nome e via
   await J(`
     document.getElementById('nameInput').value = 'Auditor';

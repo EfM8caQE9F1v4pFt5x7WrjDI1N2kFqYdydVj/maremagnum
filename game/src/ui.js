@@ -6,18 +6,28 @@ const $ = (id) => document.getElementById(id);
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
 
+// "2 ore fa": il tempo delle notizie, alla buona e in italiano
+function faTempo(t) {
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 90) return 'adesso';
+  if (s < 3600) return `${Math.round(s / 60)} min fa`;
+  if (s < 86400) { const h = Math.round(s / 3600); return h === 1 ? "un'ora fa" : `${h} ore fa`; }
+  const g = Math.round(s / 86400);
+  return g === 1 ? 'ieri' : `${g} giorni fa`;
+}
+
 // ordine di priorità degli overlay quando sono impilati (es. Manuale sul Cantiere)
-const OVERLAY_ORDINE = ['helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay',
-  'shopOverlay', 'searchOverlay', 'siteOverlay', 'deathOverlay', 'salpaOverlay', 'nameOverlay'];
+const OVERLAY_ORDINE = ['gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay',
+  'mapOverlay', 'shopOverlay', 'searchOverlay', 'siteOverlay', 'deathOverlay', 'salpaOverlay', 'nameOverlay'];
 
 // La disciplina dei pannelli (issue #18): i fluttuanti si ESCLUDONO a vicenda
 // (aprirne uno chiude l'altro), quelli di banchina si SOSPENDONO sotto e
 // tornano a galla alla chiusura — mai due pannelli impilati a schermo.
-const FLUTTUANTI = ['helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay'];
+const FLUTTUANTI = ['gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay'];
 const DI_BANCHINA = ['shopOverlay', 'searchOverlay', 'siteOverlay'];
 // I documenti lunghi si aprono dall'INIZIO: fuoco al pannello (2.4.3 resta:
 // il fuoco entra comunque nel dialogo), non al primo campo in fondo.
-const DALL_INIZIO = ['helpOverlay', 'settingsOverlay', 'shopOverlay'];
+const DALL_INIZIO = ['gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'shopOverlay'];
 
 export class UI {
   constructor(handlers) {
@@ -51,6 +61,8 @@ export class UI {
     $('settingsClose').addEventListener('click', () => this.hide('settingsOverlay'));
     $('helpBtn').addEventListener('click', () => this.h.onHelp());
     $('helpClose').addEventListener('click', () => this.hide('helpOverlay'));
+    $('gazzettaBtn').addEventListener('click', () => this.h.onGazzetta());
+    $('gazzettaClose').addEventListener('click', () => this.hide('gazzettaOverlay'));
     $('riscattoForm').addEventListener('submit', (e) => {
       e.preventDefault();
       this.h.onRiscatto($('riscattoDominio').value.trim(), $('riscattoContatto').value.trim());
@@ -75,7 +87,7 @@ export class UI {
     $('joinBlocc').addEventListener('click', () => this.h.onAssedioJoin('bloccatori'));
 
     // click fuori dal pannello = chiudi (solo overlay non distruttivi)
-    for (const oid of ['mapOverlay', 'settingsOverlay', 'assedioOverlay', 'helpOverlay']) {
+    for (const oid of ['mapOverlay', 'settingsOverlay', 'assedioOverlay', 'helpOverlay', 'gazzettaOverlay']) {
       $(oid).addEventListener('click', (e) => { if (e.target.id === oid) this.hide(oid); });
     }
 
@@ -126,7 +138,7 @@ export class UI {
     const digitando = a && (a.tagName === 'TEXTAREA' ||
       (a.tagName === 'INPUT' && !['checkbox', 'radio', 'range', 'button', 'submit'].includes(a.type)));
     if (digitando) { a.blur(); return; }
-    for (const oid of ['helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay']) {
+    for (const oid of ['gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay']) {
       if (!$(oid).classList.contains('hidden')) { this.hide(oid); return; }
     }
     for (const oid of ['shopOverlay', 'searchOverlay', 'siteOverlay']) {
@@ -541,6 +553,38 @@ export class UI {
     document.body.classList.add('attraccato'); // le pillole HUD scendono
   }
   setDockUrl(url) { $('dockUrl').textContent = url; }
+
+  // la Gazzetta del Corsaro (issue #4): il badge dei non-letti e l'albo
+  setGazzettaBadge(n) {
+    const b = $('gazzettaBadge');
+    b.textContent = n > 9 ? '9+' : String(n);
+    b.classList.toggle('hidden', n <= 0);
+    $('gazzettaBtn').setAttribute('aria-label',
+      n > 0 ? `Gazzetta del Corsaro: ${n} notizie non lette` : 'Gazzetta del Corsaro');
+  }
+
+  showGazzetta(voci, lettaFino) {
+    const box = $('gazzettaVoci');
+    box.innerHTML = '';
+    if (!voci.length) {
+      const p = document.createElement('p');
+      p.className = 'sub';
+      p.textContent = 'Il mare è quieto: nessuna notizia, per ora.';
+      box.appendChild(p);
+    }
+    for (const v of voci) {
+      const riga = document.createElement('div');
+      riga.className = 'gazzettaVoce' + (v.t > lettaFino ? ' nuova' : '');
+      const quando = document.createElement('time');
+      quando.textContent = faTempo(v.t);
+      quando.dateTime = new Date(v.t).toISOString();
+      const testo = document.createElement('p');
+      testo.textContent = v.testo;
+      riga.append(quando, testo);
+      box.appendChild(riga);
+    }
+    this.show('gazzettaOverlay');
+  }
 
   // la stella dell'approdo preferito (issue #13), su dockbar e pannello sito
   setFav(on) {

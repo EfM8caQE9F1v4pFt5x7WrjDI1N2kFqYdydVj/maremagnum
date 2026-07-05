@@ -4,6 +4,7 @@ const { WORLD, PORT, FORT, parseCourse, Archipelago, publicIsland } = require('.
 const W = require('./weapons');
 const { Missions } = require('./missions');
 const atlante = require('./atlante-core');
+const gazzetta = require('./gazzetta-core');
 
 const TICK = 1 / 30;          // simulazione a 30Hz
 const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
@@ -242,6 +243,9 @@ class Game {
       you: this.youFor(ship),
       arsenal: W.publicConfig(),
     });
+    // la Gazzetta (issue #4): lo storico al join + il cursore dei non-letti
+    ship.gazzettaLetta = Math.max(0, +p.gazzettaLetta || 0);
+    this.sendTo(ship, { t: 'gazzetta', voci: gazzetta.ultime(50) });
     // il primo minuto ha UN obiettivo (issue #22): al profilo vergine la
     // missione arriva col primo attracco, non al secondo zero
     if (p.gold == null) ship.senzaMissione = true;
@@ -258,6 +262,7 @@ class Game {
       tipo: ship.tipo, vari: ship.vari,
       mounts: ship.mounts, conquered: [...ship.conquered],
       preferiti: [...ship.preferiti],
+      gazzettaLetta: ship.gazzettaLetta || 0,
       kills: ship.kills, deaths: ship.deaths,
     };
   }
@@ -280,6 +285,16 @@ class Game {
     this.broadcast({ t: 'island', island: publicIsland(island) });
   }
 
+  // La Gazzetta del Corsaro (issue #4): le notizie degne di storia vanno
+  // nell'albo persistente E sul filo dei presenti. SOLO in gioco: la
+  // consegna è il WebSocket, la persistenza il GazzettaDO (via hook).
+  annuncia(tipo, testo) {
+    const voce = gazzetta.pubblica(tipo, testo);
+    this.broadcast({ t: 'feed', msg: voce.testo }); // il diario, per chi c'è
+    this.broadcast({ t: 'notifica', voce });        // l'albo, per chi verrà
+    if (this.onGazzetta) this.onGazzetta(voce);
+  }
+
   // --- messaggi dai client ---
 
   handle(ship, msg) {
@@ -291,6 +306,7 @@ class Game {
       case 'course': this.setCourse(ship, msg.q); break;
       case 'dock': this.dock(ship); break;
       case 'preferisci': this.preferisci(ship, msg); break;
+      case 'gazzettaLetta': ship.gazzettaLetta = Math.max(ship.gazzettaLetta || 0, +msg.fino || 0); break;
       case 'undock': this.undock(ship); break;
       case 'shop': if (ship.docked === 'porto') this.sendShop(ship); break;
       case 'buyShip': this.buyShip(ship, msg.stat); break;
@@ -797,7 +813,7 @@ class Game {
       hero.kills++;
       this.sendGold(hero, FORT.conquestBounty, `Hai espugnato ${island.name}!`);
       this.sendTo(hero, { t: 'conquered', island: island.id, list: [...hero.conquered] });
-      this.broadcast({ t: 'feed', msg: `🏰⚔️ ${hero.name} ha ESPUGNATO ${island.name}! Il blocco è caduto.` });
+      this.annuncia('espugnazione', `🏰⚔️ ${hero.name} ha ESPUGNATO ${island.name}! Il blocco è caduto.`);
     } else {
       this.broadcast({ t: 'feed', msg: `🏰 Le difese di ${island.name} sono cadute!` });
     }
@@ -907,7 +923,7 @@ class Game {
       this.sendGold(vittima, -resto, vittima.bloccoSalvo > 0
         ? 'Abbordato! Il doppiofondo ha salvato qualcosa' : 'Abbordato! Il forziere è del vincitore');
     }
-    this.broadcast({ t: 'feed', msg: `⚔ ${predatore ? predatore.name : 'Il mare'} ha ABBORDATO ${vittima.name}!${resto ? ` (+${resto} 🪙)` : ''}` });
+    this.annuncia('arrembaggio', `⚔ ${predatore ? predatore.name : 'Il mare'} ha ABBORDATO ${vittima.name}!${resto ? ` (+${resto} 🪙)` : ''}`);
     vittima.blockedUntil = 0;
     vittima.blockedBy = null;
     vittima.sunkUntil = this.now + RESPAWN_S;

@@ -21,6 +21,7 @@
     <button type="submit">🧭 Traccia la rotta</button>
   </form>
   <div id="gold">🪙 <span class="visuallyhidden">monete d'oro: </span><b id="goldVal">0</b></div>
+  <button id="gazzettaBtn" aria-label="Gazzetta del Corsaro" title="La Gazzetta del Corsaro — le notizie del mare">🗞<span id="gazzettaBadge" class="hidden" aria-hidden="true"></span></button>
   <button id="helpBtn" aria-label="Manuale del Corsaro" title="Il Manuale del Corsaro — come funziona Maremagnum">📜</button>
   <button id="settingsBtn" aria-label="Impostazioni di bordo" title="Impostazioni di bordo">⚙</button>
 </header>
@@ -215,6 +216,12 @@
       capitani veri possono sempre sparare alla cieca) e la <b>Bordata Doppia</b> del
       Galeone (canne fresche all'istante e palle doppie per qualche secondo).</p>
 
+      <h3 class="shopSection">🗞 La Gazzetta del Corsaro</h3>
+      <p>L'albo delle notizie del Maremagnum: espugnazioni, arrembaggi e annunci
+      dell'Ammiragliato. Il bottone 🗞 lassù tiene il conto delle notizie che ti sei
+      perso mentre eri a terra. Tutto vive <b>solo in gioco</b>: niente email, niente
+      notifiche fuori dal mare.</p>
+
       <h3 class="shopSection">🪙 La legge del mare</h3>
       <p><b>Vita a zero fra capitani = nave BLOCCATA, non affondata.</b> Il vincitore
       incassa subito un <b>quarto del forziere in gioco</b>; se entro il tempo limite
@@ -265,6 +272,15 @@
     </div>
 
     <button id="helpClose" class="linkish">Chiudi</button>
+  </div>
+</div>
+
+<div id="gazzettaOverlay" class="overlay hidden">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloGazzetta">
+    <h2 id="titoloGazzetta">🗞 La Gazzetta del Corsaro</h2>
+    <p class="sub">Le notizie del Maremagnum — anche quelle accadute mentre eri a terra.</p>
+    <div id="gazzettaVoci"></div>
+    <button id="gazzettaClose" class="linkish">Chiudi</button>
   </div>
 </div>
 

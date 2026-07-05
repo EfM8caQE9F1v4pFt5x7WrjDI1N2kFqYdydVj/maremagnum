@@ -437,6 +437,19 @@ async function main() {
     ok(conquered && conquered.list.includes(fortIsland.id), 'il blocco è disattivato nel profilo del conquistatore');
     const bounty = await A.wait(m => m.t === 'gold' && m.delta === 1500, 3000);
     ok(!!bounty, 'taglia di conquista: 1500 🪙');
+
+    console.log('— La Gazzetta del Corsaro (issue #4) —');
+    const notizia = await A.wait(m => m.t === 'notifica' && m.voce && m.voce.tipo === 'espugnazione', 3000);
+    ok(!!notizia, `l'espugnazione va in Gazzetta sul filo dei presenti ("${notizia && notizia.voce.testo}")`);
+    // chi arriva DOPO trova lo storico al join: espugnazione E arrembaggio
+    const L = new Player('Lettore', { gold: 100 });
+    await L.join();
+    const albo = await L.wait(m => m.t === 'gazzetta', 4000);
+    ok(albo && Array.isArray(albo.voci) && albo.voci.some(v => v.tipo === 'espugnazione'),
+      `lo storico arriva al join (${albo ? albo.voci.length : 0} voci, c'è l'espugnazione)`);
+    ok(albo && albo.voci.some(v => v.tipo === 'arrembaggio'),
+      'anche l\'arrembaggio della battaglia è agli atti');
+    L.send({ t: 'gazzettaLetta', fino: Date.now() }); // il cursore non fa male a nessuno
     ok(await A.goto(fortIsland.x, fortIsland.y, fortIsland.r + 80, 60000), 'ritorno sotto le mura');
     A.send({ t: 'dock' });
     let dockedFort = null;

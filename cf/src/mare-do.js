@@ -5,6 +5,7 @@
 import { Game } from '../../server/game.js';
 import blocklist from '../../server/blocklist-core.js';
 import atlante from '../../server/atlante-core.js';
+import gazzetta from '../../server/gazzetta-core.js';
 import { verificaToken } from './sessione.js';
 
 const LIST_URL = 'https://nsfw.oisd.nl/abp';
@@ -75,11 +76,22 @@ export class MareDO {
     }
   }
 
+  // Le notizie persistite tornano a bordo al risveglio: la Gazzetta è SOLO
+  // in gioco, quindi il suo unico magazzino è il GazzettaDO.
+  async caricaGazzetta() {
+    try {
+      const gaz = this.env.GAZZETTA.get(this.env.GAZZETTA.idFromName('gazzetta'));
+      const res = await gaz.fetch('https://gazzetta/ultime?n=100');
+      if (res.ok) gazzetta.setVoci((await res.json()).voci);
+    } catch { /* le notizie arriveranno al prossimo risveglio */ }
+  }
+
   async pronto() {
     if (!this.prontoPromise) {
       this.prontoPromise = (async () => {
         await this.caricaBlocklist();
         await this.caricaAtlante();
+        await this.caricaGazzetta();
         this.game = new Game((obj) => {
           const s = JSON.stringify(obj);
           for (const ws of this.equipaggio.keys()) {
@@ -87,6 +99,15 @@ export class MareDO {
           }
         });
         this.game.pausa(); // nasce addormentato: si sveglia col primo capitano
+        // le notizie del Game finiscono nell'albo persistente
+        this.game.onGazzetta = (voce) => {
+          const gaz = this.env.GAZZETTA.get(this.env.GAZZETTA.idFromName('gazzetta'));
+          gaz.fetch('https://gazzetta/pubblica', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(voce),
+          }).catch(() => { /* la notizia resta almeno in memoria */ });
+        };
         // ogni approdo fa crescere l'isola per tutto il Maremagnum
         this.game.onApprodo = (dominio) => {
           atlante.registraApprodo(dominio); // effetto immediato su questo mare

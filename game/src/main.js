@@ -122,6 +122,7 @@ async function boot() {
     },
     onRiscatto: riscattaIsola,
     onFav: toggleFav,
+    onGazzetta: apriGazzetta,
     onSettings: applySettings,
     onRebind: (azione) => { state.rebind = azione; refreshTimoneria(); },
     onNavBack: () => shell && shell.navBack(),
@@ -227,6 +228,25 @@ function scegliSpawn() {
     }
     ui.show('salpaOverlay');
   });
+}
+
+// La Gazzetta del Corsaro (issue #4): SOLO in gioco — lo storico arriva al
+// join, le voci nuove sul WebSocket; i non-letti sono un cursore nel profilo.
+function nonLette() {
+  const fino = state.profile.gazzettaLetta || 0;
+  return (state.gazzetta || []).filter(v => v.t > fino).length;
+}
+
+function apriGazzetta() {
+  const fino = state.profile.gazzettaLetta || 0;
+  ui.showGazzetta(state.gazzetta || [], fino);
+  const max = (state.gazzetta || []).reduce((a, v) => Math.max(a, v.t), fino);
+  if (max > fino) {
+    state.profile.gazzettaLetta = max;
+    saveProfile();
+    net.send({ t: 'gazzettaLetta', fino: max });
+    ui.setGazzettaBadge(0);
+  }
 }
 
 // La stella dell'approdo (issue #13): segna/dimentica l'isola dove siamo.
@@ -502,6 +522,8 @@ function applyYou(you) {
     vari: you.vari !== undefined ? you.vari : state.profile.vari,
     mounts: you.mounts, conquered: you.conquered ?? state.profile.conquered ?? [],
     preferiti: you.preferiti ?? state.profile.preferiti ?? [],
+    // il cursore dei non-letti: vince il più avanti fra locale e Conti
+    gazzettaLetta: Math.max(you.gazzettaLetta || 0, state.profile.gazzettaLetta || 0),
     kills: you.kills ?? state.profile.kills, deaths: you.deaths ?? state.profile.deaths,
   });
   saveProfile();
@@ -667,6 +689,18 @@ function wireNet() {
   net.on('dead', (m) => { ui.showDeath(m.respawn); sfx.sink(); battleUntil = performance.now() + 3000; });
   net.on('respawned', () => { ui.hideDeath(); ui.toast('Nave riparata a nuovo. Il mare ti aspetta.'); });
   net.on('board', (m) => ui.setBoard(m.rows));
+  net.on('gazzetta', (m) => {
+    state.gazzetta = Array.isArray(m.voci) ? m.voci : [];
+    ui.setGazzettaBadge(nonLette());
+  });
+  net.on('notifica', (m) => {
+    if (!m.voce) return;
+    state.gazzetta = state.gazzetta || [];
+    state.gazzetta.unshift(m.voce);
+    if (state.gazzetta.length > 100) state.gazzetta.length = 100;
+    // niente toast: il badge cresce in silenzio (l'ingorgo è bonificato)
+    ui.setGazzettaBadge(nonLette());
+  });
   net.on('toast', (m) => ui.toast(m.msg));
   net.on('feed', (m) => ui.feed(m.msg));
 }
