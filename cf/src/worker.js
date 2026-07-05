@@ -7,9 +7,10 @@ import { ContiDO } from './conti-do.js';
 import { AtlanteDO } from './atlante-do.js';
 import { GazzettaDO } from './gazzetta-do.js';
 import { CampagneDO } from './campagne-do.js';
+import { GildeDO } from './gilde-do.js';
 import campagna from '../../server/campagna-core.js';
 
-export { MareDO, ContiDO, AtlanteDO, GazzettaDO, CampagneDO };
+export { MareDO, ContiDO, AtlanteDO, GazzettaDO, CampagneDO, GildeDO };
 
 // Il Mastro di Rotte al lavoro (issue #3): campagna procedurale e
 // DETERMINISTICA dal numero della settimana; Workers AI (quota permettendo)

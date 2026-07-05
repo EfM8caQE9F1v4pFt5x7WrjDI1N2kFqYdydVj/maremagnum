@@ -169,6 +169,24 @@ body.conPannello #hint { opacity: 0; }
 .campagnaTappe li.futura { color: #5d4a26; }
 .campagnaPremio { margin: 0; font-size: 13.5px; color: #5d4a26; }
 
+/* le Fratellanze (issue #5): elenco, scheda, fondazione con l'editor */
+.gildaTesta { display: flex; gap: 16px; align-items: center; text-align: left; margin-bottom: 10px; }
+.gildaTesta h3 { margin: 0; font-size: 18px; }
+.gildaRiga {
+  display: flex; gap: 10px; align-items: center; text-align: left;
+  padding: 6px 4px; border-bottom: 1px solid rgba(109,76,34,.25);
+}
+.gildaRiga .gildaInfo { flex: 1; }
+.gildaRiga span { flex: 1; }
+.gildaLog { margin: 2px 0; font-size: 13px; text-align: left; color: #5d4a26; }
+#gildaFondaForm { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.gfRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+#gfEditor { align-items: flex-start; }
+#gfBandiera { border: 2px solid #6d4c22; border-radius: 4px; }
+#gfScelte { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13.5px; }
+#gfScelte select { font: inherit; font-size: 13px; margin-left: 4px; }
+#gfCategoria { font: inherit; font-size: 14px; }
+
 /* gli approdi preferiti (issue #13): la stella e la pergamena del varo */
 #favBtn[aria-pressed="true"] { color: #e8c268; }
 #salpaScelte { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }

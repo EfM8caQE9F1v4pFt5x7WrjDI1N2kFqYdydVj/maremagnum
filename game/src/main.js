@@ -123,6 +123,15 @@ async function boot() {
     onRiscatto: riscattaIsola,
     onFav: toggleFav,
     onGazzetta: apriGazzetta,
+    onFratellanze: apriFratellanze,
+    onGildaFonda: (dati) => net.send({ t: 'gildaFonda', ...dati }),
+    onGildaRichiesta: (id) => net.send({ t: 'gildaRichiesta', id }),
+    onGildaApprova: (uid) => net.send({ t: 'gildaApprova', uid }),
+    onGildaRifiuta: (uid) => net.send({ t: 'gildaRifiuta', uid }),
+    onGildaLascia: () => net.send({ t: 'gildaLascia' }),
+    onGildaSciogli: () => net.send({ t: 'gildaSciogli' }),
+    onGildaPromuovi: (uid) => net.send({ t: 'gildaPromuovi', uid }),
+    onGildaEspelli: (uid) => net.send({ t: 'gildaEspelli', uid }),
     onSettings: applySettings,
     onRebind: (azione) => { state.rebind = azione; refreshTimoneria(); },
     onNavBack: () => shell && shell.navBack(),
@@ -246,6 +255,26 @@ function apriGazzetta() {
     saveProfile();
     net.send({ t: 'gazzettaLetta', fino: max });
     ui.setGazzettaBadge(0);
+  }
+}
+
+// Le Fratellanze (issue #5): il pannello vive di due messaggi del server.
+function apriFratellanze() {
+  net.send({ t: 'gildaElenco' }); // l'elenco fresco arriva subito dopo
+  ui.showFratellanze({
+    mia: state.gildaMia,
+    elenco: state.gildeElenco || [],
+    fondazione: state.gildaFondazione || 25000,
+  });
+}
+
+function rinfrescaFratellanze() {
+  if (!document.getElementById('gildaOverlay').classList.contains('hidden')) {
+    ui.showFratellanze({
+      mia: state.gildaMia,
+      elenco: state.gildeElenco || [],
+      fondazione: state.gildaFondazione || 25000,
+    });
   }
 }
 
@@ -525,6 +554,7 @@ function applyYou(you) {
     // il cursore dei non-letti: vince il più avanti fra locale e Conti
     gazzettaLetta: Math.max(you.gazzettaLetta || 0, state.profile.gazzettaLetta || 0),
     campagna: you.campagna ?? state.profile.campagna ?? null,
+    sfide: you.sfide ?? state.profile.sfide ?? {},
     kills: you.kills ?? state.profile.kills, deaths: you.deaths ?? state.profile.deaths,
   });
   saveProfile();
@@ -538,6 +568,9 @@ function wireNet() {
     t: 'join', name: state.profile.name, profile: state.profile,
     token: state.profile.ancora ? state.profile.ancora.token : undefined,
     spawn: state.spawn || undefined, // approdo preferito scelto al varo (#13)
+    // identità di sviluppo per il server Node (?uid=): il Worker la ignora,
+    // lì l'uid esce SOLO dal token verificato dai Conti
+    uid: devParams.get('uid') || undefined,
   }));
   net.on('_close', () => ui.toast('⚠ Il mare si è chiuso: connessione perduta. Ricarica per salpare di nuovo.', 60000));
 
@@ -690,6 +723,15 @@ function wireNet() {
   net.on('dead', (m) => { ui.showDeath(m.respawn); sfx.sink(); battleUntil = performance.now() + 3000; });
   net.on('respawned', () => { ui.hideDeath(); ui.toast('Nave riparata a nuovo. Il mare ti aspetta.'); });
   net.on('board', (m) => ui.setBoard(m.rows));
+  net.on('gilda', (m) => {
+    state.gildaMia = m.mia || null;
+    rinfrescaFratellanze();
+  });
+  net.on('gildaElenco', (m) => {
+    state.gildeElenco = m.gilde || [];
+    state.gildaFondazione = m.fondazione || 25000;
+    rinfrescaFratellanze();
+  });
   net.on('campagna', (m) => {
     state.campagna = m.stato || null;
     // se l'albo è aperto, la checklist si aggiorna sotto gli occhi

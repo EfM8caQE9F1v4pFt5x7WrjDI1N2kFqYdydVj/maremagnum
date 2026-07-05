@@ -122,6 +122,26 @@ app.whenReady().then(async () => {
   await axeState('gazzetta');
   await J(`document.getElementById('gazzettaOverlay').classList.add('hidden')`);
 
+  // 2d. le Fratellanze (issue #5): elenco + fondazione con l'editor di bandiere
+  await J(`(() => {
+    document.getElementById('gildaSenza').classList.remove('hidden');
+    const box = document.getElementById('gildaElencoBox');
+    box.innerHTML = '';
+    const riga = document.createElement('div');
+    riga.className = 'gildaRiga';
+    const info = document.createElement('span');
+    info.className = 'gildaInfo';
+    info.textContent = '«Vele Nere» [VELE] — corsari · 3/24 · aperta';
+    const b = document.createElement('button');
+    b.textContent = '⚔ Prima il rito';
+    b.disabled = true;
+    riga.append(info, b);
+    box.appendChild(riga);
+    document.getElementById('gildaOverlay').classList.remove('hidden');
+  })()`);
+  await axeState('fratellanze');
+  await J(`document.getElementById('gildaOverlay').classList.add('hidden')`);
+
   // si salpa: nome e via
   await J(`
     document.getElementById('nameInput').value = 'Auditor';

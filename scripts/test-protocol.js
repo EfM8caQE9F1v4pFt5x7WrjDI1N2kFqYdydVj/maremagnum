@@ -75,7 +75,7 @@ class Player {
 async function main() {
   console.log('— Avvio server di test (WEAK_FORTS) —');
   const server = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
-    env: { ...process.env, PORT, WEAK_FORTS: '1' }, stdio: 'ignore',
+    env: { ...process.env, PORT, WEAK_FORTS: '1', DEV_UID_OK: '1' }, stdio: 'ignore',
   });
   for (let i = 0; i < 40; i++) {
     try { const r = await fetch(`http://localhost:${PORT}/health`); if (r.ok) break; } catch { /* riprova */ }
@@ -274,6 +274,44 @@ async function main() {
     P.send({ t: 'preferisci', dominio: 'archive.org', on: false });
     ok(!!await P.wait(m => m.t === 'toast' && /tolta/.test(m.msg), 3000), 'la stella si può togliere');
     P.send({ t: 'undock' });
+
+    console.log('— Le Fratellanze (issue #5) —');
+    const GL = new Player('Gildano', { gold: 30000 });
+    await GL.opened;
+    GL.send({ t: 'join', name: 'Gildano', profile: { gold: 30000 }, uid: 'gildano' });
+    await GL.wait(m => m.t === 'welcome');
+    ok(await GL.goto(PORTO.x, PORTO.y, 200), 'Gildano raggiunge il Porto');
+    let gdock = null;
+    for (let i = 0; i < 20 && !gdock; i++) { GL.send({ t: 'dock' }); gdock = await GL.wait(m => m.t === 'shop', 1200); }
+    ok(!!gdock, 'la fondazione è burocrazia di banchina: si attracca');
+    GL.send({
+      t: 'gildaFonda', nome: 'Vele Nere', tag: 'VELE', motto: 'Mai domi', categoria: 'corsari',
+      bandiera: { fondo: 0, taglio: 2, tinta2: 1, emblema: 0, tintaEmblema: 4 }, aperta: true,
+    });
+    ok(!!await GL.wait(m => m.t === 'gold' && m.delta === -25000, 4000), 'la fondazione costa 25.000 🪙');
+    const miaG = await GL.wait(m => m.t === 'gilda' && m.mia && m.mia.tag === 'VELE', 4000);
+    ok(miaG && miaG.mia.mioRuolo === 'capitano', 'la scheda arriva: Gildano è capitano di [VELE]');
+    ok(!!await GL.wait(m => m.t === 'notifica' && m.voce.tipo === 'gilda', 4000), 'la fondazione va in Gazzetta');
+    GL.send({ t: 'undock' });
+    await sleep(800);
+    const gMe = GL.me();
+    ok(gMe && gMe.gt === 'VELE', 'la bandierina [VELE] naviga nello snapshot');
+    // il rito è obbligatorio: senza blocco, niente richiesta
+    P.send({ t: 'gildaRichiesta', id: miaG.mia.id });
+    ok(!!await P.wait(m => m.t === 'toast' && /rito/i.test(m.msg), 3000), 'senza rito la richiesta è respinta');
+    // col diritto nel profilo (il blocco lo scrive lì), porte aperte = dentro
+    const H = new Player('Novizio', {});
+    await H.opened;
+    H.send({
+      t: 'join', name: 'Novizio', uid: 'novizio',
+      profile: { gold: 100, sfide: { [miaG.mia.id]: Date.now() + 86400e3 } },
+    });
+    await H.wait(m => m.t === 'welcome');
+    H.send({ t: 'gildaRichiesta', id: miaG.mia.id });
+    ok(!!await H.wait(m => m.t === 'gilda' && m.mia && m.mia.tag === 'VELE', 4000),
+      'col diritto conquistato le porte aperte ammettono subito');
+    ok(!!await H.wait(m => m.t === 'notifica' && m.voce.tipo === 'gilda' && /Novizio/.test(m.voce.testo), 4000),
+      "anche l'ammissione va in Gazzetta");
     A.send({ t: 'course', q: 'chi era barbanera' });
     c = await A.wait(m => m.t === 'course');
     ok(c && c.ok && c.island.id === 'oracolo', 'ricerca → Oracolo');

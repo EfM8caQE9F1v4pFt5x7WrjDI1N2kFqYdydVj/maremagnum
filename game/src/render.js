@@ -749,6 +749,7 @@ export class Renderer {
       const hpBar = new Graphics();
       c.addChild(tag, hpBar);
       c.tag = tag;
+      c.fondino = fondino;
       c.label = label;
       c.hpBar = hpBar;
       this.shipLayer.addChild(c);
@@ -810,6 +811,16 @@ export class Renderer {
       c.visible = !s.docked;
       // il nome resta leggibile, non ingigantisce col cannocchiale
       if (c.tag) c.tag.scale.set(1 / this.zoom);
+      // la bandierina di gilda (issue #5): [TAG] davanti al nome; il fondino
+      // si ridisegna quando il testo cambia larghezza
+      if (c.tag && c.fondino) {
+        const testo = (s.gt ? '[' + s.gt + '] ' : '') + s.name;
+        if (c.label.text !== testo) {
+          c.label.text = testo;
+          c.fondino.clear().roundRect(-c.label.width / 2 - 6, -10, c.label.width + 12, 20, 9)
+            .fill({ color: 0x0c141c, alpha: 0.42 });
+        }
+      }
       const targetAlpha = s.sunk ? 0 : 1;
       c.alpha += (targetAlpha - c.alpha) * Math.min(1, dt * 4);
       // lanterna di bordo: si accende con la notte; il galeone dorato

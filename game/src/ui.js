@@ -1,6 +1,9 @@
 // Tutta la UI DOM sopra il canvas: barra della rotta, HUD, plance e pergamene.
 
 import { drawTreasureMap } from './mapgen.js';
+import { disegnaBandiera, TINTE, TAGLI, EMBLEMI } from './bandiera.js';
+
+const CATEGORIE_GILDA = ['corsari', 'mercanti', 'esploratori', 'accademici', 'guardiani'];
 
 const $ = (id) => document.getElementById(id);
 
@@ -17,17 +20,17 @@ function faTempo(t) {
 }
 
 // ordine di priorità degli overlay quando sono impilati (es. Manuale sul Cantiere)
-const OVERLAY_ORDINE = ['gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay',
+const OVERLAY_ORDINE = ['gildaOverlay', 'gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay',
   'mapOverlay', 'shopOverlay', 'searchOverlay', 'siteOverlay', 'deathOverlay', 'salpaOverlay', 'nameOverlay'];
 
 // La disciplina dei pannelli (issue #18): i fluttuanti si ESCLUDONO a vicenda
 // (aprirne uno chiude l'altro), quelli di banchina si SOSPENDONO sotto e
 // tornano a galla alla chiusura — mai due pannelli impilati a schermo.
-const FLUTTUANTI = ['gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay'];
+const FLUTTUANTI = ['gildaOverlay', 'gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay'];
 const DI_BANCHINA = ['shopOverlay', 'searchOverlay', 'siteOverlay'];
 // I documenti lunghi si aprono dall'INIZIO: fuoco al pannello (2.4.3 resta:
 // il fuoco entra comunque nel dialogo), non al primo campo in fondo.
-const DALL_INIZIO = ['gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'shopOverlay'];
+const DALL_INIZIO = ['gildaOverlay', 'gazzettaOverlay', 'helpOverlay', 'settingsOverlay', 'shopOverlay'];
 
 export class UI {
   constructor(handlers) {
@@ -63,6 +66,47 @@ export class UI {
     $('helpClose').addEventListener('click', () => this.hide('helpOverlay'));
     $('gazzettaBtn').addEventListener('click', () => this.h.onGazzetta());
     $('gazzettaClose').addEventListener('click', () => this.hide('gazzettaOverlay'));
+    $('gildaOpen').addEventListener('click', () => this.h.onFratellanze());
+    $('gildaClose').addEventListener('click', () => this.hide('gildaOverlay'));
+    // l'editor della bandiera: select popolati dai set fissi, anteprima viva
+    const scelte = [
+      ['gfFondo', 'Campo', TINTE.map(t => t[0])],
+      ['gfTaglio', 'Taglio', TAGLI],
+      ['gfTinta2', 'Seconda tinta', TINTE.map(t => t[0])],
+      ['gfEmblema', 'Emblema', EMBLEMI],
+      ['gfTintaEmblema', "Tinta dell'emblema", TINTE.map(t => t[0])],
+    ];
+    for (const [id, label, voci] of scelte) {
+      const wrap = document.createElement('label');
+      wrap.textContent = label + ' ';
+      const sel = document.createElement('select');
+      sel.id = id;
+      sel.setAttribute('aria-label', label + ' della bandiera');
+      voci.forEach((v, i) => {
+        const o = document.createElement('option');
+        o.value = i; o.textContent = v;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', () => this._anteprimaBandiera());
+      wrap.appendChild(sel);
+      $('gfScelte').appendChild(wrap);
+    }
+    $('gfTintaEmblema').value = 4; // oro sul nero: si parte già piratissimi
+    $('gfEmblema').value = 0;
+    this._anteprimaBandiera();
+    for (const c of CATEGORIE_GILDA) {
+      const o = document.createElement('option');
+      o.value = c; o.textContent = c.charAt(0).toUpperCase() + c.slice(1);
+      $('gfCategoria').appendChild(o);
+    }
+    $('gildaFondaForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.h.onGildaFonda({
+        nome: $('gfNome').value, tag: $('gfTag').value, motto: $('gfMotto').value,
+        categoria: $('gfCategoria').value, aperta: $('gfAperta').checked,
+        bandiera: this._bandieraBozza(),
+      });
+    });
     $('riscattoForm').addEventListener('submit', (e) => {
       e.preventDefault();
       this.h.onRiscatto($('riscattoDominio').value.trim(), $('riscattoContatto').value.trim());
@@ -553,6 +597,167 @@ export class UI {
     document.body.classList.add('attraccato'); // le pillole HUD scendono
   }
   setDockUrl(url) { $('dockUrl').textContent = url; }
+
+  // --- le Fratellanze (issue #5) ---
+
+  _bandieraBozza() {
+    return {
+      fondo: +$('gfFondo').value, taglio: +$('gfTaglio').value, tinta2: +$('gfTinta2').value,
+      emblema: +$('gfEmblema').value, tintaEmblema: +$('gfTintaEmblema').value,
+    };
+  }
+
+  _anteprimaBandiera() { disegnaBandiera($('gfBandiera'), this._bandieraBozza()); }
+
+  _bandierina(b, w = 48, h = 32) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.setAttribute('role', 'img');
+    c.setAttribute('aria-label', 'Bandiera della Fratellanza');
+    disegnaBandiera(c, b);
+    return c;
+  }
+
+  // il pannello: la MIA gilda, oppure l'elenco + la fondazione
+  showFratellanze({ mia, elenco, fondazione }) {
+    $('gildaMia').classList.toggle('hidden', !mia);
+    $('gildaSenza').classList.toggle('hidden', !!mia);
+    if (mia) this._renderMiaGilda(mia);
+    else this._renderElencoGilde(elenco || [], fondazione || 25000);
+    this.show('gildaOverlay');
+  }
+
+  _renderMiaGilda(g) {
+    const box = $('gildaMia');
+    box.innerHTML = '';
+    const testa = document.createElement('div');
+    testa.className = 'gildaTesta';
+    testa.appendChild(this._bandierina(g.bandiera, 120, 80));
+    const info = document.createElement('div');
+    const h3 = document.createElement('h3');
+    h3.textContent = `«${g.nome}» [${g.tag}]`;
+    const sub = document.createElement('p');
+    sub.className = 'sub';
+    sub.textContent = `${g.categoria} · ${g.aperta ? 'porte aperte' : 'porte chiuse'}` + (g.motto ? ` · “${g.motto}”` : '');
+    info.append(h3, sub);
+    testa.appendChild(info);
+    box.appendChild(testa);
+
+    // le richieste in rada (solo per chi ha i galloni)
+    if (g.richieste && g.richieste.length) {
+      const h4 = document.createElement('h3');
+      h4.className = 'shopSection';
+      h4.textContent = '✉ Richieste in rada';
+      box.appendChild(h4);
+      for (const r of g.richieste) {
+        const riga = document.createElement('div');
+        riga.className = 'gildaRiga';
+        const nome = document.createElement('span');
+        nome.textContent = r.nome;
+        const si = document.createElement('button');
+        si.textContent = '⛵ Ammetti';
+        si.addEventListener('click', () => this.h.onGildaApprova(r.uid));
+        const no = document.createElement('button');
+        no.className = 'linkish';
+        no.textContent = 'Rifiuta';
+        no.addEventListener('click', () => this.h.onGildaRifiuta(r.uid));
+        riga.append(nome, si, no);
+        box.appendChild(riga);
+      }
+    }
+
+    const h4m = document.createElement('h3');
+    h4m.className = 'shopSection';
+    h4m.textContent = `⚓ La ciurma (${g.membri.length}/24)`;
+    box.appendChild(h4m);
+    const capitano = g.mioRuolo === 'capitano';
+    const membri = g.membriUid || g.membri;
+    for (const m of membri) {
+      const riga = document.createElement('div');
+      riga.className = 'gildaRiga';
+      const nome = document.createElement('span');
+      nome.textContent = `${m.ruolo === 'capitano' ? '👑' : m.ruolo === 'ufficiale' ? '⭐' : '⚓'} ${m.nome} — ${m.ruolo}`;
+      riga.appendChild(nome);
+      if (capitano && m.uid && m.ruolo === 'marinaio') {
+        const pr = document.createElement('button');
+        pr.textContent = '⭐ Promuovi';
+        pr.addEventListener('click', () => this.h.onGildaPromuovi(m.uid));
+        riga.appendChild(pr);
+      }
+      if (m.uid && m.ruolo !== 'capitano' && (capitano || (g.mioRuolo === 'ufficiale' && m.ruolo === 'marinaio'))) {
+        const ex = document.createElement('button');
+        ex.className = 'linkish';
+        ex.textContent = 'Sbarca';
+        ex.addEventListener('click', () => this.h.onGildaEspelli(m.uid));
+        riga.appendChild(ex);
+      }
+      box.appendChild(riga);
+    }
+
+    if (g.log && g.log.length) {
+      const h4l = document.createElement('h3');
+      h4l.className = 'shopSection';
+      h4l.textContent = '📖 Il log della Fratellanza';
+      box.appendChild(h4l);
+      for (const v of g.log) {
+        const riga = document.createElement('p');
+        riga.className = 'gildaLog';
+        riga.textContent = v.testo;
+        box.appendChild(riga);
+      }
+    }
+
+    const azioni = document.createElement('div');
+    azioni.className = 'row';
+    if (capitano) {
+      const sc = document.createElement('button');
+      sc.className = 'linkish';
+      sc.textContent = '🌊 Sciogli la Fratellanza';
+      sc.addEventListener('click', () => {
+        if (sc.dataset.conferma) this.h.onGildaSciogli();
+        else { sc.dataset.conferma = '1'; sc.textContent = '🌊 Sicuro? Premi di nuovo per sciogliere'; }
+      });
+      azioni.appendChild(sc);
+    } else {
+      const la = document.createElement('button');
+      la.className = 'linkish';
+      la.textContent = '🌊 Lascia la Fratellanza';
+      la.addEventListener('click', () => this.h.onGildaLascia());
+      azioni.appendChild(la);
+    }
+    box.appendChild(azioni);
+  }
+
+  _renderElencoGilde(elenco, fondazione) {
+    $('gfFonda').textContent = `🏴 Fonda la Fratellanza (${fondazione} 🪙)`;
+    const box = $('gildaElencoBox');
+    box.innerHTML = '';
+    if (!elenco.length) {
+      const p = document.createElement('p');
+      p.className = 'sub';
+      p.textContent = 'Nessuna Fratellanza batte ancora bandiera: la prima potrebbe essere la tua.';
+      box.appendChild(p);
+      return;
+    }
+    for (const g of elenco) {
+      const riga = document.createElement('div');
+      riga.className = 'gildaRiga';
+      riga.appendChild(this._bandierina(g.bandiera));
+      const info = document.createElement('span');
+      info.className = 'gildaInfo';
+      info.textContent = `«${g.nome}» [${g.tag}] — ${g.categoria} · ${g.membri.length}/24 · ${g.aperta ? 'aperta' : 'chiusa'}`;
+      riga.appendChild(info);
+      const chiedi = document.createElement('button');
+      chiedi.textContent = g.sfidabile ? "⚔ Chiedi l'ingresso" : '⚔ Prima il rito';
+      chiedi.disabled = !g.sfidabile;
+      chiedi.title = g.sfidabile
+        ? 'Hai conquistato il diritto: la richiesta parte subito'
+        : 'Blocca una loro nave per conquistare il diritto (vale 7 giorni)';
+      chiedi.addEventListener('click', () => this.h.onGildaRichiesta(g.id));
+      riga.appendChild(chiedi);
+      box.appendChild(riga);
+    }
+  }
 
   // la Gazzetta del Corsaro (issue #4): il badge dei non-letti e l'albo
   setGazzettaBadge(n) {

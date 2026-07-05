@@ -80,6 +80,7 @@
     <div id="shopWeapons"></div>
     <div class="row azioni">
       <button id="assedioOpen">⚔ Bacheca degli Assedi</button>
+      <button id="gildaOpen">🏴 Fratellanze</button>
       <button id="shopClose">⛵ Salpa</button>
     </div>
   </div>
@@ -222,6 +223,14 @@
       perso mentre eri a terra. Tutto vive <b>solo in gioco</b>: niente email, niente
       notifiche fuori dal mare.</p>
 
+      <h3 class="shopSection">🏴 Le Fratellanze</h3>
+      <p>Le gilde del Maremagnum. Si fondano al Porto Franco (costano care), hanno
+      categoria, motto e una <b>bandiera composta al Cantiere</b> — campi, tagli ed
+      emblemi, mai immagini caricate. Il rito d'ingresso è tutto corsaro: per chiedere
+      di entrare devi prima <b>bloccare</b> una nave di quella Fratellanza (il diritto
+      vale 7 giorni). Porte aperte = dentro subito; porte chiuse = decidono capitano e
+      ufficiali. Serve l'Ancoraggio: le Fratellanze sono fatte di nomi veri.</p>
+
       <h3 class="shopSection">⚔ Il Mastro di Rotte</h3>
       <p>Ogni lunedì il Mastro di Rotte proclama la <b>campagna della settimana</b>:
       tre tappe in crescendo, chiusura in Fortezza, premio fisso a chi la compie.
@@ -278,6 +287,38 @@
     </div>
 
     <button id="helpClose" class="linkish">Chiudi</button>
+  </div>
+</div>
+
+<div id="gildaOverlay" class="overlay hidden">
+  <div class="panel wide" role="dialog" aria-modal="true" aria-labelledby="titoloGilda">
+    <h2 id="titoloGilda">🏴 Le Fratellanze</h2>
+    <div id="gildaMia" class="hidden"></div>
+    <div id="gildaSenza" class="hidden">
+      <p class="sub">Il rito è tutto corsaro: per chiedere l'ingresso devi prima <b>bloccare</b> una nave
+      della Fratellanza. Il diritto conquistato vale 7 giorni. Serve l'Ancoraggio.</p>
+      <div id="gildaElencoBox"></div>
+      <h3 class="shopSection">⚓ Fonda la tua Fratellanza</h3>
+      <form id="gildaFondaForm">
+        <div class="gfRow">
+          <input id="gfNome" placeholder="nome (3-24)" maxlength="24" aria-label="Nome della Fratellanza">
+          <input id="gfTag" placeholder="TAG" maxlength="5" size="6" aria-label="Tag della Fratellanza (2-5 lettere)">
+        </div>
+        <div class="gfRow">
+          <input id="gfMotto" placeholder="motto (facoltativo)" maxlength="60" aria-label="Motto della Fratellanza">
+        </div>
+        <div class="gfRow">
+          <label>Categoria <select id="gfCategoria" aria-label="Categoria della Fratellanza"></select></label>
+          <label class="setRow"><input type="checkbox" id="gfAperta"> Porte aperte (ammissione automatica)</label>
+        </div>
+        <div class="gfRow" id="gfEditor">
+          <canvas id="gfBandiera" width="150" height="100" role="img" aria-label="Anteprima della bandiera"></canvas>
+          <div id="gfScelte"></div>
+        </div>
+        <button type="submit" id="gfFonda">🏴 Fonda la Fratellanza</button>
+      </form>
+    </div>
+    <button id="gildaClose" class="linkish">Chiudi</button>
   </div>
 </div>
 

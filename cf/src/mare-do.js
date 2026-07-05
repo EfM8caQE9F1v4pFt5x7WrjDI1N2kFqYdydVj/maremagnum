@@ -7,6 +7,7 @@ import blocklist from '../../server/blocklist-core.js';
 import atlante from '../../server/atlante-core.js';
 import gazzetta from '../../server/gazzetta-core.js';
 import campagna from '../../server/campagna-core.js';
+import gilde from '../../server/gilde-core.js';
 import { verificaToken } from './sessione.js';
 
 const LIST_URL = 'https://nsfw.oisd.nl/abp';
@@ -96,6 +97,16 @@ export class MareDO {
     } catch { /* il Mastro tornerà al prossimo risveglio */ }
   }
 
+  // le Fratellanze tornano a bordo al risveglio: la logica vive nel core,
+  // il GildeDO è solo lo scaffale (write-through a ogni mutazione)
+  async caricaGilde() {
+    try {
+      const reg = this.env.GILDE.get(this.env.GILDE.idFromName('gilde'));
+      const res = await reg.fetch('https://gilde/tutte');
+      if (res.ok) gilde.setGilde((await res.json()).gilde);
+    } catch { /* il registro tornerà al prossimo risveglio */ }
+  }
+
   async pronto() {
     if (!this.prontoPromise) {
       this.prontoPromise = (async () => {
@@ -103,6 +114,7 @@ export class MareDO {
         await this.caricaAtlante();
         await this.caricaGazzetta();
         await this.caricaCampagna();
+        await this.caricaGilde();
         this.game = new Game((obj) => {
           const s = JSON.stringify(obj);
           for (const ws of this.equipaggio.keys()) {
@@ -110,6 +122,15 @@ export class MareDO {
           }
         });
         this.game.pausa(); // nasce addormentato: si sveglia col primo capitano
+        // le mutazioni delle Fratellanze si persistono in write-through
+        this.game.onGilde = (op, g) => {
+          const reg = this.env.GILDE.get(this.env.GILDE.idFromName('gilde'));
+          reg.fetch('https://gilde/' + (op === 'cancella' ? 'cancella' : 'salva'), {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(op === 'cancella' ? { id: g.id } : g),
+          }).catch(() => { /* la gilda resta almeno in memoria */ });
+        };
         // le notizie del Game finiscono nell'albo persistente
         this.game.onGazzetta = (voce) => {
           const gaz = this.env.GAZZETTA.get(this.env.GAZZETTA.idFromName('gazzetta'));
@@ -188,6 +209,9 @@ export class MareDO {
           }
         }
         voce.ship = this.game.join(conn, msg);
+        // l'identità di gilda esce SOLO dal token verificato, mai dal client
+        voce.ship.uid = voce.uid;
+        this.game.aggiornaGilda(voce.ship);
         return;
       }
       this.game.handle(voce.ship, msg);
@@ -227,6 +251,7 @@ export class MareDO {
       preferiti: [...(ship.preferiti || [])],
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
+      sfide: ship.sfide || {},
       kills: ship.kills,
       deaths: ship.deaths,
     };

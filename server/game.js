@@ -6,6 +6,7 @@ const { Missions } = require('./missions');
 const atlante = require('./atlante-core');
 const gazzetta = require('./gazzetta-core');
 const campagna = require('./campagna-core');
+const gilde = require('./gilde-core');
 
 const TICK = 1 / 30;          // simulazione a 30Hz
 const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
@@ -244,6 +245,20 @@ class Game {
       you: this.youFor(ship),
       arsenal: W.publicConfig(),
     });
+    // le Fratellanze (issue #5): l'identità è l'uid dell'Ancoraggio.
+    // In sviluppo (Node, MAI nel Worker) il client può dichiararlo:
+    // il MareDO lo sovrascrive comunque con quello verificato dal token.
+    if (typeof process !== 'undefined' && process.env && process.env.DEV_UID_OK && typeof msg.uid === 'string') {
+      ship.uid = msg.uid.slice(0, 40);
+    }
+    this.aggiornaGilda(ship);
+    // il diritto di sfida conquistato col blocco (profilo additivo, ancorati)
+    ship.sfide = {};
+    if (p.sfide && typeof p.sfide === 'object') {
+      for (const [gid, fino] of Object.entries(p.sfide).slice(0, 10)) {
+        if (typeof gid === 'string' && +fino > Date.now()) ship.sfide[gid.slice(0, 24)] = +fino;
+      }
+    }
     // la Gazzetta (issue #4): lo storico al join + il cursore dei non-letti
     ship.gazzettaLetta = Math.max(0, +p.gazzettaLetta || 0);
     this.sendTo(ship, { t: 'gazzetta', voci: gazzetta.ultime(50) });
@@ -276,6 +291,7 @@ class Game {
       preferiti: [...ship.preferiti],
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
+      sfide: ship.sfide || {},
       kills: ship.kills, deaths: ship.deaths,
     };
   }
@@ -322,6 +338,132 @@ class Game {
     };
   }
 
+  // --- le Fratellanze (issue #5) ---
+
+  // la scheda che il client vede: con uid di richieste/membri SOLO per chi
+  // ha i galloni (servono a approvare/promuovere; l'uid è l'handle pubblico)
+  schedaPer(ship, g) {
+    const s = gilde.scheda(g);
+    s.mioRuolo = ship.uid ? gilde.ruoloDi(g, ship.uid) : null;
+    if (s.mioRuolo === 'capitano' || s.mioRuolo === 'ufficiale') {
+      s.richieste = g.richieste.map(r => ({ uid: r.uid, nome: r.nome }));
+      s.membriUid = g.membri.map(m => ({ uid: m.uid, nome: m.nome, ruolo: m.ruolo }));
+    }
+    return s;
+  }
+
+  aggiornaGilda(ship) {
+    const g = ship.uid ? gilde.diUid(ship.uid) : null;
+    ship.gilda = g ? { id: g.id, tag: g.tag, nome: g.nome } : null;
+    this.sendTo(ship, { t: 'gilda', mia: g ? this.schedaPer(ship, g) : null });
+  }
+
+  salvaGilda(g, cancella = false) {
+    if (this.onGilde) this.onGilde(cancella ? 'cancella' : 'salva', g);
+  }
+
+  // ogni nave online della gilda si vede aggiornare tag e scheda
+  rinfrescaGilda(id) {
+    for (const s of this.ships.values()) {
+      if (!s.npc && s.uid && (s.gilda ? s.gilda.id === id : gilde.diUid(s.uid))) this.aggiornaGilda(s);
+    }
+  }
+
+  gildaMsg(ship, msg) {
+    const rispondi = (r) => {
+      if (r.errore) { this.sendTo(ship, { t: 'toast', msg: '🏴 ' + r.errore }); return null; }
+      return r;
+    };
+    switch (msg.t) {
+      case 'gildaElenco': {
+        const elenco = gilde.tutte()
+          .sort((a, b) => b.membri.length - a.membri.length)
+          .slice(0, 30)
+          .map(g => ({ ...gilde.scheda(g), sfidabile: !!(ship.sfide && ship.sfide[g.id] > Date.now()) }));
+        this.sendTo(ship, { t: 'gildaElenco', gilde: elenco, fondazione: gilde.FONDAZIONE });
+        break;
+      }
+      case 'gildaFonda': {
+        if (ship.docked !== 'porto') { rispondi({ errore: 'Le Fratellanze si fondano al Porto Franco.' }); break; }
+        if (ship.gold < gilde.FONDAZIONE) { rispondi({ errore: `Servono ${gilde.FONDAZIONE} 🪙 per fondare.` }); break; }
+        const r = rispondi(gilde.fonda({
+          nome: msg.nome, tag: msg.tag, motto: msg.motto, categoria: msg.categoria,
+          bandiera: msg.bandiera, aperta: msg.aperta, uid: ship.uid, nomeNave: ship.name,
+        }));
+        if (!r) break;
+        ship.gold -= gilde.FONDAZIONE;
+        this.sendGold(ship, -gilde.FONDAZIONE, `La Fratellanza «${r.gilda.nome}» è fondata`);
+        this.salvaGilda(r.gilda);
+        this.aggiornaGilda(ship);
+        this.annuncia('gilda', `🏴 ${ship.name} ha fondato la Fratellanza «${r.gilda.nome}» [${r.gilda.tag}] (${r.gilda.categoria})`);
+        break;
+      }
+      case 'gildaRichiesta': {
+        const g = gilde.get(String(msg.id || ''));
+        if (!g) { rispondi({ errore: 'Fratellanza sconosciuta.' }); break; }
+        if (!ship.sfide || !(ship.sfide[g.id] > Date.now())) {
+          rispondi({ errore: 'Prima il rito: blocca una loro nave per conquistare il diritto.' });
+          break;
+        }
+        const r = rispondi(gilde.richiedi(g.id, ship.uid, ship.name));
+        if (!r) break;
+        this.salvaGilda(r.gilda);
+        if (r.ammesso) {
+          delete ship.sfide[g.id];
+          this.aggiornaGilda(ship);
+          this.annuncia('gilda', `⛵ ${ship.name} è entrato nella Fratellanza «${g.nome}» [${g.tag}]`);
+        } else {
+          this.sendTo(ship, { t: 'toast', msg: `✉ Richiesta in rada: capitano e ufficiali di «${g.nome}» decideranno` });
+          this.rinfrescaGilda(g.id); // gli ufficiali online vedono la richiesta
+        }
+        break;
+      }
+      case 'gildaApprova': case 'gildaRifiuta': {
+        const mia = ship.uid && gilde.diUid(ship.uid);
+        if (!mia) { rispondi({ errore: 'Non sei in una Fratellanza.' }); break; }
+        const uidR = String(msg.uid || '').slice(0, 40);
+        const r = rispondi(msg.t === 'gildaApprova'
+          ? gilde.approva(mia.id, uidR, ship.uid)
+          : gilde.rifiuta(mia.id, uidR, ship.uid));
+        if (!r) break;
+        this.salvaGilda(r.gilda);
+        if (r.ammesso) {
+          this.annuncia('gilda', `⛵ ${r.ammesso.nome} è stato ammesso nella Fratellanza «${mia.nome}» [${mia.tag}]`);
+          for (const s of this.ships.values()) if (s.uid === uidR && s.sfide) delete s.sfide[mia.id];
+        }
+        this.rinfrescaGilda(mia.id);
+        break;
+      }
+      case 'gildaLascia': case 'gildaSciogli': {
+        const mia = ship.uid && gilde.diUid(ship.uid);
+        if (!mia) { rispondi({ errore: 'Non sei in una Fratellanza.' }); break; }
+        const r = rispondi(msg.t === 'gildaLascia' ? gilde.lascia(mia.id, ship.uid) : gilde.sciogli(mia.id, ship.uid));
+        if (!r) break;
+        if (r.sciolta) {
+          this.salvaGilda(mia, true);
+          this.annuncia('gilda', `🌊 La Fratellanza «${mia.nome}» [${mia.tag}] è stata sciolta`);
+        } else {
+          this.salvaGilda(r.gilda);
+        }
+        this.rinfrescaGilda(mia.id);
+        this.aggiornaGilda(ship);
+        break;
+      }
+      case 'gildaPromuovi': case 'gildaEspelli': {
+        const mia = ship.uid && gilde.diUid(ship.uid);
+        if (!mia) { rispondi({ errore: 'Non sei in una Fratellanza.' }); break; }
+        const uidM = String(msg.uid || '').slice(0, 40);
+        const r = rispondi(msg.t === 'gildaPromuovi'
+          ? gilde.promuovi(mia.id, uidM, ship.uid)
+          : gilde.espelli(mia.id, uidM, ship.uid));
+        if (!r) break;
+        this.salvaGilda(r.gilda);
+        this.rinfrescaGilda(mia.id);
+        break;
+      }
+    }
+  }
+
   avanzaCampagna(ship, evento) {
     const c = campagna.getCampagna();
     if (!c || ship.npc) return;
@@ -359,6 +501,9 @@ class Game {
       case 'dock': this.dock(ship); break;
       case 'preferisci': this.preferisci(ship, msg); break;
       case 'gazzettaLetta': ship.gazzettaLetta = Math.max(ship.gazzettaLetta || 0, +msg.fino || 0); break;
+      case 'gildaElenco': case 'gildaFonda': case 'gildaRichiesta': case 'gildaApprova':
+      case 'gildaRifiuta': case 'gildaLascia': case 'gildaSciogli': case 'gildaPromuovi':
+      case 'gildaEspelli': this.gildaMsg(ship, msg); break;
       case 'undock': this.undock(ship); break;
       case 'shop': if (ship.docked === 'porto') this.sendShop(ship); break;
       case 'buyShip': this.buyShip(ship, msg.stat); break;
@@ -961,6 +1106,25 @@ class Game {
     this.sendGold(predatore, subito, `Hai bloccato ${vittima.name}: toccala per l'arrembaggio!`);
     this.missions.onKill(predatore, vittima);
     this.broadcast({ t: 'kill', killer: predatore.name, victim: vittima.name, bounty: subito });
+    // il rito d'ingresso (issue #5): bloccare una nave di gilda conquista il
+    // diritto di chiedere l'ingresso; il fuoco fra compagni finisce nel log
+    if (vittima.gilda) {
+      const g = gilde.get(vittima.gilda.id);
+      if (predatore.gilda && predatore.gilda.id === vittima.gilda.id) {
+        if (g) {
+          gilde.annota(g, `⚡ ${predatore.name} ha bloccato il compagno ${vittima.name}: la legge del mare non guarda in faccia`);
+          this.salvaGilda(g);
+        }
+      } else if (predatore.uid) {
+        predatore.sfide = predatore.sfide || {};
+        predatore.sfide[vittima.gilda.id] = Date.now() + gilde.SFIDA_GIORNI * 86400e3;
+        this.sendTo(predatore, {
+          t: 'toast',
+          msg: `🏴 Rito compiuto: puoi chiedere l'ingresso a «${vittima.gilda.nome}» per ${gilde.SFIDA_GIORNI} giorni`,
+        });
+        if (g) { gilde.annota(g, `⚔ ${predatore.name} ha bloccato ${vittima.name}: ha conquistato il diritto di chiedere l'ingresso`); this.salvaGilda(g); }
+      }
+    }
   }
 
   // Il tocco entro il tempo: il predatore prende tutto il forziere in gioco;
@@ -1074,6 +1238,7 @@ class Game {
         ...(s.blockedUntil > this.now
           ? { bk: Math.ceil(s.blockedUntil - this.now), bb: s.blockedBy } : {}),
         ...(s.immuneUntil > this.now ? { im: 1 } : {}),
+        ...(s.gilda ? { gt: s.gilda.tag } : {}), // la bandierina della gilda
       });
     }
     const forts = [];
