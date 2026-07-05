@@ -41,16 +41,19 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 ### Fase 4 — La società dei corsari
 | #5 | Gilde: fondazione, categoria, bandiera (decidere PRIMA: editor a componenti vs upload+moderazione), rito d'ingresso, log | Dopo la Gazzetta; abilita il Mastro di Rotte v2 (PvP) |
 
-### Fase 5 — La carne dei pirati (l'epica più costosa)
-| #16 | Pipeline personaggi: sprite e animazioni condivise (prototipo bake-3D vs 2D, poi si sceglie GUARDANDO) | Fondazione unica per #7 e #10 |
+### Fase 5 — La carne dei pirati (l'epica più costosa) — ⏸ IN ATTESA dei file del game designer
+| #16 | Pipeline personaggi (⏸ i personaggi useranno gli asset del designer; prototipi bake-3D/2D agli atti) | Fondazione unica per #7 e #10 |
 | #7 | Roster sbloccabile + picchiaduro d'arrembaggio | Dopo #16 |
 | #6 | Arrembaggio completo: il tocco di #15 apre il duello | Dopo #7 |
 | #10 | Il tesoro nell'entroterra (platform da URL profondi + premio) | Riusa #16; il bivio d'attracco disegnato secondo l'audit #8 |
 
+**Mentre si aspettano i file** (ordine consigliato): #23 (morte racconta) → #24 (Cantiere con gerarchia) → #11 (flotta più ricca) → #25 (collezioni e livree).
+
 ### Fase 6 — L'orizzonte largo
 | #14 | Espansione del mondo | **A dati, non a calendario**: quando l'Atlante sopra soglia supera ~60-80 isole |
 | #11 | Flotta più ricca + armi ridistribuite per tipo (tappe 1-2) | Riscatto pieno obbligatorio per le armi tolte (precedente del varo) |
-| #1 | Editor dell'Isola (riscatto a pagamento) | Richiede #12 (persistenza); può essere ANTICIPATA per decisione di business |
+| #25 | Collezioni e Negozio delle Livree: **pay to show, mai pay to win** (modello CS) | Dopo #11 e #24; niente casse cieche (loot box = gambling in mezza UE); stessa infrastruttura di pagamento della #1 |
+| #1 | Editor dell'Isola (riscatto a pagamento) | Richiede #12 (persistenza ✓); può essere ANTICIPATA per decisione di business |
 
 ## Epiche
 
