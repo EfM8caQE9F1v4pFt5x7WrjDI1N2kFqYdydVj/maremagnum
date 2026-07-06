@@ -128,6 +128,15 @@ async function boot() {
   initLang(state.profile.lang);
   applyI18n();
   bindLang();
+  // il font di lettura sul canvas (issue #32): PixiJS e Canvas2D disegnano il
+  // testo col font GIÀ caricato — lo pre-carichiamo prima di dipingere il mare
+  try {
+    await Promise.all([
+      document.fonts.load('16px "Atkinson Hyperlegible Next"'),
+      document.fonts.load('700 16px "Atkinson Hyperlegible Next"'),
+      document.fonts.load('italic 16px "Atkinson Hyperlegible Next"'),
+    ]);
+  } catch { /* si ripiega sul fallback di sistema */ }
   renderer = new Renderer();
   await renderer.init(document.getElementById('stage'));
   initZoom();

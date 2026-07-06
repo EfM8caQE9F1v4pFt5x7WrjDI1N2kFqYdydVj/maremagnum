@@ -121,7 +121,7 @@ export class Renderer {
       .poly([16, 0, -10, -9, -5, 0, -10, 9]).stroke({ width: 1.5, color: 0x2a1a0c });
     this.bussolaTesto = new Text({
       text: '', style: {
-        fontFamily: 'Georgia, serif', fontSize: 13, fill: 0xf0e2b8,
+        fontFamily: 'Atkinson Hyperlegible Next, sans-serif', fontSize: 13, fill: 0xf0e2b8,
         stroke: { color: 0x1a1208, width: 3 },
       },
     });
@@ -252,17 +252,17 @@ export class Renderer {
     };
     if (og.titolo) {
       aggiungi(og.titolo, {
-        fontFamily: 'Georgia, serif', fontSize: 14.5, fontWeight: 'bold', fill: 0x2b1c08,
+        fontFamily: 'Atkinson Hyperlegible Next, sans-serif', fontSize: 14.5, fontWeight: 'bold', fill: 0x2b1c08,
         wordWrap: true, wordWrapWidth: LARGO - 26, align: 'center',
       });
     }
     if (og.descrizione) {
       aggiungi(og.descrizione, {
-        fontFamily: 'Georgia, serif', fontSize: 11.5, fill: 0x4a3620, lineHeight: 15,
+        fontFamily: 'Atkinson Hyperlegible Next, sans-serif', fontSize: 11.5, fill: 0x4a3620, lineHeight: 15,
         wordWrap: true, wordWrapWidth: LARGO - 26, align: 'center',
       });
     }
-    aggiungi('⚓ ' + island.domain, { fontFamily: 'Georgia, serif', fontSize: 10.5, fontStyle: 'italic', fill: 0x7a4a12 });
+    aggiungi('⚓ ' + island.domain, { fontFamily: 'Atkinson Hyperlegible Next, sans-serif', fontSize: 10.5, fontStyle: 'italic', fill: 0x7a4a12 });
     let imgH = 0; // spazio occupato dall'immagine sopra i testi
     const disegnaFondo = () => {
       const cima = -imgH - 12, basso = y + 6;
@@ -858,7 +858,7 @@ export class Renderer {
       const label = new Text({
         text: s.name,
         style: {
-          fontFamily: 'Georgia, serif', fontSize: 13,
+          fontFamily: 'Atkinson Hyperlegible Next, sans-serif', fontSize: 13,
           fill: s.id === selfId ? 0xbfe8a8 : (s.k === 'g' ? 0xf0937b : s.k === 'm' ? 0xcfd6d9 : 0xffc9b0),
           stroke: { color: 0x1a1208, width: 3 },
         },

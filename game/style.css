@@ -5,6 +5,20 @@
   src: url('fonts/pirata-one.woff2') format('woff2');
   font-display: swap;
 }
+/* Atkinson Hyperlegible Next (Braille Institute, SIL OFL 1.1 — vedi
+   game/fonts/OFL-Atkinson-Hyperlegible-Next.txt): il font di LETTURA,
+   disegnato per l'ipovisione (distingue b/d/p/q, 0/O, 1/l/I). Variabile
+   400–700, subset latin (basta a IT+EN). Pirata One resta il font ESTETICO. */
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('fonts/atkinson-next.woff2') format('woff2');
+  font-weight: 400 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('fonts/atkinson-next-italic.woff2') format('woff2');
+  font-weight: 400 700; font-style: italic; font-display: swap;
+}
 
 /* le borchie d'ottone del cartiglio (issue #32): quattro chiodi d'angolo,
    riusati da .panel e #board (la mappa del tesoro li disegna in mapgen.js) */
@@ -20,7 +34,7 @@
 html, body { height: 100%; overflow: hidden; background: var(--sea); }
 /* Niente 'Noto Color Emoji' nello stack: si mangerebbe spazi e cifre.
    Il fallback di sistema (fontconfig) serve gli emoji a colori da solo. */
-body { font-family: Georgia, 'Palatino Linotype', serif; color: var(--cream); }
+body { font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: var(--cream); }
 
 #stage, #stage canvas { position: fixed; inset: 0; }
 

@@ -44,10 +44,10 @@ export function drawTreasureMap(canvas, { from, island, fortress }) {
   // titolo
   g.fillStyle = '#4a3010';
   g.textAlign = 'center';
-  g.font = `600 ${Math.round(W / 26)}px Georgia, serif`;
+  g.font = `600 ${Math.round(W / 26)}px Atkinson Hyperlegible Next, sans-serif`;
   g.fillText(`Rotta per ${island.name}`, W / 2, 62);
   const leghe = Math.max(1, Math.round(Math.hypot(island.x - from.x, island.y - from.y) / 100));
-  g.font = `italic ${Math.round(W / 50)}px Georgia, serif`;
+  g.font = `italic ${Math.round(W / 50)}px Atkinson Hyperlegible Next, sans-serif`;
   g.fillText(`≈ ${leghe} leghe di mare aperto`, W / 2, 92);
 
   // geometria del viaggio proiettata sulla pergamena
@@ -71,7 +71,7 @@ export function drawTreasureMap(canvas, { from, island, fortress }) {
   g.fillStyle = '#4a3010';
   g.beginPath(); g.moveTo(-14, 4); g.lineTo(14, 4); g.lineTo(8, 10); g.lineTo(-8, 10); g.closePath(); g.fill();
   g.beginPath(); g.moveTo(0, 4); g.lineTo(0, -14); g.lineTo(10, -4); g.closePath(); g.fill();
-  g.font = 'italic 15px Georgia, serif'; g.textAlign = 'center';
+  g.font = 'italic 15px Atkinson Hyperlegible Next, sans-serif'; g.textAlign = 'center';
   g.fillText('Tu sei qui', 0, 30);
   g.restore();
 
@@ -108,7 +108,7 @@ export function drawTreasureMap(canvas, { from, island, fortress }) {
 
   if (island.fortress) {
     g.fillStyle = '#a1261a';
-    g.font = `bold ${Math.round(W / 42)}px Georgia, serif`;
+    g.font = `bold ${Math.round(W / 42)}px Atkinson Hyperlegible Next, sans-serif`;
     g.textAlign = 'center';
     g.fillText('⚠ Acque sorvegliate dalla Fortezza Proibita ⚠', W / 2, H - 44);
   }
@@ -127,7 +127,7 @@ export function drawTreasureMap(canvas, { from, island, fortress }) {
   g.fillStyle = 'rgba(74,48,16,0.55)';
   g.beginPath(); g.arc(mxr - 18, myr - 10, 1.6, 0, Math.PI * 2); g.fill();
 
-  g.font = `italic ${Math.round(W / 44)}px Georgia, serif`;
+  g.font = `italic ${Math.round(W / 44)}px Atkinson Hyperlegible Next, sans-serif`;
   g.fillStyle = 'rgba(74,48,16,0.5)';
   g.textAlign = 'left';
   g.fillText('Hic Sunt Dracones', 40, H - 44);
@@ -148,7 +148,7 @@ function drawCompass(g, x, y, r, rng) {
     g.closePath();
     i % 2 === 0 ? g.fill() : g.stroke();
   }
-  g.font = 'bold 14px Georgia, serif'; g.textAlign = 'center';
+  g.font = 'bold 14px Atkinson Hyperlegible Next, sans-serif'; g.textAlign = 'center';
   g.fillText('N', 0, -r - 6);
   g.fillText('S', 0, r + 16);
   g.fillText('E', r + 12, 5);
