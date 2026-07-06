@@ -48,7 +48,8 @@ const hex6 = [...new Set([...style.matchAll(/#[0-9a-fA-F]{6}\b/g)].map(m => m[0]
 ok(hex6.length === 0, 'style.css non ha hex a 6 cifre scritti a mano' + (hex6.length ? ' — trovati: ' + hex6.join(' ') : ''));
 
 const rgbaColor = [...new Set([...style.matchAll(/rgba?\([^)]*\)/g)].map(m => m[0]))]
-  .filter(s => !/^rgba?\(\s*0\s*,\s*0\s*,\s*0/.test(s)); // le nere/ombra restano inline (elevazione)
+  // ombre nere e lucentezze bianche restano inline: sono ELEVAZIONE, non palette
+  .filter(s => !/^rgba?\(\s*0\s*,\s*0\s*,\s*0/.test(s) && !/^rgba?\(\s*255\s*,\s*255\s*,\s*255/.test(s));
 ok(rgbaColor.length === 0, 'style.css non ha rgba colorati scritti a mano' + (rgbaColor.length ? ' — trovati: ' + rgbaColor.join('  ') : ''));
 
 // 6) ponte canvas: ogni COL.x usato in render.js è servito da palette.js

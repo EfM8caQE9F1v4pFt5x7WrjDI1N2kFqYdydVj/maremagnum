@@ -75,9 +75,18 @@ button {
   font: inherit; font-size: 14px; cursor: pointer;
   background: linear-gradient(var(--gold), var(--gold-deep)); color: var(--ink);
   border: 2px solid var(--line-strong); border-radius: 18px; padding: 7px 14px; font-weight: bold;
+  /* una placca d'ottone: lucentezza in cima, ombra portata sotto — il bottone
+     ha peso, si solleva al passaggio e affonda alla pressione (issue #32) */
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 2px 5px rgba(0,0,0,.28);
+  transition: filter .12s, transform .07s, box-shadow .12s;
 }
-button:hover:not(:disabled) { filter: brightness(1.08); }
-button:disabled { opacity: .45; cursor: default; }
+button:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 5px 12px rgba(0,0,0,.32); }
+button:active:not(:disabled) { transform: translateY(1px); filter: brightness(.97); box-shadow: inset 0 2px 4px rgba(0,0,0,.32); }
+button:disabled { opacity: .45; cursor: default; box-shadow: none; }
+/* la placca SECONDARIA (issue #32): legno quieto per le azioni di SERVIZIO
+   (navigazione del sito, apri-altrove) — l'oro resta ai richiami primari,
+   il .linkish al congedo. Tre gradini d'importanza, un colpo d'occhio. */
+button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); color: var(--cream); }
 #gold { font-size: 18px; color: var(--gold); white-space: nowrap; }
 
 /* ---- barra d'attracco (navigazione del sito nel guscio) ---- */
@@ -277,7 +286,7 @@ body.conPannello #hint { opacity: 0; }
   border: 2px solid var(--edge); border-radius: 18px; background: var(--paper-hi); color: var(--ink);
   outline: none; width: 280px;
 }
-.linkish { background: none; border: none; font-style: italic; text-decoration: underline; font-weight: normal; min-height: 24px; }
+.linkish { background: none; border: none; box-shadow: none; font-style: italic; text-decoration: underline; font-weight: normal; min-height: 24px; }
 .panel.death { background: var(--death-bg); color: var(--cream); border-color: var(--danger); }
 /* la morte racconta (issue #23): il conto e il consiglio della Stiva */
 .deathConto { margin: 2px 0 4px; font-size: 15px; }
@@ -307,7 +316,8 @@ body.conPannello #hint { opacity: 0; }
 }
 .teams { display: flex; gap: 30px; justify-content: center; margin-bottom: 14px; font-size: 14px; }
 .teams > div { min-width: 130px; }
-.row { display: flex; gap: 10px; justify-content: center; margin-top: 6px; }
+.row { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+#siteLink { display: inline-block; margin-bottom: 12px; }
 
 /* ---- cantiere ---- */
 .panel.wide { max-width: 760px; max-height: 86vh; overflow-y: auto; padding-bottom: 0; }

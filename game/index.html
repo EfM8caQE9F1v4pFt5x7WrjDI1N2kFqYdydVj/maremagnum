@@ -31,12 +31,12 @@
 <div id="dockbar" class="hidden">
   <span id="dockInfo">⚓</span>
   <span id="dockNav">
-    <button id="navBack" aria-label="Indietro nel sito" title="Indietro">←</button><button id="navFwd" aria-label="Avanti nel sito" title="Avanti">→</button><button id="navReload" aria-label="Ricarica il sito" title="Ricarica">↺</button>
+    <button id="navBack" class="secondary" aria-label="Indietro nel sito" title="Indietro">←</button><button id="navFwd" class="secondary" aria-label="Avanti nel sito" title="Avanti">→</button><button id="navReload" class="secondary" aria-label="Ricarica il sito" title="Ricarica">↺</button>
   </span>
   <span id="dockUrl"></span>
   <span id="guardInfo" data-i18n-title="guard.title" title="Parassiti respinti dalla Ciurma di Guardia (tracker e pubblicità bloccati)">🛡 0</span>
   <button id="favBtn" aria-label="Segna come approdo preferito" aria-pressed="false" title="Approdo preferito: al prossimo varo potrai salpare da qui">☆</button>
-  <button id="openExt" aria-label="Apri il sito nel browser di sistema" title="Apri nel browser di sistema">🗗</button>
+  <button id="openExt" class="secondary" aria-label="Apri il sito nel browser di sistema" title="Apri nel browser di sistema">🗗</button>
   <button id="setSailBtn">⛵ Salpa</button>
 </div>
 
@@ -127,8 +127,10 @@
     <h2 id="siteTitle">⚓ Attraccato</h2>
     <p class="sub">Nel guscio browser il sito si apre qui dentro; nel prototipo web si apre in una nuova scheda.</p>
     <a id="siteLink" href="#" target="_blank" rel="noreferrer noopener"><button>🗺 Apri il sito in una nuova scheda</button></a>
-    <button id="favBtnSito" class="linkish" aria-pressed="false">☆ Segna come approdo preferito</button>
-    <button id="siteClose">⛵ Salpa</button>
+    <div class="row">
+      <button id="favBtnSito" class="linkish" aria-pressed="false">☆ Segna come approdo preferito</button>
+      <button id="siteClose" class="secondary">⛵ Salpa</button>
+    </div>
   </div>
 </div>
 
