@@ -56,18 +56,17 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 | #28 | Il modello economico (faucet/sink, denaro vero, Stripe, VAT) | Blocca Stripe in #25 v2 e #1 |
 | #1 | Editor dell'Isola (riscatto a pagamento) | Richiede #12 (persistenza ✓); può essere ANTICIPATA per decisione di business |
 
-## Il restyle (issue #32, prossimo giro dopo /clear)
+## Il restyle (issue #32, IN CORSO — strati di base fatti e deployati 2026-07-06)
 
-Lavoro trasversale su TUTTA la piattaforma, da spezzare in tappe:
-1. **Design token unico** — `:root` + ponte CSS↔canvas (oggi 44 hex + 30 rgba in CSS, ~98 colori nel canvas, ZERO custom property).
-2. **Audit estetico totale** — 41 bottoni, 13 modali: uniformare in componenti coerenti, a11y verde.
-3. **UX/UI più moderna** — gerarchia/densità/ritmo, senza tradire l'anima Monkey Island.
-4. **Font Atkinson Hyperlegible Next** al posto di Georgia (TENERE Pirata One estetico); self-host woff2, anche i Text di PixiJS.
-5. **README completo** — meccaniche + tecnologia, tutta la piattaforma.
+Palette battezzata **"Rovere & Cera"**. Metodo pentadimensionale, e SEMPRE giudicare l'insieme (non solo il dettaglio) prima di committare.
 
-## Multilingua IT/EN (issue #33)
+**FATTO** (6 approdi, live): **1. Design token unico** — `:root` generato + ponte CSS↔canvas (`game/tokens.json` fonte unica, `palette.js`, a parità di pixel) ✓; **4. Font Atkinson Hyperlegible Next** al posto di Georgia ovunque (CSS + canvas), Pirata One resta il display ✓; **cornice** — borchie d'ottone + vignetta su pannelli/classifica/mappa ✓; **bottoni** — placche d'ottone tattili + gerarchia primario oro / secondario legno / link ✓; **grana di carta** — rumore SVG sottile in multiply ✓.
 
-Tutta la piattaforma in italiano e inglese. Oggi 100% italiano, zero i18n. Nodo chiave: i messaggi che il server manda a TUTTI (feed/Gazzetta) — direzione consigliata: il server manda EVENTI STRUTTURATI, ogni client compone la frase nella propria lingua (Gazzetta persistente inclusa). Dizionari it/en + `t()` fatto in casa, selettore in Impostazioni, default da navigator.language. **Forte sinergia con #32**: estrarre le stringhe mentre si fa l'audit componente per componente (toccare ogni testo una volta).
+**RESTA**: **2. Audit estetico** per-componente sul base ormai fermo (toast, pillole HUD, card, righe di lista, header pannello); disciplina dei **3 accenti** (mossa #4: il viola dei tier-up e il salvia dell'add-slot sono accenti "alieni" da valutare); **3. UX/UI** densità/gerarchia/ritmo; **5. README** completo it/en.
+
+## Multilingua IT/EN (issue #33, AVVIATO 2026-07-06)
+
+Macchina i18n fatta in casa (`game/src/i18n.js`: `t(chiave, params)`, dizionari it/en, `applyI18n` sui marcatori `data-i18n*`, selettore lingua in Impostazioni, default profilo→`?lang=`→`navigator.language`, `<html lang>` runtime). **FATTO**: la plancia (topbar) in it/en, a parità di stringa italiana. **RESTA**: estrarre gli altri componenti man mano che l'audit #32 li tocca (una volta sola). **Nodo chiave** ancora da confermare: i messaggi che il server manda a TUTTI (feed/Gazzetta) — direzione consigliata: EVENTI STRUTTURATI, ogni client compone la frase nella propria lingua (Gazzetta persistente inclusa).
 
 ## Le ispirazioni (registrate 2026-07-05, da approfondire — MAI sviluppare senza conferma)
 
