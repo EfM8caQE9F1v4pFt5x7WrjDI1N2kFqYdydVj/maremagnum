@@ -273,6 +273,15 @@ body.conPannello #hint { opacity: 0; }
   padding: 26px 34px; text-align: center; max-width: 560px;
   max-height: 92vh; overflow-y: auto;
   box-shadow: inset 0 0 55px var(--panel-inset), 0 14px 50px rgba(0,0,0,.65);
+  position: relative; isolation: isolate;
+}
+/* grana di carta vergata (issue #32): un velo di rumore in multiply, SOTTO il
+   testo (z-index -1) e ISOLATO (non sborda sul fondale scuro) — carta, non
+   plastica. Statico (mai animato) come impone la lezione di Dordogne. */
+.panel::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27140%27%20height%3D%27140%27%3E%3Cfilter%20id%3D%27p%27%3E%3CfeTurbulence%20type%3D%27fractalNoise%27%20baseFrequency%3D%270.8%27%20numOctaves%3D%272%27%20stitchTiles%3D%27stitch%27%2F%3E%3CfeColorMatrix%20type%3D%27saturate%27%20values%3D%270%27%2F%3E%3CfeComponentTransfer%3E%3CfeFuncR%20type%3D%27linear%27%20slope%3D%270.18%27%20intercept%3D%270.82%27%2F%3E%3CfeFuncG%20type%3D%27linear%27%20slope%3D%270.18%27%20intercept%3D%270.82%27%2F%3E%3CfeFuncB%20type%3D%27linear%27%20slope%3D%270.18%27%20intercept%3D%270.82%27%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Crect%20width%3D%27140%27%20height%3D%27140%27%20filter%3D%27url%28%23p%29%27%2F%3E%3C%2Fsvg%3E");
+  mix-blend-mode: multiply; opacity: .7; pointer-events: none;
 }
 .panel::-webkit-scrollbar { width: 10px; }
 .panel::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: 6px; border: 2px solid var(--paper); }
