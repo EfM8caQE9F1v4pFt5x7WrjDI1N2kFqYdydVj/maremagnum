@@ -998,6 +998,40 @@ function latestMe() {
 // governano col rilevamento vero invece di veleggiare alla cieca
 if (devParams.get('spia')) window.__spia = { state, latestMe, renderer: () => renderer, ui: () => ui };
 
+// ?forceshop=nave|armi (sviluppo): apre il Cantiere con dati finti chiamando
+// direttamente ui.showShop — per fotografare la UI vera SENZA attraccare (dove
+// un driver interattivo/CDP non è possibile). Deterministico, niente navigazione.
+if (devParams.get('forceshop')) {
+  const scheda = devParams.get('forceshop');
+  const mock = {
+    gold: 2400,
+    ship: { hullLvl: 2, sailsLvl: 1, helmLvl: 1, crewLvl: 2, holdLvl: 1, hullCost: 900, sailsCost: 1200, helmCost: 600, crewCost: 1500, holdCost: 800 },
+    varo: null, negozio: null,
+    groups: {
+      left: { max: 3, nextSlotCost: 200, slots: [
+        { slot: 0, type: 'colubrina', lvl: 2, name: 'Colubrina', tier: 1, upCost: 1200, replace: null },
+        { slot: 1, type: 'carronata', lvl: 1, name: 'Carronata', tier: 2, upCost: 600, replace: { type: 'mortaio', name: 'Mortaio ad Area', cost: 3000 } },
+      ] },
+      right: { max: 3, nextSlotCost: 200, slots: [
+        { slot: 0, type: 'colubrina', lvl: 3, name: 'Colubrina', tier: 1, upCost: null, replace: { type: 'cannone', name: 'Cannone', cost: 900 } },
+      ] },
+      bow: { max: 2, nextSlotCost: 300, slots: [
+        { slot: 0, type: 'cannone', lvl: 1, name: 'Cannone', tier: 2, upCost: 800, replace: null },
+      ] },
+      stern: { max: 1, nextSlotCost: 0, slots: [] },
+    },
+  };
+  const open = () => {
+    if (typeof ui === 'undefined' || !ui || !ui.showShop) { setTimeout(open, 200); return; }
+    try {
+      ui.showShop(mock);
+      const b = document.getElementById({ nave: 'tabNave', armi: 'tabArmi' }[scheda] || 'tabArmi');
+      if (b) b.click();
+    } catch (e) { console.error('forceshop err:', e && e.message); }
+  };
+  setTimeout(open, 700);
+}
+
 function interpolatedShips() {
   const snaps = state.snaps;
   if (!snaps.length) return [];
