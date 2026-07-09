@@ -1006,7 +1006,22 @@ if (devParams.get('forceshop')) {
   const mock = {
     gold: 2400,
     ship: { hullLvl: 2, sailsLvl: 1, helmLvl: 1, crewLvl: 2, holdLvl: 1, hullCost: 900, sailsCost: 1200, helmCost: 600, crewCost: 1500, holdCost: 800 },
-    varo: null, negozio: null,
+    varo: { tipo: 'guerra', cost: 90, tipi: {
+      guerra: { nome: 'Brigantino da Guerra', motto: 'La matrice di sempre', hpMul: 1, speedMul: 1, turnMul: 1, sconto: 'hullLvl', abilita: 'Fumogeno', esclusiva: 'Organo' },
+      goletta: { nome: 'Goletta', motto: 'Chi fugge vive per combattere domani', hpMul: 0.8, speedMul: 1.3, turnMul: 1.2, sconto: 'sailsLvl', abilita: 'Scatto', esclusiva: 'Colubrina Lunga' },
+      sciabecco: { nome: 'Sciabecco', motto: 'Punge di prua e di poppa', hpMul: 0.9, speedMul: 1.15, turnMul: 1.1, sconto: 'helmLvl', abilita: 'Bordata Doppia', esclusiva: 'Falconetto a Ripetizione' },
+      galeone: { nome: 'Galeone', motto: 'La fortezza che naviga', hpMul: 1.4, speedMul: 0.8, turnMul: 0.85, sconto: 'crewLvl', abilita: 'Corazza', esclusiva: 'Organo Multiplo' },
+    } },
+    negozio: {
+      catalogo: {
+        indaco: { nome: 'Livrea Indaco', motto: 'Blu di profondità', scia: 0x2a4d8f, genere: 'livrea', prezzo: 15000 },
+        scarlatta: { nome: 'Livrea Scarlatta', motto: 'Rosso corsaro', scia: 0x8f2a2a, genere: 'livrea', prezzo: 12000 },
+        ombre: { nome: 'Mare delle Ombre', motto: 'Si guadagna col Mastro di Rotte', scia: 0x1a1a2a, genere: 'livrea', prezzo: null },
+        verderame: { nome: 'Scia Verderame', motto: 'Una coda d\'alghe', scia: 0x3d9944, genere: 'scia', prezzo: 3000 },
+      },
+      possedute: ['indaco'], livrea: 'indaco', scia: null,
+      bandiera: { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 },
+    },
     groups: {
       left: { max: 3, nextSlotCost: 200, slots: [
         { slot: 0, type: 'colubrina', lvl: 2, name: 'Colubrina', tier: 1, upCost: 1200, replace: null },
@@ -1025,7 +1040,7 @@ if (devParams.get('forceshop')) {
     if (typeof ui === 'undefined' || !ui || !ui.showShop) { setTimeout(open, 200); return; }
     try {
       ui.showShop(mock);
-      const b = document.getElementById({ nave: 'tabNave', armi: 'tabArmi' }[scheda] || 'tabArmi');
+      const b = document.getElementById({ nave: 'tabNave', armi: 'tabArmi', varo: 'tabVaro', livree: 'tabLivree' }[scheda] || 'tabArmi');
       if (b) b.click();
     } catch (e) { console.error('forceshop err:', e && e.message); }
   };
