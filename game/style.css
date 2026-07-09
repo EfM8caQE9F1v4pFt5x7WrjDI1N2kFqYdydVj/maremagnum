@@ -191,23 +191,23 @@ body.conPannello #hint { opacity: 0; }
   font-size: 11px; font-weight: bold; line-height: 16px; text-align: center;
   border: 1px solid var(--edge);
 }
-.gazzettaVoce { padding: 8px 4px; border-bottom: 1px solid var(--hair-25); text-align: left; }
-.gazzettaVoce time { display: block; font-size: 12px; font-style: italic; color: var(--ink-soft); margin-bottom: 2px; }
+.gazzettaVoce { padding: var(--s-2) var(--s-1); border-bottom: 1px solid var(--hair-30); text-align: left; }
+.gazzettaVoce time { display: block; font-size: var(--t-xs); font-style: italic; color: var(--ink-soft); margin-bottom: var(--s-1); }
 .gazzettaVoce p { margin: 0; }
-.gazzettaVoce.nuova { background: var(--gold-12); border-left: 3px solid var(--gold); padding-left: 8px; }
+.gazzettaVoce.nuova { background: var(--gold-12); border-left: 3px solid var(--gold); padding-left: var(--s-2); }
 /* la campagna del Mastro di Rotte (issue #3) in cima all'albo */
 .campagnaBox {
-  text-align: left; margin-bottom: 14px; padding: 10px 14px;
-  border: 2px solid var(--edge); border-radius: 8px; background: var(--gold-10);
+  text-align: left; margin-bottom: var(--s-4); padding: var(--s-3) var(--s-3);
+  border: 2px solid var(--edge); border-radius: var(--r-sm); background: var(--gold-10);
 }
-.campagnaBox h3 { margin: 0 0 4px; font-size: 16px; }
-.campagnaLore { margin: 0 0 8px; font-style: italic; color: var(--ink-soft); font-size: 13.5px; }
-.campagnaTappe { margin: 0 0 8px; padding-left: 6px; list-style: none; }
-.campagnaTappe li { padding: 2px 0; }
+.campagnaBox h3 { margin: 0 0 var(--s-1); font-size: 16px; }
+.campagnaLore { margin: 0 0 var(--s-2); font-style: italic; color: var(--ink-soft); font-size: var(--t-sm); }
+.campagnaTappe { margin: 0 0 var(--s-2); padding-left: var(--s-2); list-style: none; }
+.campagnaTappe li { padding: var(--s-1) 0; }
 .campagnaTappe li.fatta { color: var(--green-done); }
 .campagnaTappe li.corrente { font-weight: bold; }
 .campagnaTappe li.futura { color: var(--ink-soft); }
-.campagnaPremio { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+.campagnaPremio { margin: 0; font-size: var(--t-sm); color: var(--ink-soft); }
 
 /* il Cantiere con gerarchia (issue #24): schede, consiglio, "no" leggibili */
 #shopTabs { display: flex; gap: 8px; justify-content: center; margin: 10px 0 14px; }
@@ -230,15 +230,15 @@ body.conPannello #hint { opacity: 0; }
 .occhiolino { animation: occhiolino 0.8s ease-in-out 2; }
 
 /* le Fratellanze (issue #5): elenco, scheda, fondazione con l'editor */
-.gildaTesta { display: flex; gap: 16px; align-items: center; text-align: left; margin-bottom: 10px; }
+.gildaTesta { display: flex; gap: var(--s-4); align-items: center; text-align: left; margin-bottom: var(--s-3); }
 .gildaTesta h3 { margin: 0; font-size: 18px; }
 .gildaRiga {
-  display: flex; gap: 10px; align-items: center; text-align: left;
-  padding: 6px 4px; border-bottom: 1px solid var(--hair-25);
+  display: flex; gap: var(--s-3); align-items: center; text-align: left;
+  padding: var(--s-2) var(--s-1); border-bottom: 1px solid var(--hair-30);
 }
 .gildaRiga .gildaInfo { flex: 1; }
 .gildaRiga span { flex: 1; }
-.gildaLog { margin: 2px 0; font-size: 13px; text-align: left; color: var(--ink-soft); }
+.gildaLog { margin: var(--s-1) 0; font-size: var(--t-sm); text-align: left; color: var(--ink-soft); }
 #gildaFondaForm { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .gfRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
 #gfEditor { align-items: flex-start; }
@@ -259,9 +259,9 @@ body.conPannello #hint { opacity: 0; }
   padding: 18px 26px; z-index: 45; min-width: 420px;
   box-shadow: inset 0 0 45px var(--panel-inset), 0 10px 40px rgba(0,0,0,.6);
 }
-#board h3 { text-align: center; margin-bottom: 10px; }
-#board table { width: 100%; border-collapse: collapse; font-size: 15px; }
-#board th, #board td { padding: 4px 10px; text-align: left; border-bottom: 1px solid var(--hair-35); }
+#board h3 { text-align: center; margin-bottom: var(--s-3); }
+#board table { width: 100%; border-collapse: collapse; font-size: var(--t-md); }
+#board th, #board td { padding: var(--s-1) var(--s-3); text-align: left; border-bottom: 1px solid var(--hair-30); }
 #board th { font-variant: small-caps; }
 
 /* ---- overlay generici ---- */
@@ -341,7 +341,7 @@ body.conPannello #hint { opacity: 0; }
 .panel.wide { max-width: 760px; max-height: 86vh; overflow-y: auto; padding-bottom: 0; }
 .panel .azioni {
   position: sticky; bottom: 0; margin-top: 14px; padding: 12px 0 16px;
-  background: var(--paper); border-top: 1px solid var(--hair-35);
+  background: var(--paper); border-top: 1px solid var(--hair-40);
 }
 .panel.wide::-webkit-scrollbar { width: 10px; }
 .panel.wide::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: 6px; border: 2px solid var(--paper); }
@@ -364,7 +364,7 @@ body.conPannello #hint { opacity: 0; }
 .wgroupHead span { font-size: var(--t-xs); color: var(--ink-mute); font-style: italic; }
 .wslot {
   display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
-  padding: var(--s-1) var(--s-2); border-bottom: 1px dashed var(--hair-30);
+  padding: var(--s-1) var(--s-2); border-bottom: 1px solid var(--hair-30);
 }
 .wslot:last-of-type { border-bottom: none; }
 .wname .tier { font-size: var(--t-2xs); color: var(--edge); margin-left: var(--s-2); font-variant: small-caps; }
@@ -409,10 +409,10 @@ body.conPannello #hint { opacity: 0; }
    regione scrollabile non-focusabile sarebbe irraggiungibile da tastiera) */
 #registroVoci { text-align: left; }
 .registroRiga {
-  padding: 4px 8px; border-bottom: 1px dashed var(--hair-30); font-size: 13.5px;
+  padding: var(--s-1) var(--s-2); border-bottom: 1px solid var(--hair-30); font-size: var(--t-sm);
 }
 .registroRiga:last-of-type { border-bottom: none; }
-.registroRiga .pips { color: var(--edge); letter-spacing: 2px; margin-left: 8px; font-size: 12px; }
+.registroRiga .pips { color: var(--edge); letter-spacing: 2px; margin-left: var(--s-2); font-size: var(--t-xs); }
 
 /* ---- impostazioni di bordo ---- */
 #settingsBtn, #helpBtn, #registroBtn { padding: 4px 10px; font-size: 17px; border-radius: 12px; }
@@ -441,7 +441,7 @@ body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killf
 .ruoli { font-size: 12.5px; font-style: italic; color: var(--ink-cocoa); margin-bottom: 10px; }
 
 /* ---- ancoraggio del profilo ---- */
-#ancoraSez { border-top: 1px solid var(--hair-35); margin-top: 14px; padding-top: 2px; }
+#ancoraSez { border-top: 1px solid var(--hair-40); margin-top: var(--s-4); padding-top: var(--s-1); }
 #ancoraSez .shopSection { border: none; margin-bottom: 4px; }
 #ancoraHandle { width: 100%; max-width: 320px; }
 #ancoraQrCanvas { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: 8px; margin-top: 8px; }
