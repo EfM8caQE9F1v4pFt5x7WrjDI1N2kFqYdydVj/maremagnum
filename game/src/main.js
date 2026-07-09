@@ -1047,6 +1047,18 @@ if (devParams.get('forceshop')) {
   setTimeout(open, 700);
 }
 
+// ?forcepanel=settings|help (sviluppo): apre un overlay senza dati dal server,
+// per fotografarlo headless. I data-panel hanno agganci dedicati quando serve.
+if (devParams.get('forcepanel')) {
+  const id = { settings: 'settingsOverlay', help: 'helpOverlay' }[devParams.get('forcepanel')];
+  const openP = () => {
+    if (typeof ui === 'undefined' || !ui || !ui.show || !document.getElementById(id)) { setTimeout(openP, 200); return; }
+    document.body.classList.remove('benvenuto');
+    try { ui.show(id); } catch (e) { console.error('forcepanel err:', e && e.message); }
+  };
+  if (id) setTimeout(openP, 700);
+}
+
 function interpolatedShips() {
   const snaps = state.snaps;
   if (!snaps.length) return [];
