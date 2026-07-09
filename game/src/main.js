@@ -1050,13 +1050,38 @@ if (devParams.get('forceshop')) {
 // ?forcepanel=settings|help (sviluppo): apre un overlay senza dati dal server,
 // per fotografarlo headless. I data-panel hanno agganci dedicati quando serve.
 if (devParams.get('forcepanel')) {
-  const id = { settings: 'settingsOverlay', help: 'helpOverlay' }[devParams.get('forcepanel')];
+  const which = devParams.get('forcepanel');
   const openP = () => {
-    if (typeof ui === 'undefined' || !ui || !ui.show || !document.getElementById(id)) { setTimeout(openP, 200); return; }
+    if (typeof ui === 'undefined' || !ui || !ui.show) { setTimeout(openP, 200); return; }
     document.body.classList.remove('benvenuto');
-    try { ui.show(id); } catch (e) { console.error('forcepanel err:', e && e.message); }
+    const now = Date.now();
+    try {
+      if (which === 'settings') ui.show('settingsOverlay');
+      else if (which === 'help') ui.show('helpOverlay');
+      else if (which === 'gazzetta') ui.showGazzetta(
+        [{ t: now - 36e5, testo: '«Barbanera» ha espugnato la fortezza di example.com — il dominio è libero.' },
+         { t: now - 8 * 36e5, testo: 'Fondata la fratellanza «I Corsari del Nord».' },
+         { t: now - 26 * 36e5, testo: 'Il Mastro di Rotte ha voltato pagina: nuova campagna in mare.' }],
+        now - 5 * 36e5,
+        { nome: 'La Vendetta del Mastro', lore: 'Tre mercantili spariti nel Mare delle Ombre. Il Mastro chiede vendetta.',
+          tappe: [{ desc: 'Affonda 3 mercantili', n: 3 }, { desc: 'Scaccia i Corsari Fantasma', n: 5 }, { desc: 'Espugna la fortezza', n: 1 }],
+          tappa: 1, completata: false, fatto: 2, premio: 1500 });
+      else if (which === 'fratellanze') ui.showFratellanze({ fondazione: 25000, elenco: [
+        { id: 'nord', nome: 'I Corsari del Nord', tag: 'CDN', categoria: 'Guerra', membri: new Array(12), aperta: true, sfidabile: true, bandiera: { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 } },
+        { id: 'fant', nome: 'Flotta Fantasma', tag: 'FF', categoria: 'Caccia', membri: new Array(8), aperta: false, sfidabile: false, bandiera: { fondo: 2, taglio: 1, tinta2: 3, emblema: 2, tintaEmblema: 1 } },
+        { id: 'rossa', nome: 'La Compagnia Rossa', tag: 'CR', categoria: 'Commercio', membri: new Array(24), aperta: false, sfidabile: false, bandiera: { fondo: 1, taglio: 2, tinta2: 0, emblema: 1, tintaEmblema: 2 } },
+      ] });
+      else if (which === 'registro') ui.showRegistro({
+        tipo: 'guerra', vari: 3, kills: 42, deaths: 7,
+        mounts: { left: [{ type: 'colubrina', lvl: 3 }, { type: 'carronata', lvl: 2 }], right: [{ type: 'colubrina', lvl: 2 }], bow: [{ type: 'cannone', lvl: 1 }] },
+        arsenal: { types: { colubrina: { name: 'Colubrina' }, carronata: { name: 'Carronata' }, cannone: { name: 'Cannone' } } },
+        conquered: ['pornhub.com', 'xvideos.com'], preferiti: ['wikipedia.org', 'github.com', 'reddit.com'],
+        catalogo: { indaco: { nome: 'Livrea Indaco' }, scarlatta: { nome: 'Livrea Scarlatta' }, ombre: { nome: 'Mare delle Ombre', impresa: true } },
+        livree: ['indaco'], livrea: 'indaco', scia: null, campagna: { completata: true },
+      });
+    } catch (e) { console.error('forcepanel err:', e && e.message); }
   };
-  if (id) setTimeout(openP, 700);
+  setTimeout(openP, 700);
 }
 
 function interpolatedShips() {

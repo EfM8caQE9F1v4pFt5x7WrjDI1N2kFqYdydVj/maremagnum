@@ -245,7 +245,10 @@ body.conPannello #hint { opacity: 0; }
 #gfEditor { align-items: flex-start; }
 #gfBandiera { border: 2px solid var(--edge); border-radius: var(--r-xs); }
 #gfScelte { display: flex; flex-direction: column; gap: var(--s-1); text-align: left; font-size: var(--t-sm); }
-#gfScelte select { font: inherit; font-size: var(--t-sm); margin-left: var(--s-1); }
+/* ogni scelta è etichetta · tendina in colonna, così i select si incolonnano
+   (issue #32, UX): prima le etichette di larghezza diversa li sfasavano. */
+#gfScelte label { display: grid; grid-template-columns: 9em 1fr; align-items: center; column-gap: var(--s-2); }
+#gfScelte select { font: inherit; font-size: var(--t-sm); }
 #gfCategoria { font: inherit; font-size: var(--t-base); }
 
 /* gli approdi preferiti (issue #13): la stella e la pergamena del varo */
@@ -422,7 +425,8 @@ body.conPannello #hint { opacity: 0; }
 }
 .vessillo canvas { border: 2px solid var(--edge); border-radius: var(--r-xs); }
 .vessillo .gfScelte { display: flex; flex-direction: column; gap: var(--s-1); text-align: left; font-size: var(--t-sm); }
-.vessillo .gfScelte select { font: inherit; font-size: var(--t-sm); margin-left: var(--s-1); }
+.vessillo .gfScelte label { display: grid; grid-template-columns: 9em 1fr; align-items: center; column-gap: var(--s-2); }
+.vessillo .gfScelte select { font: inherit; font-size: var(--t-sm); }
 .vessillo button { align-self: center; }
 /* niente scroll interno: scrolla il .panel, come la Gazzetta (a11y: una
    regione scrollabile non-focusabile sarebbe irraggiungibile da tastiera) */
