@@ -58,13 +58,13 @@ body { font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: 
 /* ---- barra superiore: la plancia di comando ---- */
 #topbar {
   position: fixed; top: 0; left: 0; right: 0; height: 54px;
-  display: flex; align-items: center; gap: 14px; padding: 0 14px;
+  display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-3);
   background: linear-gradient(var(--wood-1), var(--wood-2) 60%, var(--ink));
   border-bottom: 3px solid var(--line-strong);
-  box-shadow: 0 3px 14px rgba(0,0,0,.5);
-  z-index: 30;
+  box-shadow: var(--elev-3);
+  z-index: var(--z-top);
 }
-#brand { font-family: 'Pirata One', Georgia, serif; font-size: 24px; color: var(--gold); white-space: nowrap; letter-spacing: 1px; }
+#brand { font-family: 'Pirata One', Georgia, serif; font-size: var(--t-2xl); color: var(--gold); white-space: nowrap; letter-spacing: 1px; }
 #brand span { color: var(--cream); font-style: italic; font-weight: normal; }
 #courseForm { flex: 1; display: flex; gap: var(--s-2); max-width: 900px; margin: 0 auto; }
 #courseInput {
@@ -93,9 +93,9 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 /* ---- barra d'attracco (navigazione del sito nel guscio) ---- */
 #dockbar {
   position: fixed; top: 54px; left: 0; right: 0; height: 40px;
-  display: flex; align-items: center; gap: 10px; padding: 0 14px;
+  display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-3);
   background: linear-gradient(var(--paper), var(--paper-2)); color: var(--ink);
-  border-bottom: 3px solid var(--line-strong); z-index: 29; font-size: 14px;
+  border-bottom: 3px solid var(--line-strong); z-index: var(--z-dock); font-size: var(--t-base);
 }
 #dockInfo { font-weight: bold; white-space: nowrap; }
 #dockNav button, #openExt { padding: var(--s-1) var(--s-3); border-radius: var(--r-md); font-size: var(--t-base); }
@@ -138,8 +138,8 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 #hint b { color: var(--gold); }
 
 #minimap {
-  position: fixed; right: 16px; bottom: 16px; z-index: 20;
-  border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.55);
+  position: fixed; right: 16px; bottom: 16px; z-index: var(--z-hud);
+  border-radius: var(--r-sm); box-shadow: var(--elev-3);
 }
 
 /* ---- killfeed & toast ---- */
@@ -256,9 +256,9 @@ body.conPannello #hint { opacity: 0; }
 #board {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
   background: var(--studs), var(--paper); background-repeat: no-repeat;
-  color: var(--ink); border: 4px double var(--edge); border-radius: 8px;
-  padding: 18px 26px; z-index: 45; min-width: 420px;
-  box-shadow: inset 0 0 45px var(--panel-inset), 0 10px 40px rgba(0,0,0,.6);
+  color: var(--ink); border: 4px double var(--edge); border-radius: var(--r-md);
+  padding: var(--s-4) var(--s-6); z-index: var(--z-board); min-width: 420px;
+  box-shadow: var(--elev-vignette), var(--elev-4);
 }
 #board h3 { text-align: center; margin-bottom: var(--s-3); font-size: var(--t-xl); }
 #board table { width: 100%; border-collapse: collapse; font-size: var(--t-md); }
@@ -267,7 +267,7 @@ body.conPannello #hint { opacity: 0; }
 
 /* ---- overlay generici ---- */
 .overlay {
-  position: fixed; inset: 0; z-index: 50;
+  position: fixed; inset: 0; z-index: var(--z-overlay);
   background: var(--overlay-bg);
   display: flex; align-items: center; justify-content: center;
 }
@@ -277,10 +277,10 @@ body.conPannello #hint { opacity: 0; }
      appena i bordi — la carta invecchiata, non un rettangolo piatto */
   background: var(--studs), var(--paper);
   background-repeat: no-repeat; color: var(--ink);
-  border: 4px double var(--edge); border-radius: 10px;
-  padding: 26px 34px; text-align: center; max-width: 560px;
+  border: 4px double var(--edge); border-radius: var(--r-md);
+  padding: var(--s-6) var(--s-7); text-align: center; max-width: 560px;
   max-height: 92vh; overflow-y: auto;
-  box-shadow: inset 0 0 55px var(--panel-inset), 0 14px 50px rgba(0,0,0,.65);
+  box-shadow: var(--elev-vignette), var(--elev-5);
   position: relative; isolation: isolate;
 }
 /* grana di carta vergata (issue #32): un velo di rumore in multiply, SOTTO il
@@ -292,7 +292,7 @@ body.conPannello #hint { opacity: 0; }
   mix-blend-mode: multiply; opacity: .7; pointer-events: none;
 }
 .panel::-webkit-scrollbar { width: 10px; }
-.panel::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: 6px; border: 2px solid var(--paper); }
+.panel::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: var(--r-sm); border: 2px solid var(--paper); }
 .panel::-webkit-scrollbar-track { background: transparent; }
 /* Scala di titolazione (issue #32): un solo corpo-display per il titolo di
    pannello (--t-3xl, Pirata One) e un solo corpo per i titoli di scheda/sezione
@@ -300,7 +300,7 @@ body.conPannello #hint { opacity: 0; }
 .panel h2 { margin-bottom: var(--s-2); font-family: 'Pirata One', Georgia, serif; letter-spacing: 1px; font-weight: normal; font-size: var(--t-3xl); }
 .panel .sub { font-style: italic; opacity: .85; margin-bottom: var(--s-4); line-height: 1.5; }
 .panel .sub.gesto { margin: var(--s-3) 0 0; font-size: var(--t-sm); opacity: .7; }
-.panel form { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+.panel form { display: flex; gap: var(--s-2); justify-content: center; margin-bottom: var(--s-3); }
 .panel input {
   font: inherit; font-size: var(--t-md); padding: var(--s-2) var(--s-3);
   border: 2px solid var(--edge); border-radius: var(--r-pill); background: var(--paper-hi); color: var(--ink);
@@ -315,10 +315,10 @@ body.conPannello #hint { opacity: 0; }
 
 /* ---- mappa del tesoro ---- */
 .mapWrap { text-align: center; position: relative; }
-#mapCanvas { border-radius: 4px; box-shadow: 0 18px 70px rgba(0,0,0,.7); transform: rotate(-.6deg); }
+#mapCanvas { border-radius: var(--r-xs); box-shadow: var(--elev-6); transform: rotate(-.6deg); }
 #sailBtn {
   position: absolute; right: 30px; bottom: 26px; margin: 0;
-  font-size: 17px; padding: 10px 26px; transform: rotate(-.6deg);
+  font-size: var(--t-lg); padding: var(--s-3) var(--s-6); transform: rotate(-.6deg);
   box-shadow: 0 6px 18px rgba(0,0,0,.45);
 }
 
@@ -336,19 +336,19 @@ body.conPannello #hint { opacity: 0; }
   padding: var(--s-2) var(--s-4); font-size: var(--t-base); font-weight: bold; color: var(--on-danger);
   box-shadow: var(--elev-2);
 }
-.teams { display: flex; gap: 30px; justify-content: center; margin-bottom: 14px; font-size: 14px; }
+.teams { display: flex; gap: var(--s-7); justify-content: center; margin-bottom: var(--s-4); font-size: var(--t-base); }
 .teams > div { min-width: 130px; }
-.row { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 6px; }
-#siteLink { display: inline-block; margin-bottom: 12px; }
+.row { display: flex; gap: var(--s-3); justify-content: center; align-items: center; flex-wrap: wrap; margin-top: var(--s-2); }
+#siteLink { display: inline-block; margin-bottom: var(--s-3); }
 
 /* ---- cantiere ---- */
 .panel.wide { max-width: 760px; max-height: 86vh; overflow-y: auto; padding-bottom: 0; }
 .panel .azioni {
-  position: sticky; bottom: 0; margin-top: 14px; padding: 12px 0 16px;
+  position: sticky; bottom: 0; margin-top: var(--s-4); padding: var(--s-3) 0 var(--s-4);
   background: var(--paper); border-top: 1px solid var(--hair-40);
 }
 .panel.wide::-webkit-scrollbar { width: 10px; }
-.panel.wide::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: 6px; border: 2px solid var(--paper); }
+.panel.wide::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: var(--r-sm); border: 2px solid var(--paper); }
 .panel.wide::-webkit-scrollbar-track { background: transparent; }
 /* Ritmo verticale della card dal righello (issue #32): i blocchi-pari
    (shipClass, righe, wgroup) separati sempre da --s-3; l'header aggrappato al
