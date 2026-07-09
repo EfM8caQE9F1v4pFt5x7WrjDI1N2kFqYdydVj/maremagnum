@@ -66,28 +66,29 @@ body { font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: 
 }
 #brand { font-family: 'Pirata One', Georgia, serif; font-size: 24px; color: var(--gold); white-space: nowrap; letter-spacing: 1px; }
 #brand span { color: var(--cream); font-style: italic; font-weight: normal; }
-#courseForm { flex: 1; display: flex; gap: 8px; max-width: 900px; margin: 0 auto; }
+#courseForm { flex: 1; display: flex; gap: var(--s-2); max-width: 900px; margin: 0 auto; }
 #courseInput {
-  flex: 1; padding: 8px 14px; font: inherit; font-size: 15px;
-  background: var(--paper); color: var(--ink); border: 2px solid var(--line-strong); border-radius: 20px;
+  flex: 1; padding: var(--s-2) var(--s-3); font: inherit; font-size: var(--t-md);
+  background: var(--paper); color: var(--ink); border: 2px solid var(--line-strong); border-radius: var(--r-pill);
 }
 button {
-  font: inherit; font-size: 14px; cursor: pointer;
+  font: inherit; font-size: var(--t-base); cursor: pointer;
   background: linear-gradient(var(--gold), var(--gold-deep)); color: var(--ink);
-  border: 2px solid var(--line-strong); border-radius: 18px; padding: 7px 14px; font-weight: bold;
-  /* una placca d'ottone: lucentezza in cima, ombra portata sotto — il bottone
-     ha peso, si solleva al passaggio e affonda alla pressione (issue #32) */
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 2px 5px rgba(0,0,0,.28);
+  border: 2px solid var(--line-strong); border-radius: var(--r-pill); padding: var(--s-2) var(--s-3); font-weight: bold;
+  /* una placca d'ottone: lucentezza in cima (--elev-plate), ombra portata sotto
+     (--elev-1) — il bottone ha peso, si solleva al passaggio (--elev-2) e
+     affonda alla pressione (--elev-plate-lo). Tutto dai token (issue #32). */
+  box-shadow: var(--elev-plate), var(--elev-1);
   transition: filter .12s, transform .07s, box-shadow .12s;
 }
-button:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 5px 12px rgba(0,0,0,.32); }
-button:active:not(:disabled) { transform: translateY(1px); filter: brightness(.97); box-shadow: inset 0 2px 4px rgba(0,0,0,.32); }
+button:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); box-shadow: var(--elev-plate), var(--elev-2); }
+button:active:not(:disabled) { transform: translateY(1px); filter: brightness(.97); box-shadow: var(--elev-plate-lo); }
 button:disabled { opacity: .45; cursor: default; box-shadow: none; }
 /* la placca SECONDARIA (issue #32): legno quieto per le azioni di SERVIZIO
    (navigazione del sito, apri-altrove) — l'oro resta ai richiami primari,
    il .linkish al congedo. Tre gradini d'importanza, un colpo d'occhio. */
 button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); color: var(--cream); }
-#gold { font-size: 18px; color: var(--gold); white-space: nowrap; }
+#gold { font-size: var(--t-xl); color: var(--gold); white-space: nowrap; }
 
 /* ---- barra d'attracco (navigazione del sito nel guscio) ---- */
 #dockbar {
@@ -97,7 +98,7 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
   border-bottom: 3px solid var(--line-strong); z-index: 29; font-size: 14px;
 }
 #dockInfo { font-weight: bold; white-space: nowrap; }
-#dockNav button, #openExt { padding: 5px 13px; border-radius: 10px; font-size: 14px; }
+#dockNav button, #openExt { padding: var(--s-1) var(--s-3); border-radius: var(--r-md); font-size: var(--t-base); }
 #dockUrl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .75; font-style: italic; }
 
 /* ---- HUD nave ---- */
@@ -301,8 +302,8 @@ body.conPannello #hint { opacity: 0; }
 .panel .sub.gesto { margin: var(--s-3) 0 0; font-size: var(--t-sm); opacity: .7; }
 .panel form { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
 .panel input {
-  font: inherit; font-size: 16px; padding: 8px 14px;
-  border: 2px solid var(--edge); border-radius: 18px; background: var(--paper-hi); color: var(--ink);
+  font: inherit; font-size: var(--t-md); padding: var(--s-2) var(--s-3);
+  border: 2px solid var(--edge); border-radius: var(--r-pill); background: var(--paper-hi); color: var(--ink);
   outline: none; width: 280px;
 }
 .linkish { background: none; border: none; box-shadow: none; font-style: italic; text-decoration: underline; font-weight: normal; min-height: 24px; }
@@ -418,7 +419,7 @@ body.conPannello #hint { opacity: 0; }
 .registroRiga .pips { color: var(--edge); letter-spacing: 2px; margin-left: var(--s-2); font-size: var(--t-xs); }
 
 /* ---- impostazioni di bordo ---- */
-#settingsBtn, #helpBtn, #registroBtn { padding: 4px 10px; font-size: 17px; border-radius: 12px; }
+#settingsBtn, #helpBtn, #registroBtn { padding: var(--s-1) var(--s-3); font-size: var(--t-lg); border-radius: var(--r-md); }
 
 /* Il Manuale del Corsaro */
 .manuale { text-align: left; }
