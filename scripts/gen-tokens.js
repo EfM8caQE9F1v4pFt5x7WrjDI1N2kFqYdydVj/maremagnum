@@ -19,18 +19,31 @@ function righe(gruppo) {
     .join('\n');
 }
 
+// I gruppi di tokens.json proiettati in :root, in ordine, con la loro didascalia.
+// tokens.canvas NON è qui: è servito al canvas come interi 0x da palette.js.
+// scripts/test-tokens.js usa la STESSA lista per non segnalare deriva.
+const GRUPPI_CSS = [
+  ['color',  'colori'],
+  ['wash',   'veli e fondali (rgba)'],
+  ['radius', 'raggi (il righello, issue #32)'],
+  ['type',   'scala tipografica (corpi-font)'],
+  ['space',  'spaziatura (spine modulari)'],
+  ['z',      'strati (z-index)'],
+  ['elev',   'elevazione (ombre e placche)'],
+];
+
+const blocchi = GRUPPI_CSS
+  .map(([chiave, nota]) => `  /* ${nota} */\n${righe(tokens[chiave])}`)
+  .join('\n\n');
+
 const css = `/* GENERATO da scripts/gen-tokens.js — NON modificare a mano.
    Fonte di verità: game/tokens.json (${tokens.$palette}). */
 :root {
-  /* colori */
-${righe(tokens.color)}
-
-  /* veli e fondali (rgba) */
-${righe(tokens.wash)}
+${blocchi}
 }
 `;
 
 const out = path.join(root, 'game/tokens.css');
 fs.writeFileSync(out, css);
-const n = Object.keys(tokens.color).length + Object.keys(tokens.wash).length;
+const n = GRUPPI_CSS.reduce((s, [k]) => s + Object.keys(tokens[k]).length, 0);
 console.log(`  ✅ tokens.css generato (${n} token) → ${path.relative(root, out)}`);

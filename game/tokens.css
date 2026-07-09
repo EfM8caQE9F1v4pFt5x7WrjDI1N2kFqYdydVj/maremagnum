@@ -63,4 +63,55 @@
   --overlay-bg: rgba(8,20,30,.62);
   --danno: rgba(178,30,10,0.62);
   --panel-inset: rgba(90,61,28,.20);
+
+  /* raggi (il righello, issue #32) */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-pill: 18px;
+  --r-round: 50%;
+
+  /* scala tipografica (corpi-font) */
+  --t-2xs: 11px;
+  --t-xs: 12px;
+  --t-sm: 13px;
+  --t-base: 14px;
+  --t-md: 15px;
+  --t-lg: 17px;
+  --t-xl: 18px;
+  --t-2xl: 24px;
+  --t-3xl: 30px;
+  --t-display: 56px;
+
+  /* spaziatura (spine modulari) */
+  --s-1: 4px;
+  --s-2: 6px;
+  --s-3: 8px;
+  --s-4: 10px;
+  --s-5: 14px;
+  --s-6: 18px;
+  --s-7: 26px;
+  --s-8: 34px;
+
+  /* strati (z-index) */
+  --z-flash: 15;
+  --z-hud: 20;
+  --z-pill: 24;
+  --z-feed: 25;
+  --z-dock: 29;
+  --z-top: 30;
+  --z-toast: 40;
+  --z-board: 45;
+  --z-overlay: 50;
+
+  /* elevazione (ombre e placche) */
+  --elev-1: 0 2px 5px rgba(0,0,0,.28);
+  --elev-2: 0 5px 12px rgba(0,0,0,.32);
+  --elev-3: 0 3px 14px rgba(0,0,0,.5);
+  --elev-4: 0 10px 40px rgba(0,0,0,.6);
+  --elev-5: 0 14px 50px rgba(0,0,0,.65);
+  --elev-6: 0 18px 70px rgba(0,0,0,.7);
+  --elev-plate: inset 0 1px 0 rgba(255,255,255,.4);
+  --elev-plate-lo: inset 0 2px 4px rgba(0,0,0,.32);
+  --elev-vignette: inset 0 0 55px var(--panel-inset);
 }

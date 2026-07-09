@@ -21,7 +21,10 @@ const tokens = require(path.join(root, 'game/tokens.json'));
 const css = fs.readFileSync(path.join(root, 'game/tokens.css'), 'utf8');
 const style = fs.readFileSync(path.join(root, 'game/style.css'), 'utf8');
 
-const tutti = { ...tokens.color, ...tokens.wash };
+// gli stessi gruppi che gen-tokens.js proietta in :root (canvas escluso: vive
+// nel ponte 0x, non nel CSS). Tenere allineato a GRUPPI_CSS di gen-tokens.js.
+const GRUPPI_CSS = ['color', 'wash', 'radius', 'type', 'space', 'z', 'elev'];
+const tutti = Object.assign({}, ...GRUPPI_CSS.map(g => tokens[g]));
 
 // 1) tokens.css definisce ESATTAMENTE i token della fonte, coi valori giusti
 let defiOk = true;
