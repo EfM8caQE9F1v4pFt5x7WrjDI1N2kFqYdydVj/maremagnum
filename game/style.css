@@ -52,7 +52,7 @@ body { font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: 
   outline: 3px solid var(--focus) !important;
   outline-offset: 2px;
   box-shadow: 0 0 0 6px var(--paper-hi) !important;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
 }
 
 /* ---- barra superiore: la plancia di comando ---- */
@@ -163,7 +163,7 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 /* il colpo si sente: lampo rosso ai bordi quando lo scafo incassa
    (Mare calmo lo spegne — issue #19, rilievo F9) */
 #dannoFlash {
-  position: fixed; inset: 0; z-index: 15; pointer-events: none; opacity: 0;
+  position: fixed; inset: 0; z-index: var(--z-flash); pointer-events: none; opacity: 0;
   box-shadow: inset 0 0 140px 55px var(--danno);
   transition: opacity .45s;
 }
@@ -188,8 +188,8 @@ body.conPannello #hint { opacity: 0; }
 #gazzettaBadge {
   position: absolute; top: -4px; right: -6px;
   min-width: 16px; height: 16px; padding: 0 3px;
-  border-radius: 9px; background: var(--gold); color: var(--line-strong);
-  font-size: 11px; font-weight: bold; line-height: 16px; text-align: center;
+  border-radius: var(--r-pill); background: var(--gold); color: var(--line-strong);
+  font-size: var(--t-2xs); font-weight: bold; line-height: 16px; text-align: center;
   border: 1px solid var(--edge);
 }
 .gazzettaVoce { padding: var(--s-2) var(--s-1); border-bottom: 1px solid var(--hair-30); text-align: left; }
@@ -211,16 +211,16 @@ body.conPannello #hint { opacity: 0; }
 .campagnaPremio { margin: 0; font-size: var(--t-sm); color: var(--ink-soft); }
 
 /* il Cantiere con gerarchia (issue #24): schede, consiglio, "no" leggibili */
-#shopTabs { display: flex; gap: 8px; justify-content: center; margin: 10px 0 14px; }
+#shopTabs { display: flex; gap: var(--s-2); justify-content: center; margin: var(--s-3) 0 var(--s-4); }
 #shopTabs button { opacity: .75; }
 #shopTabs button[aria-pressed="true"] {
   opacity: 1; background: linear-gradient(var(--gold-lite), var(--gold-lite2));
   border-color: var(--brass-3); font-weight: bold;
 }
 #shopConsiglio {
-  margin: 8px auto 2px; max-width: 640px; padding: 8px 14px;
-  border: 2px solid var(--brass); border-radius: 12px; background: var(--gold-16);
-  font-size: 14.5px;
+  margin: var(--s-2) auto var(--s-1); max-width: 640px; padding: var(--s-2) var(--s-3);
+  border: 2px solid var(--brass); border-radius: var(--r-md); background: var(--gold-16);
+  font-size: var(--t-base);
 }
 #shopConsiglio .linkish { margin-left: 4px; }
 .panel button:disabled {
@@ -240,17 +240,17 @@ body.conPannello #hint { opacity: 0; }
 .gildaRiga .gildaInfo { flex: 1; }
 .gildaRiga span { flex: 1; }
 .gildaLog { margin: var(--s-1) 0; font-size: var(--t-sm); text-align: left; color: var(--ink-soft); }
-#gildaFondaForm { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-.gfRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+#gildaFondaForm { display: flex; flex-direction: column; gap: var(--s-3); align-items: center; }
+.gfRow { display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap; justify-content: center; }
 #gfEditor { align-items: flex-start; }
-#gfBandiera { border: 2px solid var(--edge); border-radius: 4px; }
-#gfScelte { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13.5px; }
-#gfScelte select { font: inherit; font-size: 13px; margin-left: 4px; }
-#gfCategoria { font: inherit; font-size: 14px; }
+#gfBandiera { border: 2px solid var(--edge); border-radius: var(--r-xs); }
+#gfScelte { display: flex; flex-direction: column; gap: var(--s-1); text-align: left; font-size: var(--t-sm); }
+#gfScelte select { font: inherit; font-size: var(--t-sm); margin-left: var(--s-1); }
+#gfCategoria { font: inherit; font-size: var(--t-base); }
 
 /* gli approdi preferiti (issue #13): la stella e la pergamena del varo */
 #favBtn[aria-pressed="true"] { color: var(--gold); }
-#salpaScelte { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+#salpaScelte { display: flex; flex-wrap: wrap; gap: var(--s-2); justify-content: center; }
 
 /* ---- classifica ---- */
 #board {
@@ -309,9 +309,9 @@ body.conPannello #hint { opacity: 0; }
 .linkish { background: none; border: none; box-shadow: none; font-style: italic; text-decoration: underline; font-weight: normal; min-height: 24px; }
 .panel.death { background: var(--death-bg); color: var(--cream); border-color: var(--danger); }
 /* la morte racconta (issue #23): il conto e il consiglio della Stiva */
-.deathConto { margin: 2px 0 4px; font-size: 15px; }
+.deathConto { margin: var(--s-1) 0 var(--s-1); font-size: var(--t-md); }
 .panel.death .sub { color: var(--death-sub); }
-#deathCount { font-size: 56px; font-weight: bold; color: var(--gold); margin-top: 6px; }
+#deathCount { font-size: var(--t-display); font-weight: bold; color: var(--gold); margin-top: var(--s-2); }
 
 /* ---- mappa del tesoro ---- */
 .mapWrap { text-align: center; position: relative; }
@@ -397,17 +397,17 @@ body.conPannello #hint { opacity: 0; }
 
 /* ---- il Negozio delle Livree e il Registro (issue #25) ---- */
 .swatch {
-  display: inline-block; width: 14px; height: 14px; border-radius: 50%;
-  border: 1.5px solid var(--brown-deep); vertical-align: -2px; margin-right: 4px;
+  display: inline-block; width: 14px; height: 14px; border-radius: var(--r-round);
+  border: 1.5px solid var(--brown-deep); vertical-align: -2px; margin-right: var(--s-1);
 }
 .shopRow.indossata { outline: 2px solid var(--brass-2); outline-offset: -2px; }
 .vessillo {
-  display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap;
-  padding: 8px; justify-content: flex-start;
+  display: flex; gap: var(--s-3); align-items: flex-start; flex-wrap: wrap;
+  padding: var(--s-2); justify-content: flex-start;
 }
-.vessillo canvas { border: 2px solid var(--edge); border-radius: 4px; }
-.vessillo .gfScelte { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13.5px; }
-.vessillo .gfScelte select { font: inherit; font-size: 13px; margin-left: 4px; }
+.vessillo canvas { border: 2px solid var(--edge); border-radius: var(--r-xs); }
+.vessillo .gfScelte { display: flex; flex-direction: column; gap: var(--s-1); text-align: left; font-size: var(--t-sm); }
+.vessillo .gfScelte select { font: inherit; font-size: var(--t-sm); margin-left: var(--s-1); }
 .vessillo button { align-self: center; }
 /* niente scroll interno: scrolla il .panel, come la Gazzetta (a11y: una
    regione scrollabile non-focusabile sarebbe irraggiungibile da tastiera) */
@@ -423,16 +423,16 @@ body.conPannello #hint { opacity: 0; }
 
 /* Il Manuale del Corsaro */
 .manuale { text-align: left; }
-.manuale p { font-size: 13.5px; line-height: 1.55; margin: 4px 0 10px; }
+.manuale p { font-size: var(--t-sm); line-height: 1.55; margin: var(--s-1) 0 var(--s-3); }
 .manuale .comandi { line-height: 2; }
-#riscattoForm { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+#riscattoForm { display: flex; gap: var(--s-2); flex-wrap: wrap; margin: var(--s-2) 0 var(--s-1); }
 #riscattoForm input { flex: 1 1 190px; min-width: 0; }
 #riscattoEsito { min-height: 18px; }
 .setRow {
-  display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: center;
-  margin: 12px auto; max-width: 320px; font-size: 15.5px; cursor: pointer; text-align: left;
+  display: grid; grid-template-columns: 24px 1fr; gap: var(--s-3); align-items: center;
+  margin: var(--s-3) auto; max-width: 320px; font-size: var(--t-md); cursor: pointer; text-align: left;
 }
-.setRow.vol { display: flex; gap: 10px; }
+.setRow.vol { display: flex; gap: var(--s-3); }
 .setRow input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--brass-4); }
 .setRow input[type="range"] { flex: 1; accent-color: var(--gold-deep); }
 #guardInfo { font-weight: bold; color: var(--green-txt); white-space: nowrap; }
@@ -442,30 +442,30 @@ body.conPannello #hint { opacity: 0; }
 body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killfeed { top: 108px; }
 
 /* ruoli dell'assedio, spiegati in una riga */
-.ruoli { font-size: 12.5px; font-style: italic; color: var(--ink-cocoa); margin-bottom: 10px; }
+.ruoli { font-size: var(--t-xs); font-style: italic; color: var(--ink-cocoa); margin-bottom: var(--s-3); }
 
 /* ---- ancoraggio del profilo ---- */
 #ancoraSez { border-top: 1px solid var(--hair-40); margin-top: var(--s-4); padding-top: var(--s-1); }
-#ancoraSez .shopSection { border: none; margin-bottom: 4px; }
+#ancoraSez .shopSection { border: none; margin-bottom: var(--s-1); }
 #ancoraHandle { width: 100%; max-width: 320px; }
-#ancoraQrCanvas { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: 8px; margin-top: 8px; }
-#ancoraSegreto { font-size: 12px; word-break: break-all; }
+#ancoraQrCanvas { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: var(--r-sm); margin-top: var(--s-2); }
+#ancoraSegreto { font-size: var(--t-xs); word-break: break-all; }
 #ancoraCodice { width: 170px; text-align: center; letter-spacing: 4px; }
 #ancoraStato b { color: var(--green-txt); }
 
 /* ---- benvenuto: ancoraggio alla prima visita ---- */
-#benvenutoQr { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: 8px; }
-#benvenutoSegreto { font-size: 12px; word-break: break-all; }
+#benvenutoQr { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: var(--r-sm); }
+#benvenutoSegreto { font-size: var(--t-xs); word-break: break-all; }
 #benvenutoHandle { color: var(--green-txt); }
 #benvenutoCodice, #benvenutoEntraCodice { width: 170px; text-align: center; letter-spacing: 4px; }
 #benvenutoEntraForm { flex-wrap: wrap; }
 
-.credits { font-size: 11.5px; color: var(--ink-mute); margin-top: 12px; font-style: italic; }
+.credits { font-size: var(--t-2xs); color: var(--ink-mute); margin-top: var(--s-3); font-style: italic; }
 
 /* ---- timoneria: rimappatura dei tasti (WCAG 2.1.4) ---- */
-#tastiRows { display: flex; flex-direction: column; gap: 4px; max-width: 340px; margin: 0 auto; }
-.tastoRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
-.tastoRow button { min-width: 110px; padding: 4px 10px; font-size: 13px; }
+#tastiRows { display: flex; flex-direction: column; gap: var(--s-1); max-width: 340px; margin: 0 auto; }
+.tastoRow { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); font-size: var(--t-base); }
+.tastoRow button { min-width: 110px; padding: var(--s-1) var(--s-3); font-size: var(--t-sm); }
 /* "in ascolto" è uno stato ATTIVO/caldo: oro acceso come la scheda attiva
    e il potenziamento (issue #32) — non più il salvia alieno. */
 .tastoRow button.inAscolto { background: linear-gradient(var(--gold-lite), var(--gold-lite2)); color: var(--ink); border-color: var(--brass-3); }
