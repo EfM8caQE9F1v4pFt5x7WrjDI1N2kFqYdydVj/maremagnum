@@ -245,7 +245,10 @@ body.conPannello #hint { opacity: 0; }
 #gfEditor { align-items: flex-start; }
 #gfBandiera { border: 2px solid var(--edge); border-radius: var(--r-xs); }
 #gfScelte { display: flex; flex-direction: column; gap: var(--s-1); text-align: left; font-size: var(--t-sm); }
-#gfScelte select { font: inherit; font-size: var(--t-sm); margin-left: var(--s-1); }
+/* ogni scelta è etichetta · tendina in colonna, così i select si incolonnano
+   (issue #32, UX): prima le etichette di larghezza diversa li sfasavano. */
+#gfScelte label { display: grid; grid-template-columns: 9em 1fr; align-items: center; column-gap: var(--s-2); }
+#gfScelte select { font: inherit; font-size: var(--t-sm); }
 #gfCategoria { font: inherit; font-size: var(--t-base); }
 
 /* gli approdi preferiti (issue #13): la stella e la pergamena del varo */
@@ -354,10 +357,18 @@ body.conPannello #hint { opacity: 0; }
    (shipClass, righe, wgroup) separati sempre da --s-3; l'header aggrappato al
    suo contenuto a --s-2; raggi e corpi-font dai token. Niente più 6/7/9/10/14
    a mano — è il ritmo che "vibrava" (l'occhio del capitano su questa card). */
-.shopSection { margin: var(--s-4) 0 var(--s-2); border-top: 1px solid var(--hair-40); padding-top: var(--s-2); }
+/* header di sezione come ETICHETTE scandite (issue #32, UX): allineate a
+   sinistra, maiuscoletto, ottone smorzato — l'occhio scandisce la struttura del
+   pannello. Il margine SOPRA è ampio (--s-5): la prossimità raggruppa. */
+.shopSection {
+  margin: var(--s-5) 0 var(--s-2); border-top: 1px solid var(--hair-40); padding-top: var(--s-2);
+  text-align: left; font-variant: small-caps; letter-spacing: .06em; font-weight: bold; color: var(--ink-soft);
+}
+/* la nave attuale è CONTESTO, non merce: striscia con accento d'ottone a
+   sinistra, quieta, aggrappata alle righe che introduce (--s-2). */
 .shipClass {
-  background: var(--paper-60); border: 1px solid var(--edge); border-radius: var(--r-sm);
-  padding: var(--s-2) var(--s-3); margin-bottom: var(--s-3); text-align: left; font-size: var(--t-sm);
+  background: var(--gold-10); border: none; border-left: 3px solid var(--brass); border-radius: var(--r-xs);
+  padding: var(--s-1) var(--s-3); margin-bottom: var(--s-2); text-align: left; font-size: var(--t-sm); color: var(--ink-soft);
 }
 .shipClass b { color: var(--brown-warm); }
 .wgroup {
@@ -366,14 +377,21 @@ body.conPannello #hint { opacity: 0; }
 }
 .wgroupHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--s-2); }
 .wgroupHead span { font-size: var(--t-xs); color: var(--ink-mute); font-style: italic; }
+/* la riga-arma è una GRIGLIA a colonne (issue #32, UX): nome · tier · pips ·
+   azione. Prima nome/tier/pips erano testo inline: i pallini fluttuavano a x
+   diverse per riga (col nome). Ora si incolonnano. --s-3 tra le colonne. */
 .wslot {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
+  display: grid; grid-template-columns: minmax(0, 1fr) 4.6em 3.6em minmax(11em, 13.5em);
+  align-items: center; column-gap: var(--s-3);
   padding: var(--s-1) var(--s-2); border-bottom: 1px solid var(--hair-30);
 }
 .wslot:last-of-type { border-bottom: none; }
-.wname .tier { font-size: var(--t-2xs); color: var(--edge); margin-left: var(--s-2); font-variant: small-caps; }
-.wname .pips { color: var(--edge); letter-spacing: 2px; margin-left: var(--s-3); font-size: var(--t-xs); }
-.wslot button { padding: var(--s-1) var(--s-3); font-size: var(--t-sm); min-width: 150px; }
+.wname { display: contents; }
+.wname b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wname .tier { font-size: var(--t-2xs); color: var(--edge); font-variant: small-caps; }
+.wname .pips { color: var(--edge); letter-spacing: 2px; font-size: var(--t-xs); text-align: right; }
+.wslot > button, .wslot > .maxed { justify-self: end; }
+.wslot button { padding: var(--s-1) var(--s-3); font-size: var(--t-sm); width: 100%; }
 /* il potenziamento è una spesa d'oro, non un accento alieno (issue #32,
    disciplina dei 3 accenti): oro ACCESO come la scheda attiva del Cantiere.
    La freccia → nel testo porta il senso di "sali di grado". */
@@ -384,12 +402,12 @@ body.conPannello #hint { opacity: 0; }
 .addSlot { margin-top: var(--s-2); width: 100%; font-size: var(--t-sm); background: linear-gradient(var(--wood-1), var(--wood-2)); color: var(--cream); }
 
 /* ---- cantiere (righe nave) ---- */
-#shopRows { display: flex; flex-direction: column; gap: var(--s-3); margin-bottom: var(--s-3); text-align: left; }
+#shopRows { display: flex; flex-direction: column; gap: var(--s-2); margin-bottom: 0; text-align: left; }
 .shopRow {
   display: flex; align-items: center; justify-content: space-between; gap: var(--s-4);
   background: var(--paper-60); border: 1px solid var(--edge); border-radius: var(--r-sm); padding: var(--s-2) var(--s-3);
 }
-.shopInfo { display: flex; flex-direction: column; }
+.shopInfo { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
 .shopInfo span { font-size: var(--t-xs); font-style: italic; opacity: .8; }
 .shopInfo .pips { color: var(--edge); letter-spacing: 3px; font-style: normal; font-size: var(--t-sm); }
 .shopInfo .effetti { color: var(--ink-mute); font-style: normal; font-size: var(--t-xs); }
@@ -407,7 +425,8 @@ body.conPannello #hint { opacity: 0; }
 }
 .vessillo canvas { border: 2px solid var(--edge); border-radius: var(--r-xs); }
 .vessillo .gfScelte { display: flex; flex-direction: column; gap: var(--s-1); text-align: left; font-size: var(--t-sm); }
-.vessillo .gfScelte select { font: inherit; font-size: var(--t-sm); margin-left: var(--s-1); }
+.vessillo .gfScelte label { display: grid; grid-template-columns: 9em 1fr; align-items: center; column-gap: var(--s-2); }
+.vessillo .gfScelte select { font: inherit; font-size: var(--t-sm); }
 .vessillo button { align-self: center; }
 /* niente scroll interno: scrolla il .panel, come la Gazzetta (a11y: una
    regione scrollabile non-focusabile sarebbe irraggiungibile da tastiera) */

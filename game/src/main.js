@@ -998,6 +998,92 @@ function latestMe() {
 // governano col rilevamento vero invece di veleggiare alla cieca
 if (devParams.get('spia')) window.__spia = { state, latestMe, renderer: () => renderer, ui: () => ui };
 
+// ?forceshop=nave|armi (sviluppo): apre il Cantiere con dati finti chiamando
+// direttamente ui.showShop — per fotografare la UI vera SENZA attraccare (dove
+// un driver interattivo/CDP non è possibile). Deterministico, niente navigazione.
+if (devParams.get('forceshop')) {
+  const scheda = devParams.get('forceshop');
+  const mock = {
+    gold: 2400,
+    ship: { hullLvl: 2, sailsLvl: 1, helmLvl: 1, crewLvl: 2, holdLvl: 1, hullCost: 900, sailsCost: 1200, helmCost: 600, crewCost: 1500, holdCost: 800 },
+    varo: { tipo: 'guerra', cost: 90, tipi: {
+      guerra: { nome: 'Brigantino da Guerra', motto: 'La matrice di sempre', hpMul: 1, speedMul: 1, turnMul: 1, sconto: 'hullLvl', abilita: 'Fumogeno', esclusiva: 'Organo' },
+      goletta: { nome: 'Goletta', motto: 'Chi fugge vive per combattere domani', hpMul: 0.8, speedMul: 1.3, turnMul: 1.2, sconto: 'sailsLvl', abilita: 'Scatto', esclusiva: 'Colubrina Lunga' },
+      sciabecco: { nome: 'Sciabecco', motto: 'Punge di prua e di poppa', hpMul: 0.9, speedMul: 1.15, turnMul: 1.1, sconto: 'helmLvl', abilita: 'Bordata Doppia', esclusiva: 'Falconetto a Ripetizione' },
+      galeone: { nome: 'Galeone', motto: 'La fortezza che naviga', hpMul: 1.4, speedMul: 0.8, turnMul: 0.85, sconto: 'crewLvl', abilita: 'Corazza', esclusiva: 'Organo Multiplo' },
+    } },
+    negozio: {
+      catalogo: {
+        indaco: { nome: 'Livrea Indaco', motto: 'Blu di profondità', scia: 0x2a4d8f, genere: 'livrea', prezzo: 15000 },
+        scarlatta: { nome: 'Livrea Scarlatta', motto: 'Rosso corsaro', scia: 0x8f2a2a, genere: 'livrea', prezzo: 12000 },
+        ombre: { nome: 'Mare delle Ombre', motto: 'Si guadagna col Mastro di Rotte', scia: 0x1a1a2a, genere: 'livrea', prezzo: null },
+        verderame: { nome: 'Scia Verderame', motto: 'Una coda d\'alghe', scia: 0x3d9944, genere: 'scia', prezzo: 3000 },
+      },
+      possedute: ['indaco'], livrea: 'indaco', scia: null,
+      bandiera: { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 },
+    },
+    groups: {
+      left: { max: 3, nextSlotCost: 200, slots: [
+        { slot: 0, type: 'colubrina', lvl: 2, name: 'Colubrina', tier: 1, upCost: 1200, replace: null },
+        { slot: 1, type: 'carronata', lvl: 1, name: 'Carronata', tier: 2, upCost: 600, replace: { type: 'mortaio', name: 'Mortaio ad Area', cost: 3000 } },
+      ] },
+      right: { max: 3, nextSlotCost: 200, slots: [
+        { slot: 0, type: 'colubrina', lvl: 3, name: 'Colubrina', tier: 1, upCost: null, replace: { type: 'cannone', name: 'Cannone', cost: 900 } },
+      ] },
+      bow: { max: 2, nextSlotCost: 300, slots: [
+        { slot: 0, type: 'cannone', lvl: 1, name: 'Cannone', tier: 2, upCost: 800, replace: null },
+      ] },
+      stern: { max: 1, nextSlotCost: 0, slots: [] },
+    },
+  };
+  const open = () => {
+    if (typeof ui === 'undefined' || !ui || !ui.showShop) { setTimeout(open, 200); return; }
+    try {
+      ui.showShop(mock);
+      const b = document.getElementById({ nave: 'tabNave', armi: 'tabArmi', varo: 'tabVaro', livree: 'tabLivree' }[scheda] || 'tabArmi');
+      if (b) b.click();
+    } catch (e) { console.error('forceshop err:', e && e.message); }
+  };
+  setTimeout(open, 700);
+}
+
+// ?forcepanel=settings|help (sviluppo): apre un overlay senza dati dal server,
+// per fotografarlo headless. I data-panel hanno agganci dedicati quando serve.
+if (devParams.get('forcepanel')) {
+  const which = devParams.get('forcepanel');
+  const openP = () => {
+    if (typeof ui === 'undefined' || !ui || !ui.show) { setTimeout(openP, 200); return; }
+    document.body.classList.remove('benvenuto');
+    const now = Date.now();
+    try {
+      if (which === 'settings') ui.show('settingsOverlay');
+      else if (which === 'help') ui.show('helpOverlay');
+      else if (which === 'gazzetta') ui.showGazzetta(
+        [{ t: now - 36e5, testo: '«Barbanera» ha espugnato la fortezza di example.com — il dominio è libero.' },
+         { t: now - 8 * 36e5, testo: 'Fondata la fratellanza «I Corsari del Nord».' },
+         { t: now - 26 * 36e5, testo: 'Il Mastro di Rotte ha voltato pagina: nuova campagna in mare.' }],
+        now - 5 * 36e5,
+        { nome: 'La Vendetta del Mastro', lore: 'Tre mercantili spariti nel Mare delle Ombre. Il Mastro chiede vendetta.',
+          tappe: [{ desc: 'Affonda 3 mercantili', n: 3 }, { desc: 'Scaccia i Corsari Fantasma', n: 5 }, { desc: 'Espugna la fortezza', n: 1 }],
+          tappa: 1, completata: false, fatto: 2, premio: 1500 });
+      else if (which === 'fratellanze') ui.showFratellanze({ fondazione: 25000, elenco: [
+        { id: 'nord', nome: 'I Corsari del Nord', tag: 'CDN', categoria: 'Guerra', membri: new Array(12), aperta: true, sfidabile: true, bandiera: { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 } },
+        { id: 'fant', nome: 'Flotta Fantasma', tag: 'FF', categoria: 'Caccia', membri: new Array(8), aperta: false, sfidabile: false, bandiera: { fondo: 2, taglio: 1, tinta2: 3, emblema: 2, tintaEmblema: 1 } },
+        { id: 'rossa', nome: 'La Compagnia Rossa', tag: 'CR', categoria: 'Commercio', membri: new Array(24), aperta: false, sfidabile: false, bandiera: { fondo: 1, taglio: 2, tinta2: 0, emblema: 1, tintaEmblema: 2 } },
+      ] });
+      else if (which === 'registro') ui.showRegistro({
+        tipo: 'guerra', vari: 3, kills: 42, deaths: 7,
+        mounts: { left: [{ type: 'colubrina', lvl: 3 }, { type: 'carronata', lvl: 2 }], right: [{ type: 'colubrina', lvl: 2 }], bow: [{ type: 'cannone', lvl: 1 }] },
+        arsenal: { types: { colubrina: { name: 'Colubrina' }, carronata: { name: 'Carronata' }, cannone: { name: 'Cannone' } } },
+        conquered: ['pornhub.com', 'xvideos.com'], preferiti: ['wikipedia.org', 'github.com', 'reddit.com'],
+        catalogo: { indaco: { nome: 'Livrea Indaco' }, scarlatta: { nome: 'Livrea Scarlatta' }, ombre: { nome: 'Mare delle Ombre', impresa: true } },
+        livree: ['indaco'], livrea: 'indaco', scia: null, campagna: { completata: true },
+      });
+    } catch (e) { console.error('forcepanel err:', e && e.message); }
+  };
+  setTimeout(openP, 700);
+}
+
 function interpolatedShips() {
   const snaps = state.snaps;
   if (!snaps.length) return [];
