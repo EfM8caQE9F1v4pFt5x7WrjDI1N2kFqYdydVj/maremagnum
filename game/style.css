@@ -357,9 +357,14 @@ body.conPannello #hint { opacity: 0; }
 .wname .tier { font-size: 11.5px; color: var(--edge); margin-left: 8px; font-variant: small-caps; }
 .wname .pips { color: var(--edge); letter-spacing: 2px; margin-left: 10px; font-size: 12px; }
 .wslot button { padding: 4px 12px; font-size: 13px; min-width: 150px; }
-.wslot .tierUp { background: linear-gradient(var(--tier-hi), var(--tier)); }
+/* il potenziamento è una spesa d'oro, non un accento alieno (issue #32,
+   disciplina dei 3 accenti): oro ACCESO come la scheda attiva del Cantiere.
+   La freccia → nel testo porta il senso di "sali di grado". */
+.wslot .tierUp { background: linear-gradient(var(--gold-lite), var(--gold-lite2)); border-color: var(--brass-3); }
 .wslot .maxed { font-style: italic; font-size: 12.5px; color: var(--ink-mute); }
-.addSlot { margin-top: 7px; width: 100%; font-size: 13px; background: linear-gradient(var(--sage-hi), var(--sage)); color: var(--green-ink); }
+/* aggiungere una bocca è azione strutturale di servizio, non un premio:
+   legno secondario, quieto e in-palette (non più il salvia alieno). */
+.addSlot { margin-top: 7px; width: 100%; font-size: 13px; background: linear-gradient(var(--wood-1), var(--wood-2)); color: var(--cream); }
 
 /* ---- cantiere (righe nave) ---- */
 #shopRows { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; text-align: left; }
@@ -444,7 +449,9 @@ body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killf
 #tastiRows { display: flex; flex-direction: column; gap: 4px; max-width: 340px; margin: 0 auto; }
 .tastoRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
 .tastoRow button { min-width: 110px; padding: 4px 10px; font-size: 13px; }
-.tastoRow button.inAscolto { background: linear-gradient(var(--sage-hi), var(--sage)); color: var(--green-ink); }
+/* "in ascolto" è uno stato ATTIVO/caldo: oro acceso come la scheda attiva
+   e il potenziamento (issue #32) — non più il salvia alieno. */
+.tastoRow button.inAscolto { background: linear-gradient(var(--gold-lite), var(--gold-lite2)); color: var(--ink); border-color: var(--brass-3); }
 
 /* ---- reflow (WCAG 1.4.10): niente perdite a 320px ---- */
 .panel, .panel.wide { max-width: min(760px, 96vw); }
