@@ -158,22 +158,14 @@ Durable Object: un solo cervello, due gusci.
 offscreen e cotti in **atlanti WebP** (`game/assets/`), che PixiJS serve come
 sprite. Il 3D si paga una volta, in fase di build, non a ogni frame.
 
-> **Guscio desktop (deprecato).** In `shell/` vive un guscio **Electron** — un
-> browser vero (due `WebContentsView` sovrapposte) che apriva i siti *dentro* il
-> gioco, con una "Ciurma di Guardia" (adblock, GPC/DNT, HTTPS-first) e la
-> navigazione intercettata. È stato un esperimento di Fase 2, ora **deprecato**:
-> Maremagnum è e resta un browser game. Il codice del guscio resta nel repo, ma
-> non è la direzione.
-
 ## Struttura
 
 ```
 game/     client: src/ (PixiJS v8, 22 moduli), index.html, style.css, tokens.{css,json}, assets/
 server/   autoritativo: game.js (30Hz) + moduli *-core.js puri
 cf/        Cloudflare: worker.js + 6 Durable Object + R2, wrangler.jsonc
-scripts/  build (gen-tokens, esbuild), bake-* (three.js→WebP), test-*.js, dev.js, shot.js
+scripts/  build (gen-tokens, esbuild), bake-* (three.js→WebP), test-*.js, shot.js
 docs/     ARCHITETTURA · GAME-DESIGN · ACCESSIBILITA · AUDIT-UX · AUDIT-VISIVO · ROADMAP
-shell/    guscio Electron desktop (deprecato)
 ```
 
 Un dettaglio del restyle (issue #32): **una fonte di verità unica** per l'estetica.

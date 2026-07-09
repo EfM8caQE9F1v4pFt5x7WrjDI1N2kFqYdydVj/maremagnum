@@ -1,5 +1,10 @@
 'use strict';
 
+// ⚠️ DEPRECATO COME PRODOTTO (2026-07-09). Maremagnum è un browser game (web,
+// su Cloudflare) — vedi docs/ARCHITETTURA.md. Questo guscio Electron NON è più
+// la direzione: sopravvive solo come host headless per i test (scripts/test-a11y
+// carica questo file per pilotare l'app vera). Non aggiungere feature qui.
+//
 // Il guscio browser di Maremagnum.
 //
 // Architettura (vedi docs/ARCHITETTURA.md):
@@ -16,9 +21,9 @@ const { app, BaseWindow, WebContentsView, ipcMain, shell } = require('electron')
 const { initGuard, setGuardEnabled, resetGuardCount } = require('./guard.js');
 const { decideUpgrade, decideFallback } = require('./https-first.js');
 
-// Senza GAME_URL (app pacchettizzata o `electron .` diretto) il server di
-// gioco salpa dentro questo stesso processo; scripts/dev.js invece lo avvia
-// a parte e ci passa l'URL.
+// Senza GAME_URL il server di gioco salpa dentro questo stesso processo (il
+// caso del test a11y, che carica questo guscio); altrimenti si usa l'URL
+// passato dall'ambiente.
 let GAME_URL = process.env.GAME_URL;
 if (!GAME_URL) {
   process.env.PORT = process.env.PORT || '3210';
