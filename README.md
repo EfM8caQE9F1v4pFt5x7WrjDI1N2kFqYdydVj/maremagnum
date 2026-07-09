@@ -123,7 +123,8 @@ Prototipo giocabile (Fase 1). Verificato con `npm test` (server dedicato con
 difese di cartapesta): 29 asserzioni end-to-end su battaglia, bottino, respawn,
 cantiere, scala dei tier, missioni, assedio ed espugnazione della fortezza.
 Prossime tappe sensate: ciurme/alleanze e scorte, persistenza server-side dei
-profili (oggi: localStorage, fidarsi è da ingenui), zone/rooms con Colyseus,
+profili (oggi: localStorage, fidarsi è da ingenui), più zone di mare (i Durable
+Objects già abilitano il modello a rooms — oggi un DO per mare, tetto 24 di ciurma),
 hardening del guscio (Fase 2: CEF o fork stile Vivaldi).
 
 ## Musiche

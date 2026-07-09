@@ -4,6 +4,28 @@
 docs ufficiali Chromium, blog ingegneristici dei browser alternativi, forum (dissenso incluso),
 stack di gioco/multiplayer, prior art.*
 
+> **Aggiornamento 2026-07-09 — com'è finita davvero.** Questa pagina resta il
+> *registro dell'analisi del 2026-07-04* (serve a ricordare **perché** certe opzioni
+> furono scartate). Ma ciò che è stato **costruito e messo in mare** ha preso una rotta
+> diversa su due punti, ed è quella che vale oggi:
+> - **Runtime: Cloudflare, solo piano gratuito** — non Electron come deploy primario.
+>   Un Worker (`cf/src/worker.js`) serve il client web e smista i WebSocket; lo stato
+>   multiplayer vive in **Durable Objects SQLite-backed** (`MareDO`, `ContiDO`,
+>   `AtlanteDO`, `GazzettaDO`, `CampagneDO`, `GildeDO`), R2 per la cache della blocklist,
+>   cron + Workers AI per il solo lore. Fonte: `cf/wrangler.jsonc`. Il paletto *"il mare
+>   dorme quando è vuoto"* **è** l'hibernation dei Durable Objects → costo zero.
+> - **Colyseus: valutato, mai adottato.** Il suo posto l'hanno preso i Durable Objects
+>   (Colyseus avrebbe richiesto un server sempre acceso, fuori dal piano gratuito).
+> - **PixiJS: confermato.** Il client gira nel browser, servito come asset statici dal Worker.
+> - **Electron (`shell/`) resta come guscio della «fase 2»** (desktop, browser vero con
+>   intercettazione della navigazione). La v1 in mare è la **versione web**, dove i siti
+>   si aprono in una scheda nuova invece di essere catturati dal guscio.
+>
+> Il trucco che regge tutto: la logica di gioco è scritta **una volta** (`server/*-core.js`,
+> `server/game.js`) e gira in **due gusci** — Node + `ws` in locale per il dev, Worker + DO
+> in produzione (`cf/src/mare-do.js` importa lo **stesso** `Game`). Da qui in giù è l'analisi
+> originale, lasciata intatta come memoria delle alternative.
+
 ## Il requisito
 
 Un **vero browser**: barra URL reale, i siti renderizzati dal motore (niente iframe), e ogni
@@ -90,7 +112,7 @@ giocatori attivi così).
 (Electron oggi, CEF o fork domani) diventa un dettaglio sostituibile, e il 90% del lavoro
 sopravvive a qualunque migrazione. È il modello Vivaldi senza pagarne il costo dal giorno uno.
 
-### Fase 1 — Electron (ora)
+### Fase 1 — Electron (piano originale; oggi rimandato — la v1 è la versione web su Cloudflare)
 ```
 ┌────────────────────────── BaseWindow ──────────────────────────┐
 │ WebContentsView GIOCO (privilegiata, PixiJS, sempre sopra)     │
@@ -115,14 +137,16 @@ distribuzione, feature da browser "vero" tipo sync/estensioni). Il gioco si port
 | Componente | Scelta | Perché |
 |---|---|---|
 | Rendering 2D | **PixiJS v8** (v8.19, MIT, TS) | WebGL production-ready, 100k sprite a ~15ms; è solo rendering: la simulazione resta nostra e speculare al server. Alternativa: Phaser 4 (uscito apr 2026, framework completo) — più "incluso" ma più opinionato e più giovane. |
-| Server multiplayer | **Colyseus v0.17** (MIT, feb 2026) | Rooms = zone del mare, sync di stato binaria con delta compression via Schema, riconnessione automatica. Il naval combat è lento di suo → WebSocket/TCP basta, niente WebRTC (geckos.io è anche il meno mantenuto del lotto). *Nota: il prototipo attuale usa `ws` puro con protocollo JSON — un solo mare, niente rooms; la migrazione a Colyseus scatta quando servono più zone/scala.* |
+| Server multiplayer | **Cloudflare Workers + Durable Objects** (SQLite-backed, piano gratuito) — *dev locale: Node + `ws`, protocollo JSON* | **Rotta effettiva** (vedi banner in testa). Lo stato del mare vive in un Durable Object (`MareDO`) che ospita lo **stesso** `Game` del core; l'hibernation = il mare dorme quando è vuoto → costo zero, niente server sempre acceso. Il naval combat è lento di suo → WebSocket basta, niente WebRTC. **Colyseus v0.17 (MIT, feb 2026) valutato ma NON adottato**: rooms/delta-compression eleganti, ma richiede un processo persistente fuori dal piano gratuito; i DO danno rooms-per-zona equivalenti a costo zero. (geckos.io scartato a monte: WebRTC + il meno mantenuto del lotto.) |
 | Tecniche di rete | Server autoritativo + client prediction + entity interpolation | Canone Gambetta/Valve. Anti-cheat: il server decide danni, oro, upgrade. |
 | Fortezze anti-porno | Blocklist di domini adulti lato server | In prototipo una lista hardcoded; poi una lista mantenuta (es. blocklist DNS pubbliche). |
 
 ## Rischi aperti
 
-1. **Sicurezza Electron vs Chrome**: accettata per la v1 (mitigazioni: sandbox, context
-   isolation, view sito senza privilegi); da rivalutare in fase 2.
+1. **Sicurezza Electron vs Chrome**: rischio **rimandato** — la v1 web su Cloudflare non
+   spedisce il guscio Electron, quindi i siti restano nel browser dell'utente (sandbox del
+   browser stesso). Torna in scena solo con la fase 2 (guscio desktop): mitigazioni previste
+   sandbox, context isolation, view sito senza privilegi.
 2. **Siti che rompono la fiction**: navigazione interna a un sito (stesso dominio) non deve
    scatenare viaggi — regola: nuovo viaggio solo al cambio di dominio (configurabile).
 3. **Lezione PMOG**: il gioco deve essere divertente *anche da solo* (PNG mercantili, fortezze),
