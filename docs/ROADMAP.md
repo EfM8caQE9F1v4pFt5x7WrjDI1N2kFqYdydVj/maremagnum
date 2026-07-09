@@ -37,6 +37,9 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 ### Fase 3 — La voce del mare
 | #4 | Gazzetta del Corsaro (v1 SOLO in gioco: storico, non-letti, per-utente) | Infrastruttura per #3 e #5 |
 | #3 | Mastro di Rotte v1 (campagne/dungeon **PvE**; worker + cron + Workers AI solo per lore) | La parte PvP (tornei, taglie fra gilde) è v2, dopo la Fase 4 |
+| #36 | ⚠️ BUG: le campagne del Mastro non compaiono in produzione CF (cron/DO a freddo + poca esposizione; non riproducibile in locale) | Blocca la fruizione di #3; fix proposto: auto-seed + refresh MareDO + HUD dedicato |
+| #37 | Co-op: alleanze temporanee per affrontare un dungeon in due (party effimero nel MareDO, riusa il pattern lobby/ruoli dell'Assedio) | Estende #3; da costruire da zero; ripensa il premio winner-take-all |
+| #38 | Mastro v2: l'AI GENERA i dungeon (PvE+PvP, giornalieri/settimanali/mensili) con vera varietà — bersagli reali, difese, narrazione; il motore blinda SOLO il premio in dobloni (no pay-to-win) | Evoluzione di #3 (chiusa); dipende da #36; modello verso Qwen3-30B, budget ~10k neuron/dì (slug+costo da confermare) |
 
 ### Fase 4 — La società dei corsari
 | #5 | Gilde: fondazione, categoria, bandiera (decidere PRIMA: editor a componenti vs upload+moderazione), rito d'ingresso, log | Dopo la Gazzetta; abilita il Mastro di Rotte v2 (PvP) |
@@ -55,6 +58,7 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 | #25 | ✓ CHIUSA (v1 a dobloni) — Negozio Livree + Registro + vessillo; skin personaggi con #16/#7, mercato v2 dopo #28 | pay to show, mai pay to win; niente casse |
 | #28 | Il modello economico (faucet/sink, denaro vero, Stripe, VAT) | Blocca Stripe in #25 v2 e #1 |
 | #1 | Editor dell'Isola (riscatto a pagamento) | Richiede #12 (persistenza ✓); può essere ANTICIPATA per decisione di business |
+| #35 | Isole vive: il tipo di sito genera aspetto + vita (SimCity delle isole) | Evoluzione del filo #27→#35→#1; vita client-side procedurale; bloccata sugli asset #16; ispirazione dat.city |
 
 ## Il restyle (issue #32, IN CORSO — strati di base fatti e deployati 2026-07-06)
 
@@ -74,6 +78,7 @@ Macchina i18n fatta in casa (`game/src/i18n.js`: `t(chiave, params)`, dizionari 
 - **Policenauts** → modalità storia / PvE (**#30**), in mix and match con Pirates!.
 - **Cutthroat Island** → platform d'entroterra: livello → tesoro = dobloni + URL profondo (annotata su #10).
 - **Picchiaduro** (riferimento DA SCEGLIERE, ricerca **#31**) → arrembaggio: 25% o abbordaggio col roster (annotata su #6/#7; #31 blocca il design di #7).
+- **dat.city** (*World Data Playground*, ispirazione estetica) → isole vive alla SimCity: il tipo di sito genera aspetto e vita dell'isola (**#35**). Da dat.city si prende la vita procedurale e gli archetipi, NON la meccanica (dat.city è "classifica→skyline", non "URL→mondo").
 
 ## Epiche
 

@@ -2,15 +2,14 @@
   "name": "maremagnum",
   "version": "0.7.0",
   "description": "Maremagnum: un vero browser che è anche un gioco — l'internet è un mare magnum, i siti sono isole, tu sei il corsaro.",
-  "main": "shell/main.js",
+  "main": "server/index.js",
   "scripts": {
     "build": "node scripts/gen-tokens.js && esbuild game/src/main.js --bundle --outfile=game/dist/bundle.js --sourcemap",
     "watch": "esbuild game/src/main.js --bundle --outfile=game/dist/bundle.js --sourcemap --watch",
     "tokens": "node scripts/gen-tokens.js",
     "server": "node server/index.js",
-    "app": "electron .",
-    "dev": "node scripts/dev.js",
-    "start": "node scripts/dev.js",
+    "dev": "npm run build && npm run server",
+    "start": "npm run build && npm run server",
     "test": "node scripts/test-tokens.js && node scripts/test-dominio.js && node scripts/test-og.js && node scripts/test-flotta.js && node scripts/test-livree.js && node scripts/test-blocco.js && node scripts/test-campagna.js && node scripts/test-gilde.js && node scripts/test-atlante.js && node scripts/test-protocol.js",
     "test:guardia": "node scripts/test-guard.js",
     "test:a11y": "node scripts/test-a11y.js"
@@ -20,20 +19,19 @@
     "game",
     "pirati",
     "multiplayer",
-    "electron",
     "pixijs"
   ],
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
-    "@ghostery/adblocker-electron": "^2.18.1",
-    "@ghostery/adblocker-electron-preload": "^2.18.1",
     "pixi.js": "^8.19.0",
     "qrcode": "^1.5.4",
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@electron/packager": "^20.0.2",
+    "@ghostery/adblocker": "^2.18.1",
+    "@ghostery/adblocker-electron": "^2.18.1",
+    "@ghostery/adblocker-electron-preload": "^2.18.1",
     "axe-core": "^4.12.1",
     "electron": "^43.0.0",
     "esbuild": "^0.28.1",

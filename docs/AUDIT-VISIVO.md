@@ -136,10 +136,10 @@ god rays veri al tramonto su GPU reali, gabbiani sonori diurni.
 
 ## Round 4 — audit UX/UI interattivo (runner `scripts/audit-ui.js`)
 
-Metodo: un runner Electron pilota l'app VERA — click su ogni elemento, rotta
+Metodo: un runner headless pilota l'app VERA — click su ogni elemento, rotta
 digitata, mappa, veleggiata cieca fino al Porto Franco (homing sul dockHint),
-attracco, cantiere, assedi, sito reale nella siteView — e scatta uno
-screenshot per stato (scratchpad/audit/a1..a12).
+attracco, cantiere, assedi — e scatta uno screenshot per stato
+(scratchpad/audit/a1..a12).
 
 ### Correzioni applicate
 | Problema (euristica) | Fix |

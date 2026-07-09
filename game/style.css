@@ -52,95 +52,102 @@ body { font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: 
   outline: 3px solid var(--focus) !important;
   outline-offset: 2px;
   box-shadow: 0 0 0 6px var(--paper-hi) !important;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
 }
 
 /* ---- barra superiore: la plancia di comando ---- */
 #topbar {
   position: fixed; top: 0; left: 0; right: 0; height: 54px;
-  display: flex; align-items: center; gap: 14px; padding: 0 14px;
+  display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-3);
   background: linear-gradient(var(--wood-1), var(--wood-2) 60%, var(--ink));
   border-bottom: 3px solid var(--line-strong);
-  box-shadow: 0 3px 14px rgba(0,0,0,.5);
-  z-index: 30;
+  box-shadow: var(--elev-3);
+  z-index: var(--z-top);
 }
-#brand { font-family: 'Pirata One', Georgia, serif; font-size: 24px; color: var(--gold); white-space: nowrap; letter-spacing: 1px; }
+#brand { font-family: 'Pirata One', Georgia, serif; font-size: var(--t-2xl); color: var(--gold); white-space: nowrap; letter-spacing: 1px; }
 #brand span { color: var(--cream); font-style: italic; font-weight: normal; }
-#courseForm { flex: 1; display: flex; gap: 8px; max-width: 900px; margin: 0 auto; }
+#courseForm { flex: 1; display: flex; gap: var(--s-2); max-width: 900px; margin: 0 auto; }
 #courseInput {
-  flex: 1; padding: 8px 14px; font: inherit; font-size: 15px;
-  background: var(--paper); color: var(--ink); border: 2px solid var(--line-strong); border-radius: 20px;
+  flex: 1; padding: var(--s-2) var(--s-3); font: inherit; font-size: var(--t-md);
+  background: var(--paper); color: var(--ink); border: 2px solid var(--line-strong); border-radius: var(--r-pill);
 }
 button {
-  font: inherit; font-size: 14px; cursor: pointer;
+  font: inherit; font-size: var(--t-base); cursor: pointer;
   background: linear-gradient(var(--gold), var(--gold-deep)); color: var(--ink);
-  border: 2px solid var(--line-strong); border-radius: 18px; padding: 7px 14px; font-weight: bold;
-  /* una placca d'ottone: lucentezza in cima, ombra portata sotto — il bottone
-     ha peso, si solleva al passaggio e affonda alla pressione (issue #32) */
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 2px 5px rgba(0,0,0,.28);
+  border: 2px solid var(--line-strong); border-radius: var(--r-pill); padding: var(--s-2) var(--s-3); font-weight: bold;
+  /* una placca d'ottone: lucentezza in cima (--elev-plate), ombra portata sotto
+     (--elev-1) — il bottone ha peso, si solleva al passaggio (--elev-2) e
+     affonda alla pressione (--elev-plate-lo). Tutto dai token (issue #32). */
+  box-shadow: var(--elev-plate), var(--elev-1);
   transition: filter .12s, transform .07s, box-shadow .12s;
 }
-button:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 5px 12px rgba(0,0,0,.32); }
-button:active:not(:disabled) { transform: translateY(1px); filter: brightness(.97); box-shadow: inset 0 2px 4px rgba(0,0,0,.32); }
+button:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); box-shadow: var(--elev-plate), var(--elev-2); }
+button:active:not(:disabled) { transform: translateY(1px); filter: brightness(.97); box-shadow: var(--elev-plate-lo); }
 button:disabled { opacity: .45; cursor: default; box-shadow: none; }
 /* la placca SECONDARIA (issue #32): legno quieto per le azioni di SERVIZIO
    (navigazione del sito, apri-altrove) — l'oro resta ai richiami primari,
    il .linkish al congedo. Tre gradini d'importanza, un colpo d'occhio. */
 button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); color: var(--cream); }
-#gold { font-size: 18px; color: var(--gold); white-space: nowrap; }
+#gold { font-size: var(--t-xl); color: var(--gold); white-space: nowrap; }
 
 /* ---- barra d'attracco (navigazione del sito nel guscio) ---- */
 #dockbar {
   position: fixed; top: 54px; left: 0; right: 0; height: 40px;
-  display: flex; align-items: center; gap: 10px; padding: 0 14px;
+  display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-3);
   background: linear-gradient(var(--paper), var(--paper-2)); color: var(--ink);
-  border-bottom: 3px solid var(--line-strong); z-index: 29; font-size: 14px;
+  border-bottom: 3px solid var(--line-strong); z-index: var(--z-dock); font-size: var(--t-base);
 }
 #dockInfo { font-weight: bold; white-space: nowrap; }
-#dockNav button, #openExt { padding: 5px 13px; border-radius: 10px; font-size: 14px; }
+#dockNav button, #openExt { padding: var(--s-1) var(--s-3); border-radius: var(--r-md); font-size: var(--t-base); }
 #dockUrl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .75; font-style: italic; }
 
 /* ---- HUD nave ---- */
-/* il fondale scuro garantisce il contrasto dei testi sull'acqua (1.4.3) */
+/* il fondale scuro garantisce il contrasto dei testi sull'acqua (1.4.3).
+   Famiglia "targhetta galleggiante" (issue #32): raggio --r-md, fondale
+   --hud-85, bordo legno ed elevazione --elev-2 dai token — uguali a
+   hint/feed/missione; toast e assedio si distinguono col bordo d'accento. */
 #hud {
-  position: fixed; left: 16px; bottom: 16px; z-index: 20; width: 260px;
-  background: var(--hud-bg); border-radius: 12px; padding: 10px 12px;
+  position: fixed; left: 16px; bottom: 16px; z-index: var(--z-hud); width: 260px;
+  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: var(--r-md);
+  padding: var(--s-2) var(--s-3); box-shadow: var(--elev-2);
 }
-#shipName { font-size: 17px; font-weight: bold; text-shadow: 0 2px 4px #000; margin-bottom: 6px; color: var(--cream); }
+#shipName { font-size: var(--t-lg); font-weight: bold; text-shadow: 0 2px 4px #000; margin-bottom: var(--s-2); color: var(--cream); }
 #hpWrap {
-  position: relative; height: 20px; border: 2px solid var(--line-strong); border-radius: 10px;
+  position: relative; height: 20px; border: 2px solid var(--line-strong); border-radius: var(--r-md);
   background: var(--bar-bg); overflow: hidden;
 }
 #hpBar { height: 100%; width: 100%; background: linear-gradient(var(--hp-hi), var(--hp)); transition: width .2s; }
 #hpText {
-  position: absolute; inset: 0; text-align: center; font-size: 12px; line-height: 17px; color: #fff;
+  position: absolute; inset: 0; text-align: center; font-size: var(--t-xs); line-height: 17px; color: #fff;
   /* orlo scuro su ogni lato: leggibile anche sul verde pieno della barra */
   text-shadow: 1px 0 0 var(--hp-edge), -1px 0 0 var(--hp-edge), 0 1px 0 var(--hp-edge), 0 -1px 0 var(--hp-edge), 0 1px 3px #000;
 }
-#reloads { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
-.rl { display: flex; align-items: center; gap: 7px; }
-.rl span { font-size: 11.5px; color: var(--gold); min-width: 34px; text-shadow: 0 1px 2px #000; }
-.rlWrap { flex: 1; height: 6px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--bar-bg); overflow: hidden; }
+#reloads { margin-top: var(--s-2); display: flex; flex-direction: column; gap: var(--s-1); }
+.rl { display: flex; align-items: center; gap: var(--s-2); }
+.rl span { font-size: var(--t-2xs); color: var(--gold); min-width: 34px; text-shadow: 0 1px 2px #000; }
+.rlWrap { flex: 1; height: 6px; border: 1px solid var(--line-strong); border-radius: var(--r-xs); background: var(--bar-bg); overflow: hidden; }
 .rlBar { height: 100%; width: 100%; background: var(--gold); }
-#dockHint { margin-top: 8px; font-size: 14px; font-style: italic; color: var(--warm); text-shadow: 0 2px 4px #000; min-height: 18px; }
+#dockHint { margin-top: var(--s-2); font-size: var(--t-base); font-style: italic; color: var(--warm); text-shadow: 0 2px 4px #000; min-height: 18px; }
 
 #hint {
   position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-  font-size: 13px; color: var(--cream-dim); z-index: 20;
-  background: var(--hud-bg); border-radius: 10px; padding: 5px 14px;
+  font-size: var(--t-sm); color: var(--cream-dim); z-index: var(--z-hud);
+  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: var(--r-md);
+  padding: var(--s-1) var(--s-3); box-shadow: var(--elev-2);
 }
 #hint b { color: var(--gold); }
 
 #minimap {
-  position: fixed; right: 16px; bottom: 16px; z-index: 20;
-  border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.55);
+  position: fixed; right: 16px; bottom: 16px; z-index: var(--z-hud);
+  border-radius: var(--r-sm); box-shadow: var(--elev-3);
 }
 
 /* ---- killfeed & toast ---- */
-#killfeed { position: fixed; top: 66px; right: 16px; z-index: 25; transition: top .25s; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+#killfeed { position: fixed; top: 66px; right: 16px; z-index: var(--z-feed); transition: top .25s; display: flex; flex-direction: column; gap: var(--s-2); align-items: flex-end; }
 .feedItem {
-  background: var(--hud-82); border: 1px solid var(--wood-1); border-radius: 14px;
-  padding: 6px 12px; font-size: 13px; transition: opacity 1.2s; max-width: 380px;
+  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: var(--r-md);
+  padding: var(--s-2) var(--s-3); font-size: var(--t-sm); transition: opacity 1.2s; max-width: 380px;
+  box-shadow: var(--elev-2);
 }
 .feedItem.fading { opacity: 0; }
 /* il toast vive in BASSO al centro (sopra la legenda): mai più impilato
@@ -148,14 +155,15 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
    (issue #19, rilievo F8 dell'audit) */
 #toast {
   position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
-  background: var(--hud-90); border: 2px solid var(--gold); border-radius: 18px;
-  padding: 9px 20px; font-size: 15px; z-index: 40; text-align: center; max-width: 70vw;
+  background: var(--hud-90); border: 2px solid var(--gold); border-radius: var(--r-md);
+  padding: var(--s-2) var(--s-4); font-size: var(--t-md); z-index: var(--z-toast); text-align: center; max-width: 70vw;
+  box-shadow: var(--elev-2);
 }
 
 /* il colpo si sente: lampo rosso ai bordi quando lo scafo incassa
    (Mare calmo lo spegne — issue #19, rilievo F9) */
 #dannoFlash {
-  position: fixed; inset: 0; z-index: 15; pointer-events: none; opacity: 0;
+  position: fixed; inset: 0; z-index: var(--z-flash); pointer-events: none; opacity: 0;
   box-shadow: inset 0 0 140px 55px var(--danno);
   transition: opacity .45s;
 }
@@ -180,39 +188,39 @@ body.conPannello #hint { opacity: 0; }
 #gazzettaBadge {
   position: absolute; top: -4px; right: -6px;
   min-width: 16px; height: 16px; padding: 0 3px;
-  border-radius: 9px; background: var(--gold); color: var(--line-strong);
-  font-size: 11px; font-weight: bold; line-height: 16px; text-align: center;
+  border-radius: var(--r-pill); background: var(--gold); color: var(--line-strong);
+  font-size: var(--t-2xs); font-weight: bold; line-height: 16px; text-align: center;
   border: 1px solid var(--edge);
 }
-.gazzettaVoce { padding: 8px 4px; border-bottom: 1px solid var(--hair-25); text-align: left; }
-.gazzettaVoce time { display: block; font-size: 12px; font-style: italic; color: var(--ink-soft); margin-bottom: 2px; }
+.gazzettaVoce { padding: var(--s-2) var(--s-1); border-bottom: 1px solid var(--hair-30); text-align: left; }
+.gazzettaVoce time { display: block; font-size: var(--t-xs); font-style: italic; color: var(--ink-soft); margin-bottom: var(--s-1); }
 .gazzettaVoce p { margin: 0; }
-.gazzettaVoce.nuova { background: var(--gold-12); border-left: 3px solid var(--gold); padding-left: 8px; }
+.gazzettaVoce.nuova { background: var(--gold-12); border-left: 3px solid var(--gold); padding-left: var(--s-2); }
 /* la campagna del Mastro di Rotte (issue #3) in cima all'albo */
 .campagnaBox {
-  text-align: left; margin-bottom: 14px; padding: 10px 14px;
-  border: 2px solid var(--edge); border-radius: 8px; background: var(--gold-10);
+  text-align: left; margin-bottom: var(--s-4); padding: var(--s-3) var(--s-3);
+  border: 2px solid var(--edge); border-radius: var(--r-sm); background: var(--gold-10);
 }
-.campagnaBox h3 { margin: 0 0 4px; font-size: 16px; }
-.campagnaLore { margin: 0 0 8px; font-style: italic; color: var(--ink-soft); font-size: 13.5px; }
-.campagnaTappe { margin: 0 0 8px; padding-left: 6px; list-style: none; }
-.campagnaTappe li { padding: 2px 0; }
+.campagnaBox h3 { margin: 0 0 var(--s-1); font-size: var(--t-xl); }
+.campagnaLore { margin: 0 0 var(--s-2); font-style: italic; color: var(--ink-soft); font-size: var(--t-sm); }
+.campagnaTappe { margin: 0 0 var(--s-2); padding-left: var(--s-2); list-style: none; }
+.campagnaTappe li { padding: var(--s-1) 0; }
 .campagnaTappe li.fatta { color: var(--green-done); }
 .campagnaTappe li.corrente { font-weight: bold; }
 .campagnaTappe li.futura { color: var(--ink-soft); }
-.campagnaPremio { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+.campagnaPremio { margin: 0; font-size: var(--t-sm); color: var(--ink-soft); }
 
 /* il Cantiere con gerarchia (issue #24): schede, consiglio, "no" leggibili */
-#shopTabs { display: flex; gap: 8px; justify-content: center; margin: 10px 0 14px; }
+#shopTabs { display: flex; gap: var(--s-2); justify-content: center; margin: var(--s-3) 0 var(--s-4); }
 #shopTabs button { opacity: .75; }
 #shopTabs button[aria-pressed="true"] {
   opacity: 1; background: linear-gradient(var(--gold-lite), var(--gold-lite2));
   border-color: var(--brass-3); font-weight: bold;
 }
 #shopConsiglio {
-  margin: 8px auto 2px; max-width: 640px; padding: 8px 14px;
-  border: 2px solid var(--brass); border-radius: 12px; background: var(--gold-16);
-  font-size: 14.5px;
+  margin: var(--s-2) auto var(--s-1); max-width: 640px; padding: var(--s-2) var(--s-3);
+  border: 2px solid var(--brass); border-radius: var(--r-md); background: var(--gold-16);
+  font-size: var(--t-base);
 }
 #shopConsiglio .linkish { margin-left: 4px; }
 .panel button:disabled {
@@ -223,43 +231,43 @@ body.conPannello #hint { opacity: 0; }
 .occhiolino { animation: occhiolino 0.8s ease-in-out 2; }
 
 /* le Fratellanze (issue #5): elenco, scheda, fondazione con l'editor */
-.gildaTesta { display: flex; gap: 16px; align-items: center; text-align: left; margin-bottom: 10px; }
-.gildaTesta h3 { margin: 0; font-size: 18px; }
+.gildaTesta { display: flex; gap: var(--s-4); align-items: center; text-align: left; margin-bottom: var(--s-3); }
+.gildaTesta h3 { margin: 0; font-size: var(--t-xl); }
 .gildaRiga {
-  display: flex; gap: 10px; align-items: center; text-align: left;
-  padding: 6px 4px; border-bottom: 1px solid var(--hair-25);
+  display: flex; gap: var(--s-3); align-items: center; text-align: left;
+  padding: var(--s-2) var(--s-1); border-bottom: 1px solid var(--hair-30);
 }
 .gildaRiga .gildaInfo { flex: 1; }
 .gildaRiga span { flex: 1; }
-.gildaLog { margin: 2px 0; font-size: 13px; text-align: left; color: var(--ink-soft); }
-#gildaFondaForm { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-.gfRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.gildaLog { margin: var(--s-1) 0; font-size: var(--t-sm); text-align: left; color: var(--ink-soft); }
+#gildaFondaForm { display: flex; flex-direction: column; gap: var(--s-3); align-items: center; }
+.gfRow { display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap; justify-content: center; }
 #gfEditor { align-items: flex-start; }
-#gfBandiera { border: 2px solid var(--edge); border-radius: 4px; }
-#gfScelte { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13.5px; }
-#gfScelte select { font: inherit; font-size: 13px; margin-left: 4px; }
-#gfCategoria { font: inherit; font-size: 14px; }
+#gfBandiera { border: 2px solid var(--edge); border-radius: var(--r-xs); }
+#gfScelte { display: flex; flex-direction: column; gap: var(--s-1); text-align: left; font-size: var(--t-sm); }
+#gfScelte select { font: inherit; font-size: var(--t-sm); margin-left: var(--s-1); }
+#gfCategoria { font: inherit; font-size: var(--t-base); }
 
 /* gli approdi preferiti (issue #13): la stella e la pergamena del varo */
 #favBtn[aria-pressed="true"] { color: var(--gold); }
-#salpaScelte { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+#salpaScelte { display: flex; flex-wrap: wrap; gap: var(--s-2); justify-content: center; }
 
 /* ---- classifica ---- */
 #board {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
   background: var(--studs), var(--paper); background-repeat: no-repeat;
-  color: var(--ink); border: 4px double var(--edge); border-radius: 8px;
-  padding: 18px 26px; z-index: 45; min-width: 420px;
-  box-shadow: inset 0 0 45px var(--panel-inset), 0 10px 40px rgba(0,0,0,.6);
+  color: var(--ink); border: 4px double var(--edge); border-radius: var(--r-md);
+  padding: var(--s-4) var(--s-6); z-index: var(--z-board); min-width: 420px;
+  box-shadow: var(--elev-vignette), var(--elev-4);
 }
-#board h3 { text-align: center; margin-bottom: 10px; }
-#board table { width: 100%; border-collapse: collapse; font-size: 15px; }
-#board th, #board td { padding: 4px 10px; text-align: left; border-bottom: 1px solid var(--hair-35); }
+#board h3 { text-align: center; margin-bottom: var(--s-3); font-size: var(--t-xl); }
+#board table { width: 100%; border-collapse: collapse; font-size: var(--t-md); }
+#board th, #board td { padding: var(--s-1) var(--s-3); text-align: left; border-bottom: 1px solid var(--hair-30); }
 #board th { font-variant: small-caps; }
 
 /* ---- overlay generici ---- */
 .overlay {
-  position: fixed; inset: 0; z-index: 50;
+  position: fixed; inset: 0; z-index: var(--z-overlay);
   background: var(--overlay-bg);
   display: flex; align-items: center; justify-content: center;
 }
@@ -269,10 +277,10 @@ body.conPannello #hint { opacity: 0; }
      appena i bordi — la carta invecchiata, non un rettangolo piatto */
   background: var(--studs), var(--paper);
   background-repeat: no-repeat; color: var(--ink);
-  border: 4px double var(--edge); border-radius: 10px;
-  padding: 26px 34px; text-align: center; max-width: 560px;
+  border: 4px double var(--edge); border-radius: var(--r-md);
+  padding: var(--s-6) var(--s-7); text-align: center; max-width: 560px;
   max-height: 92vh; overflow-y: auto;
-  box-shadow: inset 0 0 55px var(--panel-inset), 0 14px 50px rgba(0,0,0,.65);
+  box-shadow: var(--elev-vignette), var(--elev-5);
   position: relative; isolation: isolate;
 }
 /* grana di carta vergata (issue #32): un velo di rumore in multiply, SOTTO il
@@ -284,133 +292,147 @@ body.conPannello #hint { opacity: 0; }
   mix-blend-mode: multiply; opacity: .7; pointer-events: none;
 }
 .panel::-webkit-scrollbar { width: 10px; }
-.panel::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: 6px; border: 2px solid var(--paper); }
+.panel::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: var(--r-sm); border: 2px solid var(--paper); }
 .panel::-webkit-scrollbar-track { background: transparent; }
-.panel h2 { margin-bottom: 8px; font-family: 'Pirata One', Georgia, serif; letter-spacing: 1px; font-weight: normal; font-size: 30px; }
-.panel .sub { font-style: italic; opacity: .85; margin-bottom: 16px; line-height: 1.5; }
-.panel .sub.gesto { margin: 14px 0 0; font-size: 13.5px; opacity: .7; }
-.panel form { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+/* Scala di titolazione (issue #32): un solo corpo-display per il titolo di
+   pannello (--t-3xl, Pirata One) e un solo corpo per i titoli di scheda/sezione
+   (--t-xl, gilde/campagna/classifica) — niente più h3 a 16 qui e 18 là. */
+.panel h2 { margin-bottom: var(--s-2); font-family: 'Pirata One', Georgia, serif; letter-spacing: 1px; font-weight: normal; font-size: var(--t-3xl); }
+.panel .sub { font-style: italic; opacity: .85; margin-bottom: var(--s-4); line-height: 1.5; }
+.panel .sub.gesto { margin: var(--s-3) 0 0; font-size: var(--t-sm); opacity: .7; }
+.panel form { display: flex; gap: var(--s-2); justify-content: center; margin-bottom: var(--s-3); }
 .panel input {
-  font: inherit; font-size: 16px; padding: 8px 14px;
-  border: 2px solid var(--edge); border-radius: 18px; background: var(--paper-hi); color: var(--ink);
+  font: inherit; font-size: var(--t-md); padding: var(--s-2) var(--s-3);
+  border: 2px solid var(--edge); border-radius: var(--r-pill); background: var(--paper-hi); color: var(--ink);
   outline: none; width: 280px;
 }
 .linkish { background: none; border: none; box-shadow: none; font-style: italic; text-decoration: underline; font-weight: normal; min-height: 24px; }
 .panel.death { background: var(--death-bg); color: var(--cream); border-color: var(--danger); }
 /* la morte racconta (issue #23): il conto e il consiglio della Stiva */
-.deathConto { margin: 2px 0 4px; font-size: 15px; }
+.deathConto { margin: var(--s-1) 0 var(--s-1); font-size: var(--t-md); }
 .panel.death .sub { color: var(--death-sub); }
-#deathCount { font-size: 56px; font-weight: bold; color: var(--gold); margin-top: 6px; }
+#deathCount { font-size: var(--t-display); font-weight: bold; color: var(--gold); margin-top: var(--s-2); }
 
 /* ---- mappa del tesoro ---- */
 .mapWrap { text-align: center; position: relative; }
-#mapCanvas { border-radius: 4px; box-shadow: 0 18px 70px rgba(0,0,0,.7); transform: rotate(-.6deg); }
+#mapCanvas { border-radius: var(--r-xs); box-shadow: var(--elev-6); transform: rotate(-.6deg); }
 #sailBtn {
   position: absolute; right: 30px; bottom: 26px; margin: 0;
-  font-size: 17px; padding: 10px 26px; transform: rotate(-.6deg);
+  font-size: var(--t-lg); padding: var(--s-3) var(--s-6); transform: rotate(-.6deg);
   box-shadow: 0 6px 18px rgba(0,0,0,.45);
 }
 
 /* ---- missione & assedio ---- */
 #missionHud {
-  position: fixed; top: 66px; left: 16px; z-index: 24; transition: top .25s;
-  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: 14px;
-  padding: 7px 14px; font-size: 13.5px; max-width: 420px;
+  position: fixed; top: 66px; left: 16px; z-index: var(--z-pill); transition: top .25s;
+  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: var(--r-md);
+  padding: var(--s-2) var(--s-3); font-size: var(--t-sm); max-width: 420px;
+  box-shadow: var(--elev-2);
 }
 #missionHud .reward { color: var(--gold); }
 #assedioHud {
-  position: fixed; top: 66px; left: 50%; transform: translateX(-50%); z-index: 24; transition: top .25s;
-  background: var(--assedio-bg); border: 2px solid var(--danger); border-radius: 16px;
-  padding: 8px 18px; font-size: 14.5px; font-weight: bold; color: var(--on-danger);
+  position: fixed; top: 66px; left: 50%; transform: translateX(-50%); z-index: var(--z-pill); transition: top .25s;
+  background: var(--assedio-bg); border: 2px solid var(--danger); border-radius: var(--r-md);
+  padding: var(--s-2) var(--s-4); font-size: var(--t-base); font-weight: bold; color: var(--on-danger);
+  box-shadow: var(--elev-2);
 }
-.teams { display: flex; gap: 30px; justify-content: center; margin-bottom: 14px; font-size: 14px; }
+.teams { display: flex; gap: var(--s-7); justify-content: center; margin-bottom: var(--s-4); font-size: var(--t-base); }
 .teams > div { min-width: 130px; }
-.row { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 6px; }
-#siteLink { display: inline-block; margin-bottom: 12px; }
+.row { display: flex; gap: var(--s-3); justify-content: center; align-items: center; flex-wrap: wrap; margin-top: var(--s-2); }
+#siteLink { display: inline-block; margin-bottom: var(--s-3); }
 
 /* ---- cantiere ---- */
 .panel.wide { max-width: 760px; max-height: 86vh; overflow-y: auto; padding-bottom: 0; }
 .panel .azioni {
-  position: sticky; bottom: 0; margin-top: 14px; padding: 12px 0 16px;
-  background: var(--paper); border-top: 1px solid var(--hair-35);
+  position: sticky; bottom: 0; margin-top: var(--s-4); padding: var(--s-3) 0 var(--s-4);
+  background: var(--paper); border-top: 1px solid var(--hair-40);
 }
 .panel.wide::-webkit-scrollbar { width: 10px; }
-.panel.wide::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: 6px; border: 2px solid var(--paper); }
+.panel.wide::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: var(--r-sm); border: 2px solid var(--paper); }
 .panel.wide::-webkit-scrollbar-track { background: transparent; }
-.shopSection { margin: 14px 0 8px; border-top: 1px solid var(--hair-40); padding-top: 10px; }
+/* Ritmo verticale della card dal righello (issue #32): i blocchi-pari
+   (shipClass, righe, wgroup) separati sempre da --s-3; l'header aggrappato al
+   suo contenuto a --s-2; raggi e corpi-font dai token. Niente più 6/7/9/10/14
+   a mano — è il ritmo che "vibrava" (l'occhio del capitano su questa card). */
+.shopSection { margin: var(--s-4) 0 var(--s-2); border-top: 1px solid var(--hair-40); padding-top: var(--s-2); }
 .shipClass {
-  background: var(--paper-60); border: 1px solid var(--edge); border-radius: 8px;
-  padding: 7px 12px; margin-bottom: 10px; text-align: left; font-size: 13.5px;
+  background: var(--paper-60); border: 1px solid var(--edge); border-radius: var(--r-sm);
+  padding: var(--s-2) var(--s-3); margin-bottom: var(--s-3); text-align: left; font-size: var(--t-sm);
 }
 .shipClass b { color: var(--brown-warm); }
 .wgroup {
-  background: var(--paper-50); border: 1px solid var(--edge); border-radius: 8px;
-  padding: 8px 12px; margin-bottom: 9px; text-align: left;
+  background: var(--paper-50); border: 1px solid var(--edge); border-radius: var(--r-sm);
+  padding: var(--s-2) var(--s-3); margin-bottom: var(--s-3); text-align: left;
 }
-.wgroupHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-.wgroupHead span { font-size: 12px; color: var(--ink-mute); font-style: italic; }
+.wgroupHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--s-2); }
+.wgroupHead span { font-size: var(--t-xs); color: var(--ink-mute); font-style: italic; }
 .wslot {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 5px 8px; border-bottom: 1px dashed var(--hair-30);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
+  padding: var(--s-1) var(--s-2); border-bottom: 1px solid var(--hair-30);
 }
 .wslot:last-of-type { border-bottom: none; }
-.wname .tier { font-size: 11.5px; color: var(--edge); margin-left: 8px; font-variant: small-caps; }
-.wname .pips { color: var(--edge); letter-spacing: 2px; margin-left: 10px; font-size: 12px; }
-.wslot button { padding: 4px 12px; font-size: 13px; min-width: 150px; }
-.wslot .tierUp { background: linear-gradient(var(--tier-hi), var(--tier)); }
-.wslot .maxed { font-style: italic; font-size: 12.5px; color: var(--ink-mute); }
-.addSlot { margin-top: 7px; width: 100%; font-size: 13px; background: linear-gradient(var(--sage-hi), var(--sage)); color: var(--green-ink); }
+.wname .tier { font-size: var(--t-2xs); color: var(--edge); margin-left: var(--s-2); font-variant: small-caps; }
+.wname .pips { color: var(--edge); letter-spacing: 2px; margin-left: var(--s-3); font-size: var(--t-xs); }
+.wslot button { padding: var(--s-1) var(--s-3); font-size: var(--t-sm); min-width: 150px; }
+/* il potenziamento è una spesa d'oro, non un accento alieno (issue #32,
+   disciplina dei 3 accenti): oro ACCESO come la scheda attiva del Cantiere.
+   La freccia → nel testo porta il senso di "sali di grado". */
+.wslot .tierUp { background: linear-gradient(var(--gold-lite), var(--gold-lite2)); border-color: var(--brass-3); }
+.wslot .maxed { font-style: italic; font-size: var(--t-xs); color: var(--ink-mute); }
+/* aggiungere una bocca è azione strutturale di servizio, non un premio:
+   legno secondario, quieto e in-palette (non più il salvia alieno). */
+.addSlot { margin-top: var(--s-2); width: 100%; font-size: var(--t-sm); background: linear-gradient(var(--wood-1), var(--wood-2)); color: var(--cream); }
 
 /* ---- cantiere (righe nave) ---- */
-#shopRows { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; text-align: left; }
+#shopRows { display: flex; flex-direction: column; gap: var(--s-3); margin-bottom: var(--s-3); text-align: left; }
 .shopRow {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  background: var(--paper-60); border: 1px solid var(--edge); border-radius: 8px; padding: 8px 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-4);
+  background: var(--paper-60); border: 1px solid var(--edge); border-radius: var(--r-sm); padding: var(--s-2) var(--s-3);
 }
 .shopInfo { display: flex; flex-direction: column; }
-.shopInfo span { font-size: 12.5px; font-style: italic; opacity: .8; }
-.shopInfo .pips { color: var(--edge); letter-spacing: 3px; font-style: normal; font-size: 13px; }
-.shopInfo .effetti { color: var(--ink-mute); font-style: normal; font-size: 12px; }
+.shopInfo span { font-size: var(--t-xs); font-style: italic; opacity: .8; }
+.shopInfo .pips { color: var(--edge); letter-spacing: 3px; font-style: normal; font-size: var(--t-sm); }
+.shopInfo .effetti { color: var(--ink-mute); font-style: normal; font-size: var(--t-xs); }
 .shopRow button { min-width: 96px; }
 
 /* ---- il Negozio delle Livree e il Registro (issue #25) ---- */
 .swatch {
-  display: inline-block; width: 14px; height: 14px; border-radius: 50%;
-  border: 1.5px solid var(--brown-deep); vertical-align: -2px; margin-right: 4px;
+  display: inline-block; width: 14px; height: 14px; border-radius: var(--r-round);
+  border: 1.5px solid var(--brown-deep); vertical-align: -2px; margin-right: var(--s-1);
 }
 .shopRow.indossata { outline: 2px solid var(--brass-2); outline-offset: -2px; }
 .vessillo {
-  display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap;
-  padding: 8px; justify-content: flex-start;
+  display: flex; gap: var(--s-3); align-items: flex-start; flex-wrap: wrap;
+  padding: var(--s-2); justify-content: flex-start;
 }
-.vessillo canvas { border: 2px solid var(--edge); border-radius: 4px; }
-.vessillo .gfScelte { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13.5px; }
-.vessillo .gfScelte select { font: inherit; font-size: 13px; margin-left: 4px; }
+.vessillo canvas { border: 2px solid var(--edge); border-radius: var(--r-xs); }
+.vessillo .gfScelte { display: flex; flex-direction: column; gap: var(--s-1); text-align: left; font-size: var(--t-sm); }
+.vessillo .gfScelte select { font: inherit; font-size: var(--t-sm); margin-left: var(--s-1); }
 .vessillo button { align-self: center; }
 /* niente scroll interno: scrolla il .panel, come la Gazzetta (a11y: una
    regione scrollabile non-focusabile sarebbe irraggiungibile da tastiera) */
 #registroVoci { text-align: left; }
 .registroRiga {
-  padding: 4px 8px; border-bottom: 1px dashed var(--hair-30); font-size: 13.5px;
+  padding: var(--s-1) var(--s-2); border-bottom: 1px solid var(--hair-30); font-size: var(--t-sm);
 }
 .registroRiga:last-of-type { border-bottom: none; }
-.registroRiga .pips { color: var(--edge); letter-spacing: 2px; margin-left: 8px; font-size: 12px; }
+.registroRiga .pips { color: var(--edge); letter-spacing: 2px; margin-left: var(--s-2); font-size: var(--t-xs); }
 
 /* ---- impostazioni di bordo ---- */
-#settingsBtn, #helpBtn, #registroBtn { padding: 4px 10px; font-size: 17px; border-radius: 12px; }
+#settingsBtn, #helpBtn, #registroBtn { padding: var(--s-1) var(--s-3); font-size: var(--t-lg); border-radius: var(--r-md); }
 
 /* Il Manuale del Corsaro */
 .manuale { text-align: left; }
-.manuale p { font-size: 13.5px; line-height: 1.55; margin: 4px 0 10px; }
+.manuale p { font-size: var(--t-sm); line-height: 1.55; margin: var(--s-1) 0 var(--s-3); }
 .manuale .comandi { line-height: 2; }
-#riscattoForm { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+#riscattoForm { display: flex; gap: var(--s-2); flex-wrap: wrap; margin: var(--s-2) 0 var(--s-1); }
 #riscattoForm input { flex: 1 1 190px; min-width: 0; }
 #riscattoEsito { min-height: 18px; }
 .setRow {
-  display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: center;
-  margin: 12px auto; max-width: 320px; font-size: 15.5px; cursor: pointer; text-align: left;
+  display: grid; grid-template-columns: 24px 1fr; gap: var(--s-3); align-items: center;
+  margin: var(--s-3) auto; max-width: 320px; font-size: var(--t-md); cursor: pointer; text-align: left;
 }
-.setRow.vol { display: flex; gap: 10px; }
+.setRow.vol { display: flex; gap: var(--s-3); }
 .setRow input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--brass-4); }
 .setRow input[type="range"] { flex: 1; accent-color: var(--gold-deep); }
 #guardInfo { font-weight: bold; color: var(--green-txt); white-space: nowrap; }
@@ -420,31 +442,33 @@ body.conPannello #hint { opacity: 0; }
 body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killfeed { top: 108px; }
 
 /* ruoli dell'assedio, spiegati in una riga */
-.ruoli { font-size: 12.5px; font-style: italic; color: var(--ink-cocoa); margin-bottom: 10px; }
+.ruoli { font-size: var(--t-xs); font-style: italic; color: var(--ink-cocoa); margin-bottom: var(--s-3); }
 
 /* ---- ancoraggio del profilo ---- */
-#ancoraSez { border-top: 1px solid var(--hair-35); margin-top: 14px; padding-top: 2px; }
-#ancoraSez .shopSection { border: none; margin-bottom: 4px; }
+#ancoraSez { border-top: 1px solid var(--hair-40); margin-top: var(--s-4); padding-top: var(--s-1); }
+#ancoraSez .shopSection { border: none; margin-bottom: var(--s-1); }
 #ancoraHandle { width: 100%; max-width: 320px; }
-#ancoraQrCanvas { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: 8px; margin-top: 8px; }
-#ancoraSegreto { font-size: 12px; word-break: break-all; }
+#ancoraQrCanvas { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: var(--r-sm); margin-top: var(--s-2); }
+#ancoraSegreto { font-size: var(--t-xs); word-break: break-all; }
 #ancoraCodice { width: 170px; text-align: center; letter-spacing: 4px; }
 #ancoraStato b { color: var(--green-txt); }
 
 /* ---- benvenuto: ancoraggio alla prima visita ---- */
-#benvenutoQr { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: 8px; }
-#benvenutoSegreto { font-size: 12px; word-break: break-all; }
+#benvenutoQr { background: var(--paper-hi); border: 2px solid var(--edge); border-radius: var(--r-sm); }
+#benvenutoSegreto { font-size: var(--t-xs); word-break: break-all; }
 #benvenutoHandle { color: var(--green-txt); }
 #benvenutoCodice, #benvenutoEntraCodice { width: 170px; text-align: center; letter-spacing: 4px; }
 #benvenutoEntraForm { flex-wrap: wrap; }
 
-.credits { font-size: 11.5px; color: var(--ink-mute); margin-top: 12px; font-style: italic; }
+.credits { font-size: var(--t-2xs); color: var(--ink-mute); margin-top: var(--s-3); font-style: italic; }
 
 /* ---- timoneria: rimappatura dei tasti (WCAG 2.1.4) ---- */
-#tastiRows { display: flex; flex-direction: column; gap: 4px; max-width: 340px; margin: 0 auto; }
-.tastoRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
-.tastoRow button { min-width: 110px; padding: 4px 10px; font-size: 13px; }
-.tastoRow button.inAscolto { background: linear-gradient(var(--sage-hi), var(--sage)); color: var(--green-ink); }
+#tastiRows { display: flex; flex-direction: column; gap: var(--s-1); max-width: 340px; margin: 0 auto; }
+.tastoRow { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); font-size: var(--t-base); }
+.tastoRow button { min-width: 110px; padding: var(--s-1) var(--s-3); font-size: var(--t-sm); }
+/* "in ascolto" è uno stato ATTIVO/caldo: oro acceso come la scheda attiva
+   e il potenziamento (issue #32) — non più il salvia alieno. */
+.tastoRow button.inAscolto { background: linear-gradient(var(--gold-lite), var(--gold-lite2)); color: var(--ink); border-color: var(--brass-3); }
 
 /* ---- reflow (WCAG 1.4.10): niente perdite a 320px ---- */
 .panel, .panel.wide { max-width: min(760px, 96vw); }
