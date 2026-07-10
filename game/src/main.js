@@ -165,7 +165,7 @@ async function boot() {
     onIndossaLivrea: (id, genere) => net.send({ t: 'indossaLivrea', id, genere }),
     // anteprima fedele della livrea nel Cantiere (issue #34): la nave è
     // invisibile mentre sei attraccato, così il cambio si vede qui
-    onLivreaPreview: (livreaId) => renderer ? renderer.previewLivrea(livreaId, latestMe()) : Promise.resolve(null),
+    onLivreaPreview: (livreaId, veleId) => renderer ? renderer.previewLivrea(livreaId, veleId, latestMe()) : Promise.resolve(null),
     onVessillo: (bandiera) => net.send({ t: 'bandiera', bandiera }),
     onRegistro: apriRegistro,
     onGildaFonda: (dati) => net.send({ t: 'gildaFonda', ...dati }),
@@ -333,7 +333,7 @@ function apriRegistro() {
     tipo: p.tipo, vari: p.vari, kills: p.kills, deaths: p.deaths,
     mounts: p.mounts, arsenal: state.arsenal,
     conquered: p.conquered || [], preferiti: p.preferiti || [],
-    livree: p.livree || [], livrea: p.livrea, scia: p.scia,
+    livree: p.livree || [], livrea: p.livrea, vele: p.vele, scia: p.scia,
     catalogo: state.livreeCatalogo || {},
     campagna: p.campagna,
   });
@@ -666,6 +666,9 @@ function wireNet() {
     state.port = m.port;
     state.arsenal = m.arsenal;
     state.livreeCatalogo = m.livree || {};
+    // le tinte delle vele: il render tinge l'atlante unico col catalogo
+    renderer.veleTinte = Object.fromEntries(Object.entries(state.livreeCatalogo)
+      .filter(([, l]) => l.genere === 'vele' && l.tinta != null).map(([id, l]) => [id, l.tinta]));
     renderer.setWorld(m.world);
     for (const i of m.islands) { state.islands.set(i.id, i); renderer.addIsland(i); }
     applyYou(m.you);
@@ -1048,9 +1051,11 @@ if (devParams.get('forceshop')) {
         indaco: { nome: 'Livrea Indaco', motto: 'Blu di profondità', scia: 0x2a4d8f, genere: 'livrea', prezzo: 15000 },
         scarlatta: { nome: 'Livrea Scarlatta', motto: 'Rosso corsaro', scia: 0x8f2a2a, genere: 'livrea', prezzo: 12000 },
         ombre: { nome: 'Mare delle Ombre', motto: 'Si guadagna col Mastro di Rotte', scia: 0x1a1a2a, genere: 'livrea', prezzo: null },
+        velenere: { nome: 'Vele Nere', motto: 'Il terrore viaggia a gonfie vele', scia: 0x4a5560, tinta: 0x3a3a42, genere: 'vele', prezzo: 8000 },
+        veledoro: { nome: 'Vele d\'Oro', motto: 'Oro cucito in cielo', scia: 0xf0c14e, tinta: 0xe9c268, genere: 'vele', prezzo: 8000 },
         verderame: { nome: 'Scia Verderame', motto: 'Una coda d\'alghe', scia: 0x3d9944, genere: 'scia', prezzo: 3000 },
       },
-      possedute: ['indaco'], livrea: 'indaco', scia: null,
+      possedute: ['indaco', 'velenere'], livrea: 'indaco', vele: 'velenere', scia: null,
       bandiera: { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 },
     },
     groups: {

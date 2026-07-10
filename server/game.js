@@ -229,7 +229,7 @@ class Game {
       blockedUntil: 0, blockedBy: null, bloccoSalvo: 0, immuneUntil: 0,
       abilityAt: 0, ramUntil: 0, doubleUntil: 0, ventoUntil: 0,
       visited: new Set(), conquered: new Set(), preferiti: new Set(),
-      livree: new Set(), livrea: null, scia: null, bandiera: null,
+      livree: new Set(), livrea: null, vele: null, scia: null, bandiera: null,
       mission: null, wp: null, fleeUntil: 0,
     };
   }
@@ -396,7 +396,7 @@ class Game {
       tipo: ship.tipo, vari: ship.vari,
       mounts: ship.mounts, conquered: [...ship.conquered],
       preferiti: [...ship.preferiti],
-      livree: [...ship.livree], livrea: ship.livrea, scia: ship.scia, bandiera: ship.bandiera,
+      livree: [...ship.livree], livrea: ship.livrea, vele: ship.vele, scia: ship.scia, bandiera: ship.bandiera,
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
       dungeonGiorno: ship.dungeonGiorno || 0,
@@ -867,7 +867,7 @@ class Game {
       varo: { tipo: ship.tipo, vari: ship.vari, cost: varoCost(ship), tipi: TIPI_PUB },
       negozio: {
         catalogo: livree.publicCatalogo(), possedute: [...ship.livree],
-        livrea: ship.livrea, scia: ship.scia, bandiera: ship.bandiera,
+        livrea: ship.livrea, vele: ship.vele, scia: ship.scia, bandiera: ship.bandiera,
       },
     });
   }
@@ -881,21 +881,23 @@ class Game {
     if (l.prezzo === null) { this.sendTo(ship, { t: 'toast', msg: 'Questa non si compra: si guadagna.' }); return; }
     if (!this.charge(ship, l.prezzo)) return;
     ship.livree.add(id);
-    // appena comprata, addosso: nessun secondo click per pavoneggiarsi
-    if (l.genere === 'livrea') ship.livrea = id; else ship.scia = id;
+    // appena comprata, addosso: nessun secondo click per pavoneggiarsi.
+    // Lo slot lo detta il GENERE del catalogo, mai un fallback (era la
+    // trappola livree/vele: client e server collassavano in slot opposti)
+    ship[l.genere] = id;
     this.annuncia('livrea', `🎨 ${ship.name} sfoggia una livrea nuova: "${l.nome}"!`);
     this.sendShop(ship);
   }
 
   indossaLivrea(ship, id, genere) {
     if (ship.docked !== 'porto') return;
+    if (!livree.GENERI.includes(genere)) return; // genere ignoto: niente slot a caso
     if (id === null || id === undefined) {
-      // si torna al legno nudo (o alla scia del mare)
-      if (genere === 'scia') ship.scia = null; else ship.livrea = null;
+      ship[genere] = null; // si torna al legno nudo (o alla tela, o alla scia del mare)
     } else {
       const l = livree.CATALOGO[typeof id === 'string' ? id : ''];
-      if (!l || !ship.livree.has(id)) return;
-      if (l.genere === 'livrea') ship.livrea = id; else ship.scia = id;
+      if (!l || !ship.livree.has(id) || l.genere !== genere) return;
+      ship[genere] = id;
     }
     this.sendShop(ship);
   }
@@ -1566,8 +1568,9 @@ class Game {
         ...(s.immuneUntil > this.now ? { im: 1 } : {}),
         ...(s.gilda ? { gt: s.gilda.tag } : {}), // la bandierina della gilda
         // il guardaroba in mare (issue #25), campi ADDITIVI: lv = livrea,
-        // sc = colore scia, bf = bandiera personale (la gilda vince)
+        // ve = vele tinte, sc = colore scia, bf = bandiera personale (la gilda vince)
         ...(s.livrea ? { lv: s.livrea } : {}),
+        ...(s.vele ? { ve: s.vele } : {}),
         ...(scia !== null ? { sc: scia } : {}),
         ...(s.bandiera && !s.gilda
           ? { bf: [s.bandiera.fondo, s.bandiera.taglio, s.bandiera.tinta2, s.bandiera.emblema, s.bandiera.tintaEmblema] } : {}),

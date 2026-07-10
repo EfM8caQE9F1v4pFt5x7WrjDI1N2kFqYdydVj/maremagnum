@@ -134,6 +134,8 @@ export class Renderer {
     this.navi = null; // atlas delle navi cotte; finché manca si resta sul vettoriale
     this.cartellone = null; // l'insegna OG dell'isola accostata (issue #27)
     this.livree = {}; // atlanti delle livree (issue #25), caricati solo se qualcuno le indossa
+    this.tela = undefined; // l'atlante UNICO delle vele (tela bianca): undefined = mai chiesto, null = in volo
+    this.veleTinte = {}; // id vela → tinta 0x, dal catalogo del welcome (main.js)
     this._bandTex = {}; // texture dei vessilli personali, per chiave bf
     this.loadNavi();
     // le bocche da fuoco cotte (issue #17); ?armicotte=off forza il
@@ -211,12 +213,37 @@ export class Renderer {
     } catch { /* la nave resta di legno: pazienza */ }
   }
 
-  // Anteprima FEDELE della nave con una livrea (issue #34): estrae in un canvas
-  // lo STESSO sprite bakeato che si vede in mare — così il cambio si vede subito
-  // nel Cantiere, dove la nave è invisibile perché sei attraccato. `s` è lo stato
-  // della propria nave (tp/sl/maxHp/k) per la classe esatta. Ritorna un canvas
-  // (o null se l'atlante non è pronto). Async: aspetta il caricamento della livrea.
-  async previewLivrea(livreaId, s) {
+  // le vele tinte: UN atlante di tela bianca per tutti i colori (la tinta
+  // arriva dal catalogo, vedi veleTinte) — scaricato al primo che le indossa
+  async loadTela() {
+    if (this.tela !== undefined) return;
+    this.tela = null; // in caricamento: non richiedere due volte
+    try {
+      const meta = await (await fetch('assets/vele/tela.json')).json();
+      const tex = await Assets.load('assets/vele/tela.webp');
+      const frames = {};
+      for (const [name, vi] of Object.entries(meta.variants)) {
+        const arr = [];
+        for (let k = 0; k < meta.steps; k++) {
+          const col = k % meta.cols, row = ((k / meta.cols) | 0) + vi * meta.rows;
+          arr.push(new Texture({
+            source: tex.source,
+            frame: new Rectangle(col * meta.frame, row * meta.frame, meta.frame, meta.frame),
+          }));
+        }
+        frames[name] = arr;
+      }
+      this.tela = { meta, frames };
+      for (const c of this.ships.values()) c.buildKey = ''; // rivesti chi le indossa
+    } catch { /* la tela resta del suo colore: pazienza */ }
+  }
+
+  // Anteprima FEDELE della nave con livrea e vele (issue #34): estrae in un
+  // canvas lo STESSO sprite bakeato che si vede in mare — così il cambio si vede
+  // subito nel Cantiere, dove la nave è invisibile perché sei attraccato. `s` è
+  // lo stato della propria nave (tp/sl/maxHp/k) per la classe esatta. Ritorna un
+  // canvas (o null se l'atlante non è pronto). Async: aspetta i caricamenti.
+  async previewLivrea(livreaId, veleId, s) {
     if (!s) return null;
     // aspetta che l'atlante serva pronto (in gioco è già caricato: attesa nulla)
     const attendi = (test) => new Promise((res) => {
@@ -224,11 +251,15 @@ export class Renderer {
       const giro = () => (test() && i++ < 120) ? setTimeout(giro, 50) : res();
       giro();
     });
-    // il caricamento non deve MAI appendere l'anteprima: race col tempo
+    // i caricamenti non devono MAI appendere l'anteprima: race col tempo
     if (livreaId && this.livree[livreaId] === undefined) {
       await Promise.race([this.loadLivrea(livreaId), new Promise(r => setTimeout(r, 6000))]);
     }
+    if (veleId && this.tela === undefined) {
+      await Promise.race([this.loadTela(), new Promise(r => setTimeout(r, 6000))]);
+    }
     await attendi(() => livreaId && this.livree[livreaId] === null); // atlante livrea in volo
+    await attendi(() => veleId && this.tela === null);               // atlante tela in volo
     const classe = this.shipClass(s);
     const liv = livreaId && this.livree[livreaId] && this.livree[livreaId].frames[classe];
     if (!liv) await attendi(() => !this.navi); // senza livrea (o classe assente) serve l'atlante navi
@@ -240,10 +271,22 @@ export class Renderer {
     const ang = Math.round(frames.length * 0.625) % frames.length; // vista di 3/4
     const spr = new Sprite(frames[ang]);
     spr.anchor.set(0.5);
+    // le vele tinte sopra, stessa posa (se la tela è pronta e ha la classe)
+    let target = spr;
+    const telaFrames = veleId && this.tela && this.tela.frames[classe];
+    if (telaFrames && telaFrames.length === frames.length) {
+      const cont = new Container();
+      cont.addChild(spr);
+      const vs = new Sprite(telaFrames[ang]);
+      vs.anchor.set(0.5);
+      vs.tint = this.veleTinte[veleId] ?? 0xffffff;
+      cont.addChild(vs);
+      target = cont;
+    }
     let canvas = null;
-    try { canvas = this.app.renderer.extract.canvas({ target: spr }); }
+    try { canvas = this.app.renderer.extract.canvas({ target }); }
     catch { /* estrazione non riuscita: niente anteprima */ }
-    spr.destroy();
+    target.destroy({ children: true });
     return canvas;
   }
 
@@ -716,7 +759,10 @@ export class Renderer {
     // finché scarica (o se manca) si resta sul legno — mai un buco
     if (s.lv && this.livree[s.lv] === undefined) this.loadLivrea(s.lv);
     const liv = s.lv && this.livree[s.lv] && this.livree[s.lv].frames[classe] ? this.livree[s.lv] : null;
-    const key = mode + '|' + s.k + '|' + classe + '|' + (liv ? s.lv : '') + '|' + (s.gp || []).join(',') + '|' + (s.gw || []).join(',') + (s.id === selfId ? '|S' : '');
+    // le vele tinte: overlay di tela sopra lo sprite (atlante unico + tint)
+    if (s.ve && this.tela === undefined) this.loadTela();
+    const tela = s.ve && this.tela && this.tela.frames[classe] ? this.tela : null;
+    const key = mode + '|' + s.k + '|' + classe + '|' + (liv ? s.lv : '') + '|' + (tela ? s.ve : '') + '|' + (s.gp || []).join(',') + '|' + (s.gw || []).join(',') + (s.id === selfId ? '|S' : '');
     if (c.buildKey === key) return;
     c.buildKey = key;
     if (c.body) c.body.destroy({ children: true });
@@ -747,6 +793,18 @@ export class Renderer {
       if (ghost) spr.alpha = 0.88;
       body.addChild(spr);
       body.atlante = atlante;
+      // la tela tinta si appoggia sopra, stessa posa: dove l'alberatura passa
+      // davanti alle vele l'atlante è bucato e sotto riappare il legno
+      body.veleSprite = null;
+      if (tela && tela.frames[variant]) {
+        const vs = new Sprite(tela.frames[variant][0]);
+        vs.anchor.set(0.5, 0.53);
+        vs.scale.set((tela.meta.scala || 98.4) / tela.meta.frame);
+        vs.tint = this.veleTinte[s.ve] ?? 0xffffff;
+        body.addChild(vs);
+        body.veleSprite = vs;
+        body.veleAtlante = tela;
+      }
       const ports = new Graphics();
       const gp = s.gp || [1, 1, 0, 0];
       // slot d'arma: se il server manda gw usiamo la sagoma vera, altrimenti
@@ -941,6 +999,7 @@ export class Renderer {
         if (c.body.frameIdx !== f) {
           c.body.frameIdx = f;
           c.body.shipSprite.texture = atl.frames[c.body.variant][f];
+          if (c.body.veleSprite) c.body.veleSprite.texture = c.body.veleAtlante.frames[c.body.variant][f];
         }
         c.body.rotation = 0;
         c.body.ports.rotation = s.rot;
@@ -967,6 +1026,7 @@ export class Renderer {
         // beccheggio: lo scafo danza, l'ombra resta al pelo dell'acqua
         c.body.y = Math.sin(this.t * 1.7 + (s.x + s.y) * 0.011) * 1.7;
         c.body.shipSprite.rotation = Math.sin(this.t * 1.3 + s.x * 0.013) * 0.028;
+        if (c.body.veleSprite) c.body.veleSprite.rotation = c.body.shipSprite.rotation;
       } else {
         c.body.rotation = s.rot;
         c.body.y = 0;
@@ -1024,6 +1084,8 @@ export class Renderer {
       // consuma; chi si è appena svincolato porta un anello dorato d'immunità
       const bloccata = (s.bk || 0) > 0;
       if (c.body.shipSprite) c.body.shipSprite.tint = bloccata ? 0x7c848d : 0xffffff;
+      // la tela tinta si spegne col blocco come il resto della nave
+      if (c.body.veleSprite) c.body.veleSprite.tint = bloccata ? 0x7c848d : (this.veleTinte[s.ve] ?? 0xffffff);
       if (bloccata) {
         c.hpBar.circle(0, 4, 40).stroke({ width: 2, color: 0x1a1208, alpha: 0.5 });
         c.hpBar.arc(0, 4, 40, -Math.PI / 2, -Math.PI / 2 + Math.min(1, s.bk / 18) * Math.PI * 2)

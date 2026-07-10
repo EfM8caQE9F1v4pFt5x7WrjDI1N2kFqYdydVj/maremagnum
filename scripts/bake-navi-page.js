@@ -55,6 +55,16 @@ const LIVREE = {
 };
 const LIVREA = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('livrea')) || null;
 
+// Le VELE separate dalle livree: UN solo atlante di tela BIANCA (bandiera
+// grigia, più scura una volta tinta) che il client tinge col colore del
+// catalogo (`sprite.tint` moltiplica: base bianca → qualsiasi tinta). Il resto
+// della nave si cuoce come OCCLUSORE invisibile (colorWrite=false ma depth sì):
+// alberi e sartie davanti alla tela bucano l'overlay, così sotto riappare il
+// legno dello sprite base, pixel-perfetto (stessa scena, stessa camera).
+const VELE_MODE = typeof location !== 'undefined' && new URLSearchParams(location.search).get('vele') === '1';
+// ?dump=1: l'atlante esce dal DOM (chrome headless --dump-dom), niente Electron
+const DUMP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('dump') === '1';
+
 // La flotta: geometria parametrica per classe.
 const CLASSI = {
   sloop:      { L: 0.78, alberi: 1, castello: 0, gabbia: false, fiocco: true,  pal: 'legno' },
@@ -74,8 +84,8 @@ const CLASSI = {
   galeonetipo: { L: 1.22, alberi: 3, castello: 2, gabbia: true,  fiocco: true,  pal: 'regale' },
   sciabecco:   { L: 0.95, alberi: 2, castello: 0, gabbia: false, fiocco: true,  pal: 'sciabecco', latine: true },
 };
-// le livree vestono solo i GIOCATORI: fantasmi e mercantili restano del mare
-const VARIANTS = LIVREA
+// livree e vele vestono solo i GIOCATORI: fantasmi e mercantili restano del mare
+const VARIANTS = (LIVREA || VELE_MODE)
   ? Object.keys(CLASSI).filter(v => v !== 'fantasma' && v !== 'mercantile')
   : Object.keys(CLASSI);
 
@@ -143,8 +153,10 @@ function buildShip(nome) {
   if (!SAIL_TEX) SAIL_TEX = sailTexture();
   // la tela di Monkey Island è dipinta chiara da OGNI lato: l'emissiva alta
   // tiene bianche anche le facce in ombra (niente vele grigie di spalle)
-  // l'ammiraglia dorata si riconosce dalla TELA: canapa d'oro, non bianca
-  const telaCol = oro ? 0xf0d494 : p.sail;
+  // l'ammiraglia dorata si riconosce dalla TELA: canapa d'oro, non bianca.
+  // Nell'atlante delle VELE la tela è BIANCA per ogni classe: la tinta la dà
+  // il client, così un colore solo di catalogo veste tutta la flotta.
+  const telaCol = VELE_MODE ? 0xffffff : oro ? 0xf0d494 : p.sail;
   const sailMat = new THREE.MeshStandardMaterial({
     color: telaCol, map: SAIL_TEX, roughness: 1, metalness: 0, side: THREE.DoubleSide,
     emissive: telaCol, emissiveMap: SAIL_TEX, emissiveIntensity: 0.48,
@@ -412,9 +424,12 @@ function buildShip(nome) {
     const iMaestro = cfg.alberi === 3 ? 1 : 0;
     const fx = posAlberi[iMaestro] * L - 0.34;
     const fy = 0.9 + hAlbero * scale[iMaestro] - 0.16;
+    // nell'atlante vele la bandiera è grigia: tinta a runtime viene più scura
+    // della tela (grigio × tinta), come le bandiere vere del catalogo
     const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.24), new THREE.MeshStandardMaterial({
-      color: oro ? 0x2a1004 : p.flag, roughness: 1, side: THREE.DoubleSide,
+      color: VELE_MODE ? 0x9a9a9a : oro ? 0x2a1004 : p.flag, roughness: 1, side: THREE.DoubleSide,
     }));
+    flag.userData.vela = true;
     flag.position.set(fx, fy, 0);
     flag.rotation.y = 0.18;
     ship.add(flag);
@@ -445,6 +460,20 @@ function buildShip(nome) {
   // il fantasma è traslucido di suo (l'alpha finale la dà il client)
   if (cfg.spettrale) {
     ship.traverse((o) => { if (o.material) { o.material.transparent = true; o.material.opacity = 0.92; } });
+  }
+
+  // l'atlante delle vele: resta colorata solo la tela (sailMat) e la bandiera;
+  // tutto il resto diventa occlusore — scrive la profondità ma non il colore,
+  // così l'alberatura davanti alla tela BUCA l'overlay (sotto riappare il
+  // legno dello sprite base). renderOrder -1: prima gli occlusori, poi la tela.
+  if (VELE_MODE) {
+    ship.traverse((o) => {
+      if (!o.isMesh) return;
+      if (o.material === sailMat) o.userData.vela = true;
+      if (o.userData.vela) return;
+      o.material.colorWrite = false;
+      o.renderOrder = -1;
+    });
   }
 
   return ship;
@@ -497,7 +526,18 @@ async function main() {
     scala: Math.round(79 * (D / 13) * 10) / 10,
     variants: Object.fromEntries(VARIANTS.map((name, i) => [name, i])),
   });
+  // ?dump=1: atlante e metadati nel DOM — li estrae chrome headless con
+  // --dump-dom, dove Electron non gira (vedi la memoria di bottega)
+  if (DUMP) {
+    const pre = document.createElement('pre');
+    pre.id = 'bake-dump';
+    pre.textContent = JSON.stringify({ atlas: window.__atlas, meta: window.__meta });
+    document.body.appendChild(pre);
+  }
   console.log('BAKE-DONE');
 }
 
-main().catch(e => console.log('BAKE-ERRORE: ' + e.message));
+main().catch(e => {
+  if (DUMP) document.body.textContent = 'BAKE-ERRORE: ' + e.message;
+  console.log('BAKE-ERRORE: ' + e.message);
+});

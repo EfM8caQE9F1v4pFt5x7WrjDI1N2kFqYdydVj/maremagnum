@@ -278,6 +278,7 @@ export class MareDO {
       preferiti: [...(ship.preferiti || [])],
       livree: [...(ship.livree || [])],
       livrea: ship.livrea || null,
+      vele: ship.vele || null,
       scia: ship.scia || null,
       bandiera: ship.bandiera || null,
       gazzettaLetta: ship.gazzettaLetta || 0,
