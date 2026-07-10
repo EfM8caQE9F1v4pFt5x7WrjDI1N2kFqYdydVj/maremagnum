@@ -41,11 +41,19 @@ const SOGLIA_ISOLA = 20;
 // I domini sopra soglia in ORDINE STABILE (approdi decrescenti, spareggio
 // alfabetico): la risoluzione delle sovrapposizioni in ensure() dipende
 // dall'ordine, e le isole non devono saltellare tra un risveglio e l'altro.
-function sopraSoglia(min = SOGLIA_ISOLA) {
-  return [...conteggi]
+function ordinaSopraSoglia(mappa, min) {
+  return [...mappa]
     .filter(([, n]) => n >= min)
     .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
     .map(([d]) => d);
+}
+function sopraSoglia(min = SOGLIA_ISOLA) {
+  return ordinaSopraSoglia(conteggi, min);
+}
+// come sopraSoglia ma su conteggi grezzi (senza toccare lo stato del modulo):
+// serve al worker, che legge l'Atlante da un DO e non lo tiene in memoria.
+function sopraSogliaDa(obj, min = SOGLIA_ISOLA) {
+  return ordinaSopraSoglia(canonizza(obj), min);
 }
 
 function registraApprodo(dominio) {
@@ -70,4 +78,4 @@ function crescita(dominio) {
   return Math.min(3.0, Math.max(1.0, m));
 }
 
-module.exports = { setConteggi, mergeConteggi, registraApprodo, approdiDi, crescita, sopraSoglia, SOGLIA_ISOLA };
+module.exports = { setConteggi, mergeConteggi, registraApprodo, approdiDi, crescita, sopraSoglia, sopraSogliaDa, SOGLIA_ISOLA };

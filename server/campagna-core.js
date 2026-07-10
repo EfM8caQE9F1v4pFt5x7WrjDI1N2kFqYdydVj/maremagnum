@@ -38,7 +38,14 @@ const TAPPE_CENTRALI = [
   { tipo: 'scoperte', n: 3, desc: (n) => `Scopri ${n} isole mai visitate` },
   { tipo: 'mercantili', n: 3, desc: (n) => `Affonda ${n} Mercantili` },
 ];
-const TAPPA_FINALE = { tipo: 'espugnazione', n: 1, desc: () => 'Espugna una Fortezza Proibita' };
+// La tappa finale nomina un'isola reale dell'Atlante quando ce n'è una sopra
+// soglia; altrimenti ripiega sulla generica Fortezza Proibita. La SCELTA del
+// bersaglio è deterministica dalla settimana (la scelta AI è la #38).
+function tappaFinale(bersaglio) {
+  return bersaglio
+    ? { tipo: 'espugnazione', n: 1, desc: `Espugna la fortezza di ${bersaglio}`, bersaglio }
+    : { tipo: 'espugnazione', n: 1, desc: 'Espugna una Fortezza Proibita', bersaglio: null };
+}
 
 // il vestito procedurale: se l'LLM non c'è, la campagna parla comunque
 const TEMI = ['La Flotta Fantasma', 'Il Convoglio Maledetto', 'Le Rotte Perdute',
@@ -53,21 +60,38 @@ function settimanaDi(t = Date.now()) {
 }
 
 // La campagna della settimana: 3 tappe in crescendo, chiusura in fortezza.
-function genera(settimana) {
+// `isole` sono i domini reali sopra soglia dell'Atlante (in ordine stabile):
+// se presenti, la fortezza finale ne nomina uno, scelto in modo deterministico.
+function genera(settimana, isole = []) {
   const rng = mulberry32(hashStr('mastro-di-rotte-' + settimana));
   const t1 = TAPPE_APERTURA[(rng() * TAPPE_APERTURA.length) | 0];
   const t2 = TAPPE_CENTRALI[(rng() * TAPPE_CENTRALI.length) | 0];
-  const tappe = [t1, t2, TAPPA_FINALE].map((t) => ({
-    tipo: t.tipo, n: t.n, desc: t.desc(t.n),
-    lore: LORE_TAPPA[(rng() * LORE_TAPPA.length) | 0],
-  }));
+  const bersaglio = isole && isole.length ? isole[(rng() * isole.length) | 0] : null;
+  const grezze = [
+    { tipo: t1.tipo, n: t1.n, desc: t1.desc(t1.n) },
+    { tipo: t2.tipo, n: t2.n, desc: t2.desc(t2.n) },
+    tappaFinale(bersaglio),
+  ];
+  const tappe = grezze.map((t) => ({ ...t, lore: LORE_TAPPA[(rng() * LORE_TAPPA.length) | 0] }));
   return {
     settimana,
     nome: TEMI[(rng() * TEMI.length) | 0],
     lore: 'Il Mastro di Rotte ha tracciato una nuova campagna sulle carte del Maremagnum.',
     tappe,
     premio: PREMIO,
+    bersaglio,
   };
+}
+
+// Assicura che ci sia la campagna GIUSTA per la settimana: se quella corrente
+// manca o è di un'altra settimana, ne genera una nuova col vestito procedurale
+// (gratis, deterministico). Funzione pura: la usano il Mare (a freddo e a ogni
+// cambio settimana) e il cron del worker. `daPubblicare` dice se va persistita.
+function assicura(corrente, settimana, isole = []) {
+  if (valida(corrente) && corrente.settimana === settimana) {
+    return { campagna: corrente, daPubblicare: false };
+  }
+  return { campagna: genera(settimana, isole), daPubblicare: true };
 }
 
 // --- lo stato condiviso (come atlante-core: il DO persiste, qui si vive) ---
@@ -83,4 +107,4 @@ function valida(c) {
 function setCampagna(c) { corrente = valida(c) ? c : null; }
 function getCampagna() { return corrente; }
 
-module.exports = { genera, settimanaDi, setCampagna, getCampagna, valida, PREMIO };
+module.exports = { genera, assicura, settimanaDi, setCampagna, getCampagna, valida, PREMIO };

@@ -22,6 +22,34 @@ assert.strictEqual(a.premio, campagna.PREMIO, 'premio fisso e magro');
 assert(a.nome && a.tappe.every(t => t.desc && t.lore), 'vestito procedurale completo senza AI');
 ok(`determinismo e struttura: "${a.nome}" (${a.tappe.map(t => t.tipo).join(' → ')})`);
 
+// — 1bis) le tappe d'assedio nominano isole reali dell'Atlante (issue #36) —
+const isole = ['wikipedia.org', 'archive.org', 'openstreetmap.org'];
+const conBersaglio = campagna.genera(2950, isole);
+const fin = conBersaglio.tappe[conBersaglio.tappe.length - 1];
+assert(fin.tipo === 'espugnazione' && isole.includes(fin.bersaglio),
+  'la fortezza finale nomina un\'isola reale sopra soglia');
+assert(fin.desc.includes(fin.bersaglio), 'la descrizione della tappa nomina il bersaglio');
+assert.deepStrictEqual(campagna.genera(2950, isole), conBersaglio,
+  'la scelta del bersaglio è deterministica dalla settimana');
+const senza = campagna.genera(2950, []);
+assert(senza.tappe[2].bersaglio === null && /Fortezza Proibita/.test(senza.tappe[2].desc),
+  'senza isole reali si ripiega sulla generica Fortezza Proibita');
+ok(`bersaglio reale deterministico: «${fin.desc}»`);
+
+// — 1ter) assicura(): semina se manca/stantia, tiene se è della settimana —
+const wk = campagna.settimanaDi();
+const fresco = campagna.assicura(null, wk, isole);
+assert(fresco.daPubblicare && fresco.campagna.settimana === wk,
+  'campagna assente → seminata al volo e da pubblicare');
+const tenuta = campagna.assicura(fresco.campagna, wk, isole);
+assert(!tenuta.daPubblicare && tenuta.campagna === fresco.campagna,
+  'campagna della settimana giusta → tenuta com\'è, niente ripubblicazione');
+const vecchia = { settimana: wk - 1, nome: 'Vecchia', tappe: [{ tipo: 'x', n: 1, desc: 'y' }], premio: 400 };
+const rinnovata = campagna.assicura(vecchia, wk, isole);
+assert(rinnovata.daPubblicare && rinnovata.campagna.settimana === wk,
+  'campagna stantia → rigenerata per la settimana corrente');
+ok('assicura(): auto-seed al bisogno, nessuna ripubblicazione inutile');
+
 // — 2) l'avanzamento sugli eventi veri del Game —
 // scelgo una settimana la cui campagna apre coi Mercantili, per pilotarla
 let sett = 2950;
