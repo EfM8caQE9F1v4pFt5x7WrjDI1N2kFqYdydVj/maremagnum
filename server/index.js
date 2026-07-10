@@ -16,7 +16,7 @@ const campagna = require('./campagna-core');
 // scrivere bersaglio/narrazione/difese). In dev l'Atlante è vuoto → bersaglio
 // generico; le difese vere si vedono in produzione o nei test.
 for (const tipo of ['giornaliero', 'settimanale']) {
-  campagna.setDungeon(tipo, campagna.genera(tipo, campagna.periodoDi(tipo)));
+  campagna.setDungeon(tipo, campagna.genera(tipo, campagna.periodoDi(tipo), campagna.bersagli()));
 }
 
 const PORT = process.env.PORT || 3210;
