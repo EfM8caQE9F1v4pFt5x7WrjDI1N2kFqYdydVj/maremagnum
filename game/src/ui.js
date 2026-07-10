@@ -415,6 +415,20 @@ export class UI {
     hud.classList.remove('hidden');
   }
 
+  // L'HUD del dungeon del giorno (issue #38): l'assalto del giorno, col bersaglio
+  // reale e il premio. Sparisce una volta incassato (come la campagna compiuta).
+  setDungeonHud(c) {
+    const hud = $('dungeonHud');
+    if (!c || c.fatto) { hud.classList.add('hidden'); return; }
+    const dove = c.bersaglio ? ` — assalto a ${esc(c.bersaglio)}` : '';
+    hud.innerHTML =
+      `🗺 <b>Dungeon del giorno:</b> ${esc(c.nome)}${dove} ` +
+      `<span class="reward">(+${c.premio} 🪙)</span>`;
+    hud.title = 'Il dungeon del giorno del Mastro di Rotte — apri la Gazzetta';
+    hud.onclick = () => { if (this.h.onGazzetta) this.h.onGazzetta(); };
+    hud.classList.remove('hidden');
+  }
+
   toast(msg, ms = 2600) {
     const t = $('toast');
     t.textContent = msg;

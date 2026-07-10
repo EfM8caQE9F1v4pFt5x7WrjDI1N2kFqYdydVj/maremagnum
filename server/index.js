@@ -11,9 +11,13 @@ const { Game } = require('./game');
 const blocklist = require('./blocklist');
 const campagna = require('./campagna-core');
 
-// il Mastro di Rotte in locale: campagna della settimana, vestito procedurale
-// (in produzione la genera il cron del worker, con l'AI solo per il lore)
-campagna.setCampagna(campagna.genera(campagna.settimanaDi()));
+// il Mastro di Rotte in locale (#38): dungeon del giorno e della settimana,
+// vestito procedurale (in produzione li genera il cron del worker, con l'AI a
+// scrivere bersaglio/narrazione/difese). In dev l'Atlante è vuoto → bersaglio
+// generico; le difese vere si vedono in produzione o nei test.
+for (const tipo of ['giornaliero', 'settimanale']) {
+  campagna.setDungeon(tipo, campagna.genera(tipo, campagna.periodoDi(tipo)));
+}
 
 const PORT = process.env.PORT || 3210;
 const GAME_DIR = path.join(__dirname, '..', 'game');
@@ -102,6 +106,7 @@ wss.on('connection', (ws) => {
 async function main() {
   await blocklist.init(); // la blocklist decide quali isole nascono fortificate
   game = new Game(broadcast);
+  game.applicaDungeoni(); // il Mastro (#38) stende le difese sui bersagli del periodo
   // il gioco annota l'immagine approvata; il proxy la scarica al primo sguardo
   game.onCartellone = (dominio, url) => { ogImmagini.set(dominio, { url }); };
   server.on('error', (e) => {

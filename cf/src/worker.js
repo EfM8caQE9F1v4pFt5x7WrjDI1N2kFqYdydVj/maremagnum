@@ -13,37 +13,48 @@ import atlante from '../../server/atlante-core.js';
 
 export { MareDO, ContiDO, AtlanteDO, GazzettaDO, CampagneDO, GildeDO };
 
-// Il Mastro di Rotte al lavoro (issue #3): campagna procedurale e
-// DETERMINISTICA dal numero della settimana; Workers AI (quota permettendo)
-// riveste SOLO nome e lore — mai i numeri. Se l'LLM manca o sfora, il
-// vestito procedurale del core basta: la campagna esce comunque.
-async function generaCampagna(env) {
-  const settimana = campagna.settimanaDi();
-  // le tappe d'assedio nominano isole reali sopra soglia dell'Atlante; se il
-  // registro è muto o ancora vuoto si ripiega sulla generica Fortezza Proibita
-  let isole = [];
+// Il Mastro di Rotte v2 (issue #38): il worker AI SCRIVE il dungeon del periodo
+// — bersaglio reale, narrazione, difese, difficoltà — liberamente (è il
+// divertimento). Il codice mette la mano su UNA cosa sola: il premio spendibile,
+// dal LISTINO (no pay-to-win). Se l'LLM manca o sfora, il vestito procedurale
+// del core basta: il dungeon esce comunque (rete di sicurezza + auto-seed #36).
+const MODELLO = '@cf/qwen/qwen3-30b-a3b-fp8';
+const ETICHETTA = { giornaliero: 'del giorno', settimanale: 'della settimana' };
+
+async function generaDungeon(env, tipo = 'settimanale') {
+  const periodo = campagna.periodoDi(tipo);
+  // i bersagli sono isole reali sopra soglia dell'Atlante; se il registro è muto
+  // o ancora vuoto si ripiega sulla generica Fortezza Proibita
+  let candidati = [];
   try {
     const atl = env.ATLANTE.get(env.ATLANTE.idFromName('atlante'));
     const r = await atl.fetch('https://atlante/tutte');
-    if (r.ok) isole = atlante.sopraSogliaDa((await r.json()).isole);
+    if (r.ok) candidati = atlante.sopraSogliaDa((await r.json()).isole);
   } catch { /* Atlante muto: la Fortezza Proibita fa da bersaglio */ }
-  const c = campagna.genera(settimana, isole);
+  let c = campagna.genera(tipo, periodo, candidati);
   let esitoAI = 'saltata (binding assente)';
   try {
     if (env.AI) {
       esitoAI = 'vestito procedurale (risposta non usabile)';
-      // una sola chiamata a settimana: conta la qualità dell'italiano, non
-      // il risparmio di neuron (modello verificato sull'account: 2026-07)
-      const risposta = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      const lista = candidati.slice(0, 15);
+      const risposta = await env.AI.run(MODELLO, {
         messages: [{
           role: 'user',
-          content: 'Sei il Mastro di Rotte di un gioco piratesco italiano. Rispondi SOLO con JSON ' +
-            `{"nome": "...", "lore": "...", "tappe": ["...", "...", "..."]}: un nome evocativo (max 5 parole) ` +
-            `per la campagna della settimana, una riga di lore (max 20 parole), e una riga di lore piratesca ` +
-            `(max 15 parole) per ciascuna di queste ${c.tappe.length} tappe: ` +
-            c.tappe.map((t, i) => `${i + 1}) ${t.desc}`).join('; ') + '. Niente numeri, niente premi: solo atmosfera.',
+          content: 'Sei il Mastro di Rotte, narratore di un gioco piratesco italiano dove i siti web sono isole. ' +
+            `Progetta il dungeon ${ETICHETTA[tipo] || 'della settimana'}. Rispondi SOLO con JSON, senza testo attorno: ` +
+            '{"nome":"...","lore":"...","difficolta":"facile|medio|tosto","bersaglio":"<dominio>","tappe":["..."],' +
+            '"difese":{"torri":N,"bombarde":N,"specchio":true|false}}. ' +
+            '- nome: evocativo, max 5 parole. - lore: una riga d\'atmosfera, max 25 parole. ' +
+            (lista.length
+              ? `- bersaglio: scegli UNA sola isola da assaltare fra QUESTI domini reali (usa il dominio esatto): ${lista.join(', ')}. `
+              : '- bersaglio: lascia "". ') +
+            '- difficolta: quanto è tosto l\'assalto. ' +
+            `- tappe: una riga di lore piratesca (max 15 parole) per ciascuna di queste ${c.tappe.length} tappe: ` +
+            c.tappe.map((t, i) => `${i + 1}) ${t.desc}`).join('; ') + '. ' +
+            '- difese: quante torri (3-10), bombarde (0-3) e se c\'è lo Specchio Ustorio sul mastio. ' +
+            'Niente numeri di premio né dobloni: quelli li mette il porto. Solo design e atmosfera. /think',
         }],
-        max_tokens: 300,
+        max_tokens: 1800,
       });
       // i modelli cambiano vestito più dei corsari: stringa, oggetto o
       // formato OpenAI-compat — si normalizza tutto a testo
@@ -51,24 +62,22 @@ async function generaCampagna(env) {
         (risposta.choices && risposta.choices[0] && risposta.choices[0].message
           && risposta.choices[0].message.content));
       if (testo && typeof testo !== 'string') testo = JSON.stringify(testo);
-      testo = testo || '';
+      // Qwen3 ragiona in <think>…</think> prima della risposta: lo si toglie
+      // prima di pescare il JSON (i suoi token gonfiano solo l'output, non il senso)
+      testo = (testo || '').replace(/<think>[\s\S]*?<\/think>/gi, '');
       const match = testo.match(/\{[\s\S]*\}/);
       const vestito = match ? JSON.parse(match[0]) : null;
-      if (vestito && typeof vestito.nome === 'string' && vestito.nome.trim()) {
-        c.nome = vestito.nome.trim().slice(0, 60);
-        if (typeof vestito.lore === 'string') c.lore = vestito.lore.trim().slice(0, 200);
-        if (Array.isArray(vestito.tappe)) {
-          vestito.tappe.forEach((l, i) => {
-            if (c.tappe[i] && typeof l === 'string' && l.trim()) c.tappe[i].lore = l.trim().slice(0, 120);
-          });
-        }
-        esitoAI = 'lore AI';
+      if (vestito && typeof vestito === 'object') {
+        // tutta la blindatura (bersaglio reale, premio dal listino, difese clampate)
+        // vive nel core, pura e testata: qui ci si fida solo di ciò che passa
+        c = campagna.applicaVestito(c, vestito, candidati);
+        esitoAI = 'vestito AI';
       }
     }
   } catch (e) {
     // niente neuron? pazienza: si salpa col vestito procedurale
     esitoAI = 'vestito procedurale (' + (e && e.message ? String(e.message).slice(0, 120) : 'errore') + ')';
-    console.warn('Mastro di Rotte, lore AI non disponibile: ' + esitoAI);
+    console.warn('Mastro di Rotte, vestito AI non disponibile: ' + esitoAI);
   }
 
   const reg = env.CAMPAGNE.get(env.CAMPAGNE.idFromName('campagne'));
@@ -76,13 +85,14 @@ async function generaCampagna(env) {
   await reg.fetch('https://campagne/pubblica', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(daPersistere),
   });
-  // una campagna non annunciata non esiste: la Gazzetta la proclama
+  // un dungeon non annunciato non esiste: la Gazzetta lo proclama
   const gaz = env.GAZZETTA.get(env.GAZZETTA.idFromName('gazzetta'));
+  const dove = c.bersaglio ? ` — assalto a ${c.bersaglio}` : '';
   await gaz.fetch('https://gazzetta/pubblica', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       tipo: 'campagna',
-      testo: `⚔ Il Mastro di Rotte proclama la campagna della settimana: "${c.nome}" — ${c.tappe.length} tappe, ${c.premio} 🪙 a chi la compie.`,
+      testo: `⚔ Il Mastro di Rotte traccia la rotta ${ETICHETTA[tipo] || 'della settimana'}: "${c.nome}"${dove} — ${c.premio} 🪙 a chi la compie.`,
     }),
   });
   c.__esitoAI = esitoAI; // solo per la risposta dell'Ammiragliato, non persiste
@@ -181,13 +191,15 @@ export default {
       });
     }
 
-    // L'Ammiragliato può battere il cron sul tempo (collaudi e prime uscite)
+    // L'Ammiragliato può battere il cron sul tempo (collaudi e prime uscite);
+    // ?tipo=giornaliero|settimanale sceglie quale dungeon rigenerare
     if (url.pathname === '/ammiragliato/mastro' && req.method === 'POST') {
       if (!env.ADMIN_SECRET || req.headers.get('X-Ammiragliato') !== env.ADMIN_SECRET) {
         return new Response('Chi va là?', { status: 401 });
       }
-      const c = await generaCampagna(env);
-      return new Response(JSON.stringify({ ok: true, campagna: c }), {
+      const tipo = url.searchParams.get('tipo') === 'giornaliero' ? 'giornaliero' : 'settimanale';
+      const c = await generaDungeon(env, tipo);
+      return new Response(JSON.stringify({ ok: true, dungeon: c }), {
         headers: { 'content-type': 'application/json' },
       });
     }
@@ -220,8 +232,10 @@ export default {
     return env.ASSETS.fetch(req);
   },
 
-  // il cron del Mastro di Rotte: ogni lunedì alle 06:00 UTC una campagna nuova
+  // il cron del Mastro di Rotte (#38): il giornaliero (05:00 UTC ogni giorno)
+  // rigenera il dungeon del giorno; il settimanale (lunedì 06:00) la campagna.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(generaCampagna(env));
+    const tipo = event.cron === '0 5 * * *' ? 'giornaliero' : 'settimanale';
+    ctx.waitUntil(generaDungeon(env, tipo));
   },
 };

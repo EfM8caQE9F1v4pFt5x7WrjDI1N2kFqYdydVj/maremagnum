@@ -1,8 +1,10 @@
 'use strict';
 
-// Il Mastro di Rotte (issue #3), messo alla prova senza rete: la campagna
-// è deterministica dal numero della settimana, avanza sugli eventi veri del
-// Game, paga il premio fisso una volta sola e finisce in Gazzetta.
+// Il Mastro di Rotte (issue #3 → v2 #38), messo alla prova senza rete: i dungeon
+// (giornaliero/settimanale) sono deterministici nel FALLBACK procedurale;
+// l'economia è BLINDATA (il premio spendibile esce dal listino, mai dall'LLM);
+// il vestito AI è validato (bersaglio reale, difese clampate); l'avanzamento
+// sugli eventi veri del Game paga il premio una volta sola e finisce in Gazzetta.
 
 const assert = require('assert');
 const campagna = require('../server/campagna-core');
@@ -12,49 +14,73 @@ const { Game } = require('../server/game');
 const ok = (m) => console.log(`  ✅ ${m}`);
 const conn = () => ({ send() {}, readyState: 1 });
 
-// — 1) determinismo: stessa settimana → stessa campagna, senza LLM —
-const a = campagna.genera(2950);
-const b = campagna.genera(2950);
-assert.deepStrictEqual(a, b, 'la campagna deve essere deterministica');
-assert.notDeepStrictEqual(campagna.genera(2951).tappe, a.tappe.length && undefined, 'sanity');
-assert(a.tappe.length === 3 && a.tappe[2].tipo === 'espugnazione', 'tre tappe, chiusura in fortezza');
-assert.strictEqual(a.premio, campagna.PREMIO, 'premio fisso e magro');
+// — 1) determinismo e struttura del vestito procedurale (settimanale) —
+const a = campagna.genera('settimanale', 2950);
+const b = campagna.genera('settimanale', 2950);
+assert.deepStrictEqual(a, b, 'stesso seme → stesso dungeon procedurale');
+assert(a.tappe.length === 3 && a.tappe[2].tipo === 'espugnazione', 'settimanale: 3 tappe, chiusura in assalto');
+assert(a.tipo === 'settimanale' && a.periodo === 2950 && a.settimana === 2950, 'tipo/periodo/compat settimana');
+assert(campagna.DIFFICOLTA.includes(a.difficolta) && a.premio === campagna.LISTINO[a.difficolta], 'premio dal listino, per fascia');
+assert(a.difese && a.difese.torri >= 3 && a.difese.torri <= 10, 'porta uno spec di difese sano');
 assert(a.nome && a.tappe.every(t => t.desc && t.lore), 'vestito procedurale completo senza AI');
-ok(`determinismo e struttura: "${a.nome}" (${a.tappe.map(t => t.tipo).join(' → ')})`);
+ok(`determinismo e struttura: "${a.nome}" [${a.difficolta}, ${a.premio}🪙] (${a.tappe.map(t => t.tipo).join(' → ')})`);
 
-// — 1bis) le tappe d'assedio nominano isole reali dell'Atlante (issue #36) —
+// — 1bis) il giornaliero è a obiettivo singolo (l'assalto del giorno) —
+const g = campagna.genera('giornaliero', campagna.giornoDi(), ['wikipedia.org']);
+assert(g.tipo === 'giornaliero' && g.tappe.length === 1 && g.tappe[0].tipo === 'espugnazione', 'giornaliero: solo l\'assalto');
+assert(g.tappe[0].bersaglio === 'wikipedia.org' && g.bersaglio === 'wikipedia.org', 'bersaglio reale nominato');
+assert(typeof g.scadenza === 'number' && g.scadenza === (campagna.giornoDi() + 1) * 24 * 3600 * 1000, 'scadenza a fine giornata');
+assert.strictEqual(campagna.periodoDi('settimanale'), campagna.settimanaDi(), 'periodoDi settimanale == settimanaDi');
+assert.strictEqual(campagna.periodoDi('giornaliero'), campagna.giornoDi(), 'periodoDi giornaliero == giornoDi');
+ok(`giornaliero a obiettivo singolo: «${g.tappe[0].desc}» (scade a fine dì)`);
+
+// — 1ter) bersaglio reale deterministico nel fallback + assicura() —
 const isole = ['wikipedia.org', 'archive.org', 'openstreetmap.org'];
-const conBersaglio = campagna.genera(2950, isole);
+const conBersaglio = campagna.genera('settimanale', 2950, isole);
 const fin = conBersaglio.tappe[conBersaglio.tappe.length - 1];
-assert(fin.tipo === 'espugnazione' && isole.includes(fin.bersaglio),
-  'la fortezza finale nomina un\'isola reale sopra soglia');
-assert(fin.desc.includes(fin.bersaglio), 'la descrizione della tappa nomina il bersaglio');
-assert.deepStrictEqual(campagna.genera(2950, isole), conBersaglio,
-  'la scelta del bersaglio è deterministica dalla settimana');
-const senza = campagna.genera(2950, []);
-assert(senza.tappe[2].bersaglio === null && /Fortezza Proibita/.test(senza.tappe[2].desc),
-  'senza isole reali si ripiega sulla generica Fortezza Proibita');
-ok(`bersaglio reale deterministico: «${fin.desc}»`);
-
-// — 1ter) assicura(): semina se manca/stantia, tiene se è della settimana —
+assert(isole.includes(fin.bersaglio) && fin.desc.includes(fin.bersaglio), 'la fortezza finale nomina un\'isola reale');
+assert.deepStrictEqual(campagna.genera('settimanale', 2950, isole), conBersaglio, 'scelta del bersaglio deterministica');
+const senza = campagna.genera('settimanale', 2950, []);
+assert(senza.tappe[2].bersaglio === null && /Fortezza Proibita/.test(senza.tappe[2].desc), 'senza isole → Fortezza Proibita');
 const wk = campagna.settimanaDi();
-const fresco = campagna.assicura(null, wk, isole);
-assert(fresco.daPubblicare && fresco.campagna.settimana === wk,
-  'campagna assente → seminata al volo e da pubblicare');
-const tenuta = campagna.assicura(fresco.campagna, wk, isole);
-assert(!tenuta.daPubblicare && tenuta.campagna === fresco.campagna,
-  'campagna della settimana giusta → tenuta com\'è, niente ripubblicazione');
-const vecchia = { settimana: wk - 1, nome: 'Vecchia', tappe: [{ tipo: 'x', n: 1, desc: 'y' }], premio: 400 };
-const rinnovata = campagna.assicura(vecchia, wk, isole);
-assert(rinnovata.daPubblicare && rinnovata.campagna.settimana === wk,
-  'campagna stantia → rigenerata per la settimana corrente');
-ok('assicura(): auto-seed al bisogno, nessuna ripubblicazione inutile');
+const fresco = campagna.assicura(null, 'settimanale', wk, isole);
+assert(fresco.daPubblicare && fresco.dungeon.periodo === wk, 'assente → seminato e da pubblicare');
+const tenuto = campagna.assicura(fresco.dungeon, 'settimanale', wk, isole);
+assert(!tenuto.daPubblicare && tenuto.dungeon === fresco.dungeon, 'stesso periodo → tenuto com\'è');
+const vecchio = campagna.assicura(fresco.dungeon, 'settimanale', wk + 1, isole);
+assert(vecchio.daPubblicare && vecchio.dungeon.periodo === wk + 1, 'periodo nuovo → rigenerato');
+ok(`bersaglio reale + assicura(): «${fin.desc}»`);
+
+// — 1quater) ECONOMIA BLINDATA: l'AI riveste, il codice valida (#38) —
+const base = campagna.genera('settimanale', 3000, isole);
+// l'AI dichiara 'tosto' e prova a iniettare un premio gonfio + difese assurde: ignorati
+const vestita = campagna.applicaVestito(base, {
+  nome: 'Le Fauci del Kraken', lore: 'Tre convogli inghiottiti dal nulla.',
+  difficolta: 'tosto', premio: 999999, bersaglio: 'archive.org',
+  tappe: ['Il mare ribolle.', 'Ombre sotto la chiglia.', 'La resa dei conti.'],
+  difese: { torri: 999, bombarde: 99, specchio: true },
+}, isole);
+assert.strictEqual(vestita.premio, campagna.LISTINO.tosto, 'premio dal LISTINO, MAI dall\'AI (no pay-to-win)');
+assert.strictEqual(vestita.bersaglio, 'archive.org', 'bersaglio reale accettato');
+assert(vestita.tappe[2].desc.includes('archive.org'), 'la tappa finale si riallinea al bersaglio scelto');
+assert(vestita.difese.torri <= 10 && vestita.difese.bombarde <= 3, 'difese clampate a range giocabili');
+assert(vestita.nome === 'Le Fauci del Kraken' && vestita.tappe[0].lore === 'Il mare ribolle.', 'nome e narrazione AI adottati');
+// bersaglio FINTO → rifiutato, resta un'isola reale (quella procedurale)
+const finto = campagna.applicaVestito(base, { bersaglio: 'malware-inventato.xyz', difficolta: 'facile' }, isole);
+assert(isole.includes(finto.bersaglio), 'bersaglio inventato rifiutato, resta reale');
+assert.strictEqual(finto.premio, campagna.LISTINO.facile, 'premio segue la difficolta clampata');
+// difficolta spazzatura → medio; vestito nullo → dungeon procedurale intatto e valido
+assert.strictEqual(campagna.applicaVestito(base, { difficolta: 'apocalittico' }, isole).premio, campagna.LISTINO.medio, 'difficolta ignota → medio');
+const nullo = campagna.applicaVestito(base, null, isole);
+assert(campagna.valida(nullo) && nullo.nome === base.nome, 'vestito nullo → procedurale intatto');
+ok('economia blindata: premio dal listino, bersaglio reale, difese clampate, fallback saldo');
 
 // — 2) l'avanzamento sugli eventi veri del Game —
 // scelgo una settimana la cui campagna apre coi Mercantili, per pilotarla
 let sett = 2950;
-while (campagna.genera(sett).tappe[0].tipo !== 'mercantili' || campagna.genera(sett).tappe[1].tipo !== 'fantasmi') sett++;
-const c = campagna.genera(sett);
+while (campagna.genera('settimanale', sett).tappe[0].tipo !== 'mercantili' ||
+       campagna.genera('settimanale', sett).tappe[1].tipo !== 'fantasmi') sett++;
+const c = campagna.genera('settimanale', sett);
 campagna.setCampagna(c);
 
 const game = new Game(() => {});
@@ -76,9 +102,9 @@ ok('tappa 1: i Mercantili affondati fanno avanzare la campagna');
 
 // tappa 2: fantasmi (n=2)
 for (let i = 0; i < c.tappe[1].n; i++) {
-  const g = ghosts[i];
-  g.graceUntil = 0; g.sunkUntil = 0;
-  game.damageShip(g, 9999, P.id);
+  const gh = ghosts[i];
+  gh.graceUntil = 0; gh.sunkUntil = 0;
+  game.damageShip(gh, 9999, P.id);
 }
 assert.strictEqual(P.campagna.tappa, 2, 'tappa 2 compiuta coi Fantasmi');
 ok('tappa 2: i Corsari Fantasma contano solo nella tappa giusta');
@@ -88,10 +114,10 @@ const oroPrima = P.gold;
 gazzetta.setVoci([]);
 game.avanzaCampagna(P, 'espugnazione');
 assert(P.campagna.completata, 'campagna compiuta');
-assert.strictEqual(P.gold, oroPrima + c.premio, `premio pagato (${c.premio})`);
+assert.strictEqual(P.gold, oroPrima + c.premio, `premio pagato (${c.premio}, dal listino per fascia)`);
 assert(gazzetta.ultime(5).some(v => v.tipo === 'campagna' && v.testo.includes('Pellegrino')),
   'il trionfo va in Gazzetta');
-ok('tappa 3 + premio fisso + gloria in Gazzetta');
+ok('tappa 3 + premio per fascia + gloria in Gazzetta');
 
 // — 3) il premio non si paga due volte, e il profilo fa il giro —
 game.avanzaCampagna(P, 'espugnazione');
@@ -99,13 +125,12 @@ assert.strictEqual(P.gold, oroPrima + c.premio, 'niente doppio premio');
 const you = game.youFor(P);
 assert(you.campagna && you.campagna.completata && you.campagna.settimana === c.settimana,
   'il progresso viaggia nel profilo');
-// un secondo join con quel profilo NON riparte da zero
 const P2 = game.join(conn(), { t: 'join', name: 'Redivivo', profile: { gold: 100, campagna: you.campagna } });
 assert(P2.campagna.completata, 'al rientro la campagna resta compiuta');
 ok('idempotenza del premio e progresso persistente nel profilo');
 
-// — 4) settimana nuova = campagna nuova: il progresso vecchio si azzera —
-campagna.setCampagna(campagna.genera(sett + 1));
+// — 4) periodo nuovo = campagna nuova: il progresso vecchio si azzera —
+campagna.setCampagna(campagna.genera('settimanale', sett + 1));
 game.avanzaCampagna(P2, campagna.getCampagna().tappe[0].tipo);
 assert(P2.campagna.settimana === sett + 1 && !P2.campagna.completata,
   'la settimana nuova riparte da capo');

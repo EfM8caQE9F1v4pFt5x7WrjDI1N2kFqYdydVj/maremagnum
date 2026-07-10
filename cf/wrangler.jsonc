@@ -29,8 +29,9 @@
   "r2_buckets": [
     { "binding": "DEPOSITO", "bucket_name": "maremagnum" }
   ],
-  // il Mastro di Rotte lavora il lunedì all'alba; l'AI riveste solo il lore
-  "triggers": { "crons": ["0 6 * * 1"] },
+  // il Mastro di Rotte (#38): il dungeon del giorno ogni alba (05:00 UTC), la
+  // campagna della settimana il lunedì (06:00 UTC); l'AI scrive, il codice blinda l'oro
+  "triggers": { "crons": ["0 5 * * *", "0 6 * * 1"] },
   "ai": { "binding": "AI" },
   "observability": { "enabled": true }
 }

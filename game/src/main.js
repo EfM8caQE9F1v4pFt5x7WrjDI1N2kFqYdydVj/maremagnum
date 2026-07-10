@@ -650,10 +650,13 @@ function wireNet() {
   });
 
   net.on('island', (m) => {
+    const known = state.islands.has(m.island.id);
     state.islands.set(m.island.id, m.island);
     renderer.addIsland(m.island);
     if ((state.profile.conquered || []).includes(m.island.id)) renderer.markConquered(m.island.id);
-    ui.feed(`🗺 Nuova isola avvistata: ${m.island.name}`);
+    // un dungeon del Mastro (#38) scaduto: niente più difese, si toglie il disegno
+    if (!m.island.fortress && !m.island.dungeon) renderer.clearFort(m.island.id);
+    if (!known) ui.feed(`🗺 Nuova isola avvistata: ${m.island.name}`);
   });
 
   net.on('snap', (m) => {
@@ -698,6 +701,7 @@ function wireNet() {
     const me = latestMe();
     ui.showTreasureMap(me || state.port, m.island, m.url);
     if (m.island.fortress) ui.toast('⚠ Quelle acque sono difese da una Fortezza quasi inespugnabile!', 5000);
+    else if (m.island.dungeon) ui.toast('⚔ Il Mastro ha steso un dungeon qui: abbatti le difese per il bottino!', 5000);
   });
 
   net.on('docked', (m) => {
@@ -814,6 +818,10 @@ function wireNet() {
     if (!document.getElementById('gazzettaOverlay').classList.contains('hidden')) {
       ui.showGazzetta(state.gazzetta || [], state.profile.gazzettaLetta || 0, state.campagna);
     }
+  });
+  net.on('dungeon', (m) => {
+    state.dungeon = m.stato || null;
+    ui.setDungeonHud(state.dungeon); // il dungeon del giorno sull'HUD (issue #38)
   });
   net.on('gazzetta', (m) => {
     state.gazzetta = Array.isArray(m.voci) ? m.voci : [];
@@ -1048,21 +1056,26 @@ if (devParams.get('forceshop')) {
   setTimeout(open, 700);
 }
 
-// ?forcehud=campagna (sviluppo): popola l'HUD persistente del Mastro (issue
-// #36) con dati finti, per fotografarlo headless senza dover salpare e attendere
-// il messaggio dal server. Mostra la tappa corrente col progresso.
-if (devParams.get('forcehud') === 'campagna') {
+// ?forcehud=campagna|dungeon (sviluppo): popola gli HUD del Mastro (issue #36/#38)
+// con dati finti, per fotografarli headless senza dover salpare e attendere i
+// messaggi dal server.
+if (devParams.get('forcehud')) {
+  const quali = devParams.get('forcehud').split(',');
   const openH = () => {
     if (typeof ui === 'undefined' || !ui || !ui.setCampagnaHud) { setTimeout(openH, 200); return; }
     document.body.classList.remove('benvenuto');
-    ui.setCampagnaHud({
-      settimana: 2949, nome: 'La Marea dei Corsari', premio: 400,
+    if (quali.includes('campagna')) ui.setCampagnaHud({
+      settimana: 2949, nome: 'La Marea dei Corsari', premio: 700,
       tappe: [
         { desc: 'Affonda 2 Mercantili', n: 2 },
         { desc: 'Scopri 3 isole mai visitate', n: 3 },
-        { desc: 'Espugna la fortezza di wikipedia.org', n: 1 },
+        { desc: 'Espugna le difese di wikipedia.org', n: 1 },
       ],
       tappa: 1, fatto: 1, completata: false,
+    });
+    if (quali.includes('dungeon')) ui.setDungeonHud({
+      periodo: 20645, nome: 'Le Fauci del Kraken', bersaglio: 'archive.org',
+      premio: 1000, difficolta: 'tosto', fatto: false,
     });
   };
   setTimeout(openH, 700);
@@ -1228,6 +1241,8 @@ function updateDockHint(me) {
   const conquered = (state.profile.conquered || []).includes(best.id);
   if (best.fortress && !conquered) {
     ui.setDockHint(`🏰 ${best.name}: l'approdo è sbarrato finché le difese sono in piedi`);
+  } else if (best.dungeon) {
+    ui.setDockHint(`⚔ ${best.name}: dungeon del Mastro — abbatti le difese per attraccare`);
   } else if (bestD <= best.r + 90) {
     ui.setDockHint(me.vel <= 45 ? `Premi F per attraccare a ${best.name}` : 'Ammaina le vele (S) per attraccare');
   } else {

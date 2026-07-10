@@ -42,9 +42,10 @@ function joinMare(nome, token) {
     ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name: nome, profile: {}, token })));
     ws.on('message', (d) => {
       const m = JSON.parse(d);
-      // il Mastro (issue #36) manda la campagna subito dopo il welcome: la si
-      // annota man mano — il ws resta aperto, così il collaudo può verificarla
+      // il Mastro (#36/#38) manda campagna e dungeon del giorno subito dopo il
+      // welcome: si annotano man mano — il ws resta aperto per verificarli
       if (m.t === 'campagna') esito.campagna = m.stato || null;
+      if (m.t === 'dungeon') esito.dungeon = m.stato || null;
       if (m.t === 'welcome') { clearTimeout(timer); esito.welcome = m; resolve(esito); }
     });
     ws.on('error', reject);
@@ -75,6 +76,10 @@ async function main() {
     die('il Mastro non ha mandato la campagna al join: auto-seed non attivo?');
   }
   ok(`Mastro di Rotte: campagna «${camp.nome}» al join (${camp.tappe.length} tappe, premio ${camp.premio} 🪙)`);
+  // il dungeon del giorno (#38): stesso auto-seed, obiettivo singolo con bersaglio reale
+  const dun = anonimo.dungeon;
+  if (!dun || !dun.nome) die('il Mastro non ha mandato il dungeon del giorno al join (#38)');
+  ok(`Dungeon del giorno «${dun.nome}»${dun.bersaglio ? ' → ' + dun.bersaglio : ''} [${dun.difficolta}, ${dun.premio} 🪙]`);
   anonimo.ws.close();
 
   // ancoraggio: nuovo → conferma (TOTP) → entra
