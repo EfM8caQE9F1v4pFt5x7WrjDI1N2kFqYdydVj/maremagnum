@@ -1208,6 +1208,41 @@ export class Renderer {
           color: s.sc || null, // la scia comprata (issue #25) colora la spuma
         });
       }
+      // l'abilità in corso si LEGGE (#41 fetta 2-bis): telegrafi distinti
+      // per tipo, finché ab (i secondi restanti nello snapshot) è acceso
+      if (s.ab && !s.sunk && !s.docked) {
+        if (s.tp === 1 && Math.random() < 0.9) {
+          // Speronamento: baffi di prua a V per TUTTA la carica — spruzzi
+          // CON velocità laterale, o la nave in corsa li copre subito
+          const lato = Math.random() < 0.5 ? 1 : -1;
+          const via = s.rot + lato * (Math.PI / 2 + 0.5); // di lato e un po' indietro
+          this.particles.push({
+            x: s.x + Math.cos(s.rot) * 26, y: s.y + Math.sin(s.rot) * 26,
+            vx: Math.cos(via) * (45 + Math.random() * 35), vy: Math.sin(via) * (45 + Math.random() * 35),
+            life: 0.5 + Math.random() * 0.3, max: 0.8, size: 2.5 + Math.random() * 2.5,
+            color: 0xd9edf7, drag: 2.2,
+          });
+        } else if (s.tp === 4 && Math.random() < 0.85) {
+          // Colpo di Vento: la raffica che spinge, striature a poppavia
+          this.wakes.push({
+            x: s.x - Math.cos(s.rot) * (26 + Math.random() * 24),
+            y: s.y - Math.sin(s.rot) * (26 + Math.random() * 24),
+            life: 0.6, max: 0.6, size: 2.5 + Math.random() * 2.5, color: 0xbfe2f2,
+          });
+        }
+        if (s.tp === 3) {
+          // Bordata Doppia: le fiancate ardono finché dura. Si disegna su
+          // hpBar (il Graphics per-frame degli anelli di blocco/immunità,
+          // sempre SOPRA lo scafo — i rebuild del body non lo seppelliscono);
+          // hpBar non ruota, quindi la rotazione si fa a mano
+          const pulsa = 0.45 + 0.3 * Math.sin(this.t * 6);
+          const ax = Math.cos(s.rot) * 20, ay = Math.sin(s.rot) * 20;   // lungo lo scafo
+          const sx = Math.cos(s.rot + Math.PI / 2) * 15, sy = Math.sin(s.rot + Math.PI / 2) * 15; // di lato
+          c.hpBar
+            .moveTo(-ax + sx, -ay + sy).lineTo(ax + sx, ay + sy).stroke({ width: 3, color: 0xffd98a, alpha: pulsa })
+            .moveTo(-ax - sx, -ay - sy).lineTo(ax - sx, ay - sy).stroke({ width: 3, color: 0xffd98a, alpha: pulsa });
+        }
+      }
     }
     for (const id of this.ships.keys()) if (!seen.has(id)) this.removeShip(id);
 
@@ -1353,6 +1388,11 @@ export class Renderer {
       // la rastrellata (#41 fetta 2): morso dorato sul settore di poppa
       burst(10, { v: 85, life: 0.5, size: 3, color: 0xffd98a });
       this.rings.push({ x, y, r: 5, maxR: 36, life: 0.4, max: 0.4 });
+    } else if (kind === 'vento') {
+      // il Colpo di Vento parte (#41 fetta 2-bis): raffica bianca,
+      // non l'anello dello sperone — ogni abilità ha la sua voce
+      burst(14, { v: 110, life: 0.4, size: 2.5, color: 0xeaf6fd });
+      burst(6, { v: 55, life: 0.7, size: 3.5, color: 0xbfe2f2 });
     }
   }
 

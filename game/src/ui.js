@@ -288,6 +288,11 @@ export class UI {
     $('munizioneVal').textContent = `${m.emoji} ${m.name}`;
   }
 
+  // l'abilità in corso (#41 fetta 2-bis): la barra R arde finché dura
+  setAbilityAttiva(v) {
+    $('abilityBar').classList.toggle('attiva', !!v);
+  }
+
   // --- timoneria: tasti rimappabili (WCAG 2.1.4) ---
 
   setKeymap(l) {
