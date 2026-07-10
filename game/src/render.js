@@ -602,6 +602,10 @@ export class Renderer {
     if (this.cloudShadows) this.cloudShadows.visible = !this.lowSpec && !this.calmo;
   }
 
+  // il vento del mare (issue #41): il render lo riceve dallo snapshot e lo
+  // passa all'acqua — la deriva della corrente segue il vento vero
+  setVento(dir, forza) { this.vento = { dir, forza }; }
+
   setWorld(world) {
     this.W = world.W; this.H = world.H;
     const border = new Graphics();
@@ -1327,6 +1331,7 @@ export class Renderer {
     // luce del ciclo giorno/notte: acqua, tinta del mondo, meteo
     const light = this.lightNow = lightNow();
     this.water.zoom = z;
+    this.water.vento = this.vento;
     if (!this.noWater) this.water.update(dt, cx - hw - shx / z, cy - hh - shy / z, w, h, light);
     if (this.tintOverlay) {
       this.tintOverlay.width = w; this.tintOverlay.height = h;

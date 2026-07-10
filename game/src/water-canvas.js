@@ -111,12 +111,18 @@ export class CanvasWater {
   update(dt, camX, camY, w, h, light) {
     this.sprite.width = w;
     this.sprite.height = h;
-    // scorre col mondo + una deriva lenta di corrente; col cannocchiale
-    // (renderer.zoom) anche l'onda si avvicina, non solo le navi
+    // scorre col mondo + una deriva di corrente; col cannocchiale
+    // (renderer.zoom) anche l'onda si avvicina, non solo le navi.
+    // La deriva segue il vento del mare (issue #41): stessa direzione per
+    // tutti, passo con la forza — senza vento resta il vecchio andare a est.
     const z = this.zoom || 1;
     this.phaseT = (this.phaseT || 0) + dt;
+    const vDir = this.vento ? this.vento.dir : 0;
+    const vPasso = this.vento ? 3 + 9 * this.vento.forza : 6;
+    this.driftX = (this.driftX || 0) + Math.cos(vDir) * vPasso * dt;
+    this.driftY = (this.driftY || 0) + Math.sin(vDir) * vPasso * dt;
     this.sprite.tileScale.set(2 * z);
-    this.sprite.tilePosition.set((-camX + this.phaseT * 6) * z, (-camY + Math.sin(this.phaseT * 0.4) * 5) * z);
+    this.sprite.tilePosition.set((-camX + this.driftX) * z, (-camY + this.driftY + Math.sin(this.phaseT * 0.4) * 5) * z);
 
     // rigenera la tile quando la luce cambia abbastanza (max ~1/s)
     const key = light ? [light.warm.toFixed(2), light.glint.toFixed(2)].join('|') : 'fissa';

@@ -602,6 +602,39 @@ function applySettings({ music: m, sfx: s, guard: g, calma: c, notte: n, volume:
   ui.setSettings({ music: m, sfx: s, guard: g, calma: c, notte: n, volume: v });
 }
 
+// --- la rosa dei venti (issue #41) ---
+// Il vento del mare arriva nello snapshot (campo vn) e si legge in HUD:
+// freccia + parole, non solo particelle (a11y — lezione di Sea of Thieves,
+// dove il vento di notte non si legge). La freccia punta dove il vento
+// SOFFIA: prua allineata = vento in poppa.
+// ?forcevento=dir,forza (sviluppo): radianti e 0..1, per foto deterministiche.
+
+const PUNTE = ['E', 'SE', 'S', 'SO', 'O', 'NO', 'N', 'NE'];
+const PUNTE_ARIA = ['est', 'sud-est', 'sud', 'sud-ovest', 'ovest', 'nord-ovest', 'nord', 'nord-est'];
+
+function setVento(dir, forza) {
+  const forced = devParams.get('forcevento');
+  if (forced) {
+    const [d, f] = forced.split(',').map(Number);
+    dir = d || 0; forza = Number.isFinite(f) ? f : 1;
+  }
+  state.vento = { dir, forza };
+  renderer.setVento(dir, forza);
+  const hud = document.getElementById('ventoHud');
+  if (!hud) return;
+  hud.classList.remove('hidden');
+  document.getElementById('ventoFreccia').style.transform = `rotate(${dir}rad)`;
+  const punta = Math.round((((dir % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) / (Math.PI / 4)) % 8;
+  const forzaNome = forza < 0.65 ? 'brezza' : forza < 0.85 ? 'vento teso' : 'burrasca';
+  const chiave = punta + '|' + forzaNome;
+  if (state._ventoChiave !== chiave) { // il testo cambia di rado, il DOM pure
+    state._ventoChiave = chiave;
+    document.getElementById('ventoNome').textContent = `${PUNTE[punta]} · ${forzaNome}`;
+    hud.setAttribute('aria-label', `Vento verso ${PUNTE_ARIA[punta]}, ${forzaNome}`);
+    hud.title = `Il vento soffia verso ${PUNTE_ARIA[punta]} (${forzaNome}): in poppa spinge, di bolina frena`;
+  }
+}
+
 // --- la timoneria: tasti rimappabili ---
 
 function applyKeymap() {
@@ -741,6 +774,7 @@ function wireNet() {
     if (state.snaps.length > 10) state.snaps.shift();
     for (const f of m.forts) renderer.updateFort(f.i, f.d);
     renderer.updateSmokes(m.sm);
+    if (m.vn) setVento(m.vn[0], m.vn[1]); // il vento del mare (issue #41)
     // il colpo si SENTE: scossone e lampo rosso quando lo scafo incassa;
     // Mare calmo li spegne (issue #19, rilievo F9 dell'audit)
     const io = ships.get(state.meId);

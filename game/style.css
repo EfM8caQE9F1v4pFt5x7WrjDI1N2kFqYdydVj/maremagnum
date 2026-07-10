@@ -142,6 +142,17 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
   border-radius: var(--r-sm); box-shadow: var(--elev-3);
 }
 
+/* la rosa dei venti (issue #41): il vento si legge, non si indovina —
+   freccia dorata + parole, appollaiata sopra la minimappa */
+#ventoHud {
+  position: fixed; right: 16px; bottom: 254px; z-index: var(--z-hud);
+  display: flex; align-items: center; gap: var(--s-2);
+  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: var(--r-md);
+  padding: var(--s-1) var(--s-3); font-size: var(--t-sm); box-shadow: var(--elev-2);
+}
+#ventoHud.hidden { display: none; }
+#ventoFreccia { display: inline-block; color: var(--gold); transition: transform .5s; }
+
 /* ---- killfeed & toast ---- */
 #killfeed { position: fixed; top: 66px; right: 16px; z-index: var(--z-feed); transition: top .25s; display: flex; flex-direction: column; gap: var(--s-2); align-items: flex-end; }
 .feedItem {
@@ -172,7 +183,7 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 /* Il benvenuto vivo (issue #21): dietro la pergamena il mare respira,
    l'interfaccia di bordo aspetta il varo */
 body.benvenuto #hud, body.benvenuto #minimap, body.benvenuto #hint,
-body.benvenuto #killfeed { display: none; }
+body.benvenuto #killfeed, body.benvenuto #ventoHud { display: none; }
 
 /* i placeholder dei codici non si troncano: la spaziatura larga
    appartiene al codice digitato, non alla scritta di cortesia */
@@ -537,6 +548,7 @@ body.attraccato #assedioHud, body.attraccato #killfeed { top: 108px; }
   #brand { display: none; }
   #hud { width: min(260px, 46vw); }
   #minimap { width: 140px; height: 140px; }
+  #ventoHud { bottom: 164px; } /* si riappollaia sulla minimappa piccola */
   #hint { display: none; } /* aiuto ridondante: vive nel Manuale */
   #killfeed { max-width: 46vw; }
 }
