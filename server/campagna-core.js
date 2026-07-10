@@ -184,7 +184,12 @@ function applicaVestito(base, vestito, candidati = []) {
 // deterministico). Funzione pura: la usano il Mare (a freddo e a ogni cambio
 // periodo) e il cron del worker. `daPubblicare` dice se va persistito.
 function assicura(corrente, tipo, periodo, isole = []) {
-  if (valida(corrente) && corrente.tipo === tipo && corrente.periodo === periodo) {
+  const buono = valida(corrente) && corrente.tipo === tipo && corrente.periodo === periodo;
+  // self-heal: un dungeon del periodo giusto ma SENZA bersaglio reale (seminato
+  // quando l'Atlante era muto) si rigenera appena ci sono candidati — così le
+  // difese compaiono senza aspettare il prossimo cron.
+  const senzaBersaglio = buono && !corrente.bersaglio && Array.isArray(isole) && isole.length > 0;
+  if (buono && !senzaBersaglio) {
     return { dungeon: corrente, daPubblicare: false };
   }
   return { dungeon: genera(tipo, periodo, isole), daPubblicare: true };
