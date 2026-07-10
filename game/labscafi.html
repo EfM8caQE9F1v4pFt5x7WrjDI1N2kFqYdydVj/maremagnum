@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="it">
+<head><meta charset="utf-8"><title>Verifica scafi nudi + tela (temporanea)</title></head>
+<body style="margin:0;background:#1a2b3c;color:#eee;font:12px monospace">
+<div id="out"></div>
+<script>
+// Verifica del rebake "scafi nudi": per ogni variante/posa disegna
+//   1) lo scafo nudo, 2) un SEGNAPOSTO cannone rosso sul ponte lato lontano,
+//   3) la tela tinta sopra — se il sandwich è giusto, la tela copre il rosso
+// dove il cassero passa sopra il ponte, e lo scafo non ha vele cotte.
+(async () => {
+  const J = async (u) => (await fetch(u)).json();
+  const I = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+  const navi = await J('assets/navi.json'), tela = await J('assets/vele/tela.json');
+  const imgN = await I('assets/navi.webp'), imgT = await I('assets/vele/tela.webp');
+  const F = navi.frame;
+  const tinta = (src, sx, sy, hex) => {
+    const t = document.createElement('canvas'); t.width = F; t.height = F;
+    const g = t.getContext('2d');
+    g.drawImage(src, sx, sy, F, F, 0, 0, F, F);
+    g.globalCompositeOperation = 'multiply';
+    g.fillStyle = '#' + hex.toString(16).padStart(6, '0');
+    g.fillRect(0, 0, F, F);
+    g.globalCompositeOperation = 'destination-in';
+    g.drawImage(src, sx, sy, F, F, 0, 0, F, F);
+    return t;
+  };
+  const pos = (meta, vi, k) => [ (k % meta.cols) * F, (((k / meta.cols) | 0) + vi * meta.rows) * F ];
+  const CASI = [
+    ['guerra', null], ['galeone', null], ['sciabecco', null], ['fantasma', null],
+    ['sloop', null], ['guerra', 0x3a3a42 /* vele nere comprate */],
+  ];
+  const POSE = [0, 5, 9, 14, 18, 27];
+  const out = document.getElementById('out');
+  for (const [variant, veTint] of CASI) {
+    const row = document.createElement('div');
+    row.textContent = variant + (veTint ? ' + vele nere' : '') + ' — scafo | scafo+rosso+tela';
+    out.appendChild(row);
+    const strip = document.createElement('canvas');
+    strip.width = POSE.length * 2 * 200; strip.height = 200;
+    const g = strip.getContext('2d');
+    for (let i = 0; i < POSE.length; i++) {
+      const k = POSE[i];
+      const [nx, ny] = pos(navi, navi.variants[variant], k);
+      const [tx, ty] = pos(tela, tela.variants[variant], k);
+      // 1) scafo nudo
+      g.drawImage(imgN, nx, ny, F, F, i * 400, 0, 200, 200);
+      // 2) scafo + segnaposto + tela tinta
+      g.drawImage(imgN, nx, ny, F, F, i * 400 + 200, 0, 200, 200);
+      // segnaposto: BARRA rossa piena all'altezza del ponte lato lontano
+      // (y=-9.5 di gioco): dove la tela la copre, la barra si interrompe
+      const cy = 100 - 9.5 * (200 / 104.5);
+      g.fillStyle = '#ff2222';
+      g.fillRect(i * 400 + 210, cy - 2.5, 180, 5);
+      const hex = veTint ?? (tela.tinte && tela.tinte.base[variant]) ?? 0xffffff;
+      g.drawImage(tinta(imgT, tx, ty, hex), 0, 0, F, F, i * 400 + 200, 0, 200, 200);
+    }
+    out.appendChild(strip);
+  }
+  document.title = 'LAB-SCAFI-PRONTO';
+  const done = document.createElement('div'); done.id = 'pronto'; done.textContent = 'PRONTO';
+  out.appendChild(done);
+})().catch(e => { document.body.textContent = 'ERRORE: ' + e.message; });
+</script>
+</body>
+</html>

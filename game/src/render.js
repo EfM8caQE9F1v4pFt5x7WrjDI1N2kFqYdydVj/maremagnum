@@ -19,6 +19,16 @@ function mixHex(a, b, k) {
   return (r << 16) | (g << 8) | bl;
 }
 
+// Prodotto di due tinte (canale per canale): quel che farebbe il tint di Pixi
+// se si potessero impilare — serve alla tela, che il colore ce l'ha TUTTO nel
+// tint (la texture è bianca) e col blocco va spenta senza perderlo.
+function mulTint(a, b) {
+  const r = ((a >> 16 & 255) * (b >> 16 & 255) / 255) | 0;
+  const g = ((a >> 8 & 255) * (b >> 8 & 255) / 255) | 0;
+  const bl = ((a & 255) * (b & 255) / 255) | 0;
+  return (r << 16) | (g << 8) | bl;
+}
+
 // COL (la palette semantica del mondo) vive ora in palette.js, sorgente da
 // game/tokens.json: la STESSA fonte di verità della UI (issue #32).
 
@@ -138,6 +148,9 @@ export class Renderer {
     this.veleTinte = {}; // id vela → tinta 0x, dal catalogo del welcome (main.js)
     this._bandTex = {}; // texture dei vessilli personali, per chiave bf
     this.loadNavi();
+    // gli atlanti sono SCAFI NUDI (fix "cannoni sopra le vele"): la tela è
+    // l'overlay di TUTTI, tinto per variante/livrea/vela — si carica subito
+    this.loadTela();
     // le bocche da fuoco cotte (issue #17); ?armicotte=off forza il
     // fallback vettoriale (utile per i confronti e per collaudarlo)
     if (new URLSearchParams(location.search).get('armicotte') !== 'off') this.loadArmi();
@@ -213,8 +226,8 @@ export class Renderer {
     } catch { /* la nave resta di legno: pazienza */ }
   }
 
-  // le vele tinte: UN atlante di tela bianca per tutti i colori (la tinta
-  // arriva dal catalogo, vedi veleTinte) — scaricato al primo che le indossa
+  // la tela: UN atlante di vele bianche per tutta la flotta (scafi nudi).
+  // La tinta la sceglie tintaTela: vela comprata > livrea > palette variante.
   async loadTela() {
     if (this.tela !== undefined) return;
     this.tela = null; // in caricamento: non richiedere due volte
@@ -234,8 +247,18 @@ export class Renderer {
         frames[name] = arr;
       }
       this.tela = { meta, frames };
-      for (const c of this.ships.values()) c.buildKey = ''; // rivesti chi le indossa
-    } catch { /* la tela resta del suo colore: pazienza */ }
+      for (const c of this.ships.values()) c.buildKey = ''; // rivesti la flotta
+    } catch { /* senza tela niente sprite cotti: si resta sul vettoriale */ }
+  }
+
+  // La tinta della tela di una nave: la vela comprata vince, poi il colore di
+  // vela della livrea indossata, poi la palette della variante (dal bake, in
+  // tela.json: una fonte sola di verità per i colori della flotta).
+  tintaTela(ve, lv, variant) {
+    if (ve && this.veleTinte[ve] != null) return this.veleTinte[ve];
+    const t = (this.tela && this.tela.meta.tinte) || {};
+    if (lv && t.livree && t.livree[lv] != null) return t.livree[lv];
+    return t.base && t.base[variant] != null ? t.base[variant] : 0xffffff;
   }
 
   // Anteprima FEDELE della nave con livrea e vele (issue #34): estrae in un
@@ -255,11 +278,11 @@ export class Renderer {
     if (livreaId && this.livree[livreaId] === undefined) {
       await Promise.race([this.loadLivrea(livreaId), new Promise(r => setTimeout(r, 6000))]);
     }
-    if (veleId && this.tela === undefined) {
+    if (this.tela === undefined) {
       await Promise.race([this.loadTela(), new Promise(r => setTimeout(r, 6000))]);
     }
     await attendi(() => livreaId && this.livree[livreaId] === null); // atlante livrea in volo
-    await attendi(() => veleId && this.tela === null);               // atlante tela in volo
+    await attendi(() => this.tela === null);                         // atlante tela in volo
     const classe = this.shipClass(s);
     const liv = livreaId && this.livree[livreaId] && this.livree[livreaId].frames[classe];
     if (!liv) await attendi(() => !this.navi); // senza livrea (o classe assente) serve l'atlante navi
@@ -271,15 +294,16 @@ export class Renderer {
     const ang = Math.round(frames.length * 0.625) % frames.length; // vista di 3/4
     const spr = new Sprite(frames[ang]);
     spr.anchor.set(0.5);
-    // le vele tinte sopra, stessa posa (se la tela è pronta e ha la classe)
+    // la tela sopra, stessa posa: gli scafi sono NUDI — senza l'overlay
+    // l'anteprima mostrerebbe un relitto. Tinta: vela > livrea > variante.
     let target = spr;
-    const telaFrames = veleId && this.tela && this.tela.frames[classe];
+    const telaFrames = this.tela && this.tela.frames[classe];
     if (telaFrames && telaFrames.length === frames.length) {
       const cont = new Container();
       cont.addChild(spr);
       const vs = new Sprite(telaFrames[ang]);
       vs.anchor.set(0.5);
-      vs.tint = this.veleTinte[veleId] ?? 0xffffff;
+      vs.tint = this.tintaTela(veleId, liv ? livreaId : null, classe);
       cont.addChild(vs);
       target = cont;
     }
@@ -753,16 +777,17 @@ export class Renderer {
   }
 
   buildShipBody(c, s, selfId) {
-    const mode = this.navi ? 'S' : 'V';
+    // gli sprite cotti vogliono ENTRAMBI gli atlanti: gli scafi sono nudi e
+    // senza la tela sopra sembrerebbero relitti — finché uno dei due manca
+    // si resta sul vettoriale (che le vele le disegna da sé)
+    const cotta = !!(this.navi && this.tela);
+    const mode = cotta ? 'S' : 'V';
     const classe = this.shipClass(s);
     // la livrea (issue #25): se indossata e l'atlante è pronto, veste lei;
     // finché scarica (o se manca) si resta sul legno — mai un buco
     if (s.lv && this.livree[s.lv] === undefined) this.loadLivrea(s.lv);
     const liv = s.lv && this.livree[s.lv] && this.livree[s.lv].frames[classe] ? this.livree[s.lv] : null;
-    // le vele tinte: overlay di tela sopra lo sprite (atlante unico + tint)
-    if (s.ve && this.tela === undefined) this.loadTela();
-    const tela = s.ve && this.tela && this.tela.frames[classe] ? this.tela : null;
-    const key = mode + '|' + s.k + '|' + classe + '|' + (liv ? s.lv : '') + '|' + (tela ? s.ve : '') + '|' + (s.gp || []).join(',') + '|' + (s.gw || []).join(',') + (s.id === selfId ? '|S' : '');
+    const key = mode + '|' + s.k + '|' + classe + '|' + (liv ? s.lv : '') + '|' + (s.ve || '') + '|' + (s.gp || []).join(',') + '|' + (s.gw || []).join(',') + (s.id === selfId ? '|S' : '');
     if (c.buildKey === key) return;
     c.buildKey = key;
     if (c.body) c.body.destroy({ children: true });
@@ -773,7 +798,7 @@ export class Renderer {
 
     const ghost = s.k === 'g', merc = s.k === 'm';
 
-    if (this.navi) {
+    if (cotta) {
       // nave cotta: sprite pre-renderizzato + portelli che ruotano continui
       const atlante = liv || this.navi;
       const variant = atlante.frames[classe] ? classe
@@ -793,18 +818,6 @@ export class Renderer {
       if (ghost) spr.alpha = 0.88;
       body.addChild(spr);
       body.atlante = atlante;
-      // la tela tinta si appoggia sopra, stessa posa: dove l'alberatura passa
-      // davanti alle vele l'atlante è bucato e sotto riappare il legno
-      body.veleSprite = null;
-      if (tela && tela.frames[variant]) {
-        const vs = new Sprite(tela.frames[variant][0]);
-        vs.anchor.set(0.5, 0.53);
-        vs.scale.set((tela.meta.scala || 98.4) / tela.meta.frame);
-        vs.tint = this.veleTinte[s.ve] ?? 0xffffff;
-        body.addChild(vs);
-        body.veleSprite = vs;
-        body.veleAtlante = tela;
-      }
       const ports = new Graphics();
       const gp = s.gp || [1, 1, 0, 0];
       // slot d'arma: se il server manda gw usiamo la sagoma vera, altrimenti
@@ -862,6 +875,23 @@ export class Renderer {
       ports.scale.x = fL;
       body.addChild(ports);
       body.addChild(gunLayer);
+      // la tela tinta si stende SOPRA I CANNONI (il sandwich del fix "vele
+      // trasparenti"): il cassero copre le bocche da fuoco della fiancata
+      // lontana, e dove l'alberatura passa davanti l'atlante è bucato — sotto
+      // riappare il legno (e i pezzi) dello strato base, pixel-perfetto
+      body.veleSprite = null;
+      const telaFrames = this.tela.frames[variant];
+      if (telaFrames) {
+        const vs = new Sprite(telaFrames[0]);
+        vs.anchor.set(0.5, 0.53);
+        vs.scale.set((this.tela.meta.scala || 98.4) / this.tela.meta.frame);
+        body.veleTinta = this.tintaTela(s.ve, liv ? s.lv : null, variant);
+        vs.tint = body.veleTinta;
+        if (ghost) vs.alpha = 0.88;
+        body.addChild(vs);
+        body.veleSprite = vs;
+        body.veleAtlante = this.tela;
+      }
       body.shipSprite = spr;
       body.ports = ports;
       body.variant = variant;
@@ -1086,8 +1116,11 @@ export class Renderer {
       // consuma; chi si è appena svincolato porta un anello dorato d'immunità
       const bloccata = (s.bk || 0) > 0;
       if (c.body.shipSprite) c.body.shipSprite.tint = bloccata ? 0x7c848d : 0xffffff;
-      // la tela tinta si spegne col blocco come il resto della nave
-      if (c.body.veleSprite) c.body.veleSprite.tint = bloccata ? 0x7c848d : (this.veleTinte[s.ve] ?? 0xffffff);
+      if (c.body.veleSprite) {
+        // la tela bloccata si spegne col grigio SOPRA la sua tinta (la tela è
+        // bianca: il colore è tutto nel tint, quindi si moltiplica a mano)
+        c.body.veleSprite.tint = bloccata ? mulTint(c.body.veleTinta ?? 0xffffff, 0x7c848d) : (c.body.veleTinta ?? 0xffffff);
+      }
       if (bloccata) {
         c.hpBar.circle(0, 4, 40).stroke({ width: 2, color: 0x1a1208, alpha: 0.5 });
         c.hpBar.arc(0, 4, 40, -Math.PI / 2, -Math.PI / 2 + Math.min(1, s.bk / 18) * Math.PI * 2)

@@ -55,12 +55,16 @@ const LIVREE = {
 };
 const LIVREA = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('livrea')) || null;
 
-// Le VELE separate dalle livree: UN solo atlante di tela BIANCA (bandiera
-// grigia, più scura una volta tinta) che il client tinge col colore del
-// catalogo (`sprite.tint` moltiplica: base bianca → qualsiasi tinta). Il resto
-// della nave si cuoce come OCCLUSORE invisibile (colorWrite=false ma depth sì):
-// alberi e sartie davanti alla tela bucano l'overlay, così sotto riappare il
-// legno dello sprite base, pixel-perfetto (stessa scena, stessa camera).
+// Le VELE separate dagli scafi (fix "cannoni sopra le vele"): UN solo atlante
+// di tela BIANCA che il client tinge col colore del catalogo (`sprite.tint`
+// moltiplica: base bianca → qualsiasi tinta) e stende SEMPRE sopra la nave —
+// cannoni compresi, così il cassero li copre come deve. Il resto della nave
+// si cuoce come OCCLUSORE invisibile (colorWrite=false ma depth sì): alberi e
+// sartie davanti alla tela bucano l'overlay, sotto riappare il legno dello
+// sprite base, pixel-perfetto (stessa scena, stessa camera). La BANDIERA
+// resta nello scafo (colorata di tipo/livrea): qui è solo occlusore — le vele
+// comprate tingono la tela, mai il vessillo. Gli atlanti base e livree sono
+// SCAFI NUDI: la tela non si cuoce lì, in mare è sempre l'overlay.
 const VELE_MODE = typeof location !== 'undefined' && new URLSearchParams(location.search).get('vele') === '1';
 // ?dump=1: l'atlante esce dal DOM (chrome headless --dump-dom), niente Electron
 const DUMP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('dump') === '1';
@@ -84,8 +88,10 @@ const CLASSI = {
   galeonetipo: { L: 1.22, alberi: 3, castello: 2, gabbia: true,  fiocco: true,  pal: 'regale' },
   sciabecco:   { L: 0.95, alberi: 2, castello: 0, gabbia: false, fiocco: true,  pal: 'sciabecco', latine: true },
 };
-// livree e vele vestono solo i GIOCATORI: fantasmi e mercantili restano del mare
-const VARIANTS = (LIVREA || VELE_MODE)
+// le livree vestono solo i GIOCATORI: fantasmi e mercantili restano del mare.
+// L'atlante della TELA invece copre tutta la flotta: con gli scafi nudi anche
+// gli NPC hanno bisogno del loro overlay di vele (tinta di palette).
+const VARIANTS = LIVREA
   ? Object.keys(CLASSI).filter(v => v !== 'fantasma' && v !== 'mercantile')
   : Object.keys(CLASSI);
 
@@ -424,12 +430,11 @@ function buildShip(nome) {
     const iMaestro = cfg.alberi === 3 ? 1 : 0;
     const fx = posAlberi[iMaestro] * L - 0.34;
     const fy = 0.9 + hAlbero * scale[iMaestro] - 0.16;
-    // nell'atlante vele la bandiera è grigia: tinta a runtime viene più scura
-    // della tela (grigio × tinta), come le bandiere vere del catalogo
+    // la bandiera appartiene allo SCAFO (colore di tipo/livrea): nell'atlante
+    // della tela è un occlusore come l'alberatura — il vessillo non si tinge
     const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.24), new THREE.MeshStandardMaterial({
-      color: VELE_MODE ? 0x9a9a9a : oro ? 0x2a1004 : p.flag, roughness: 1, side: THREE.DoubleSide,
+      color: oro ? 0x2a1004 : p.flag, roughness: 1, side: THREE.DoubleSide,
     }));
-    flag.userData.vela = true;
     flag.position.set(fx, fy, 0);
     flag.rotation.y = 0.18;
     ship.add(flag);
@@ -462,18 +467,22 @@ function buildShip(nome) {
     ship.traverse((o) => { if (o.material) { o.material.transparent = true; o.material.opacity = 0.92; } });
   }
 
-  // l'atlante delle vele: resta colorata solo la tela (sailMat) e la bandiera;
-  // tutto il resto diventa occlusore — scrive la profondità ma non il colore,
-  // così l'alberatura davanti alla tela BUCA l'overlay (sotto riappare il
-  // legno dello sprite base). renderOrder -1: prima gli occlusori, poi la tela.
+  // l'atlante delle vele: resta colorata SOLO la tela (sailMat); tutto il
+  // resto — bandiera compresa — diventa occlusore: scrive la profondità ma
+  // non il colore, così ciò che passa davanti alla tela BUCA l'overlay (sotto
+  // riappare lo sprite base). renderOrder -1: prima gli occlusori, poi la tela.
   if (VELE_MODE) {
     ship.traverse((o) => {
       if (!o.isMesh) return;
-      if (o.material === sailMat) o.userData.vela = true;
-      if (o.userData.vela) return;
+      if (o.material === sailMat) return;
       o.material.colorWrite = false;
       o.renderOrder = -1;
     });
+  } else {
+    // SCAFI NUDI (fix "cannoni sopra le vele"): negli atlanti base e livree
+    // la tela NON si cuoce — in mare è sempre l'overlay dell'atlante vele,
+    // steso sopra i cannoni, così il cassero copre le bocche da fuoco.
+    ship.traverse((o) => { if (o.isMesh && o.material === sailMat) o.visible = false; });
   }
 
   return ship;
@@ -520,12 +529,23 @@ async function main() {
 
   // webp: stessa trasparenza morbida del png, un sesto del peso
   window.__atlas = atlas.toDataURL('image/webp', 0.92);
-  window.__meta = JSON.stringify({
+  const meta = {
     frame: FRAME, steps: STEPS, cols: COLS, rows,
     // fattore di scala a schermo: la stazza di gioco non dipende da D o FRAME
     scala: Math.round(79 * (D / 13) * 10) / 10,
     variants: Object.fromEntries(VARIANTS.map((name, i) => [name, i])),
-  });
+  };
+  // le tinte di default della tela viaggiano col SUO atlante: una fonte sola
+  // di verità (questa palette) per il colore delle vele di ogni variante e
+  // di ogni livrea — il client moltiplica sulla tela bianca
+  if (VELE_MODE) {
+    meta.tinte = {
+      base: Object.fromEntries(VARIANTS.map((n) => [n,
+        CLASSI[n].dorata ? 0xf0d494 : TINTA[CLASSI[n].pal].sail])),
+      livree: Object.fromEntries(Object.entries(LIVREE).map(([id, l]) => [id, l.sail])),
+    };
+  }
+  window.__meta = JSON.stringify(meta);
   // ?dump=1: atlante e metadati nel DOM — li estrae chrome headless con
   // --dump-dom, dove Electron non gira (vedi la memoria di bottega)
   if (DUMP) {
