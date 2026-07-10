@@ -809,6 +809,7 @@ function wireNet() {
   });
   net.on('campagna', (m) => {
     state.campagna = m.stato || null;
+    ui.setCampagnaHud(state.campagna); // l'HUD persistente del Mastro (issue #36)
     // se l'albo è aperto, la checklist si aggiorna sotto gli occhi
     if (!document.getElementById('gazzettaOverlay').classList.contains('hidden')) {
       ui.showGazzetta(state.gazzetta || [], state.profile.gazzettaLetta || 0, state.campagna);
@@ -1045,6 +1046,26 @@ if (devParams.get('forceshop')) {
     } catch (e) { console.error('forceshop err:', e && e.message); }
   };
   setTimeout(open, 700);
+}
+
+// ?forcehud=campagna (sviluppo): popola l'HUD persistente del Mastro (issue
+// #36) con dati finti, per fotografarlo headless senza dover salpare e attendere
+// il messaggio dal server. Mostra la tappa corrente col progresso.
+if (devParams.get('forcehud') === 'campagna') {
+  const openH = () => {
+    if (typeof ui === 'undefined' || !ui || !ui.setCampagnaHud) { setTimeout(openH, 200); return; }
+    document.body.classList.remove('benvenuto');
+    ui.setCampagnaHud({
+      settimana: 2949, nome: 'La Marea dei Corsari', premio: 400,
+      tappe: [
+        { desc: 'Affonda 2 Mercantili', n: 2 },
+        { desc: 'Scopri 3 isole mai visitate', n: 3 },
+        { desc: 'Espugna la fortezza di wikipedia.org', n: 1 },
+      ],
+      tappa: 1, fatto: 1, completata: false,
+    });
+  };
+  setTimeout(openH, 700);
 }
 
 // ?forcepanel=settings|help (sviluppo): apre un overlay senza dati dal server,

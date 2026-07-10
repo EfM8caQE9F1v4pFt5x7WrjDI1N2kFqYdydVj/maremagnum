@@ -399,6 +399,22 @@ export class UI {
     $('joinCorr').disabled = $('joinBlocc').disabled = closed;
   }
 
+  // L'HUD del Mastro di Rotte (issue #36): la campagna della settimana sempre
+  // sott'occhio, come missionHud/assedioHud — non più solo dentro la Gazzetta.
+  // Mostra la tappa CORRENTE col progresso; sparisce a campagna compiuta (la
+  // versione integrale resta nella Gazzetta, un clic la apre).
+  setCampagnaHud(c) {
+    const hud = $('campagnaHud');
+    const tappa = c && !c.completata && Array.isArray(c.tappe) ? c.tappe[c.tappa] : null;
+    if (!c || c.completata || !tappa) { hud.classList.add('hidden'); return; }
+    hud.innerHTML =
+      `⚔ <b>${esc(c.nome)}:</b> ${esc(tappa.desc)} — <b>${c.fatto | 0}/${tappa.n}</b> ` +
+      `<span class="reward">(+${c.premio} 🪙)</span>`;
+    hud.title = 'Apri la Gazzetta per la campagna completa';
+    hud.onclick = () => { if (this.h.onGazzetta) this.h.onGazzetta(); };
+    hud.classList.remove('hidden');
+  }
+
   toast(msg, ms = 2600) {
     const t = $('toast');
     t.textContent = msg;

@@ -9,6 +9,7 @@ import { GazzettaDO } from './gazzetta-do.js';
 import { CampagneDO } from './campagne-do.js';
 import { GildeDO } from './gilde-do.js';
 import campagna from '../../server/campagna-core.js';
+import atlante from '../../server/atlante-core.js';
 
 export { MareDO, ContiDO, AtlanteDO, GazzettaDO, CampagneDO, GildeDO };
 
@@ -18,7 +19,15 @@ export { MareDO, ContiDO, AtlanteDO, GazzettaDO, CampagneDO, GildeDO };
 // vestito procedurale del core basta: la campagna esce comunque.
 async function generaCampagna(env) {
   const settimana = campagna.settimanaDi();
-  const c = campagna.genera(settimana);
+  // le tappe d'assedio nominano isole reali sopra soglia dell'Atlante; se il
+  // registro è muto o ancora vuoto si ripiega sulla generica Fortezza Proibita
+  let isole = [];
+  try {
+    const atl = env.ATLANTE.get(env.ATLANTE.idFromName('atlante'));
+    const r = await atl.fetch('https://atlante/tutte');
+    if (r.ok) isole = atlante.sopraSogliaDa((await r.json()).isole);
+  } catch { /* Atlante muto: la Fortezza Proibita fa da bersaglio */ }
+  const c = campagna.genera(settimana, isole);
   let esitoAI = 'saltata (binding assente)';
   try {
     if (env.AI) {

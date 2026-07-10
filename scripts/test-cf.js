@@ -42,6 +42,9 @@ function joinMare(nome, token) {
     ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name: nome, profile: {}, token })));
     ws.on('message', (d) => {
       const m = JSON.parse(d);
+      // il Mastro (issue #36) manda la campagna subito dopo il welcome: la si
+      // annota man mano — il ws resta aperto, così il collaudo può verificarla
+      if (m.t === 'campagna') esito.campagna = m.stato || null;
       if (m.t === 'welcome') { clearTimeout(timer); esito.welcome = m; resolve(esito); }
     });
     ws.on('error', reject);
@@ -63,6 +66,15 @@ async function main() {
   const anonimo = await joinMare('Collaudatore');
   if (!anonimo.welcome.islands || anonimo.welcome.you.gold == null) die('welcome incompleto');
   ok(`mare aperto: ${anonimo.welcome.islands.length} isole, oro iniziale ${anonimo.welcome.you.gold}`);
+
+  // il Mastro di Rotte deve salpare SUBITO (issue #36): auto-seed al risveglio,
+  // niente attesa del cron del lunedì — la campagna arriva al join, non solo in Gazzetta
+  await new Promise(r => setTimeout(r, 1200)); // lascia arrivare il messaggio {t:'campagna'}
+  const camp = anonimo.campagna;
+  if (!camp || !camp.nome || !Array.isArray(camp.tappe) || !camp.tappe.length) {
+    die('il Mastro non ha mandato la campagna al join: auto-seed non attivo?');
+  }
+  ok(`Mastro di Rotte: campagna «${camp.nome}» al join (${camp.tappe.length} tappe, premio ${camp.premio} 🪙)`);
   anonimo.ws.close();
 
   // ancoraggio: nuovo → conferma (TOTP) → entra

@@ -172,7 +172,7 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 /* Il benvenuto vivo (issue #21): dietro la pergamena il mare respira,
    l'interfaccia di bordo aspetta il varo */
 body.benvenuto #hud, body.benvenuto #minimap, body.benvenuto #hint,
-body.benvenuto #killfeed, body.benvenuto #missionHud { display: none; }
+body.benvenuto #killfeed, body.benvenuto #missionHud, body.benvenuto #campagnaHud { display: none; }
 
 /* i placeholder dei codici non si troncano: la spaziatura larga
    appartiene al codice digitato, non alla scritta di cortesia */
@@ -333,6 +333,14 @@ body.conPannello #hint { opacity: 0; }
   box-shadow: var(--elev-2);
 }
 #missionHud .reward { color: var(--gold); }
+#campagnaHud {
+  position: fixed; top: 110px; left: 16px; z-index: var(--z-pill); transition: top .25s;
+  background: var(--hud-85); border: 1px solid var(--wood-1); border-left: 3px solid var(--gold);
+  border-radius: var(--r-md); padding: var(--s-2) var(--s-3); font-size: var(--t-sm);
+  max-width: 420px; box-shadow: var(--elev-2); cursor: pointer;
+}
+#campagnaHud:hover { border-color: var(--gold); }
+#campagnaHud .reward { color: var(--gold); }
 #assedioHud {
   position: fixed; top: 66px; left: 50%; transform: translateX(-50%); z-index: var(--z-pill); transition: top .25s;
   background: var(--assedio-bg); border: 2px solid var(--danger); border-radius: var(--r-md);
@@ -459,6 +467,7 @@ body.conPannello #hint { opacity: 0; }
 
 /* con la barra d'attracco aperta, le pillole scendono sotto di lei */
 body.attraccato #missionHud, body.attraccato #assedioHud, body.attraccato #killfeed { top: 108px; }
+body.attraccato #campagnaHud { top: 152px; }
 
 /* ruoli dell'assedio, spiegati in una riga */
 .ruoli { font-size: var(--t-xs); font-style: italic; color: var(--ink-cocoa); margin-bottom: var(--s-3); }

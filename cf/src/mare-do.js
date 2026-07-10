@@ -88,12 +88,24 @@ export class MareDO {
     } catch { /* le notizie arriveranno al prossimo risveglio */ }
   }
 
-  // La campagna della settimana torna a bordo al risveglio del mare.
+  // La campagna della settimana torna a bordo al risveglio del mare — e se
+  // manca o è stantia (deploy fresco, oppure il cron del lunedì non l'ha ancora
+  // rinfrescata su questo mare caldo) la si semina al volo col vestito
+  // procedurale e la si ripubblica: niente attesa del lunedì. Le tappe d'assedio
+  // nominano isole reali sopra soglia dell'Atlante (già caricato in `pronto`).
   async caricaCampagna() {
     try {
       const reg = this.env.CAMPAGNE.get(this.env.CAMPAGNE.idFromName('campagne'));
       const res = await reg.fetch('https://campagne/corrente');
-      if (res.ok) campagna.setCampagna((await res.json()).campagna);
+      const corrente = res.ok ? (await res.json()).campagna : null;
+      const { campagna: c, daPubblicare } = campagna.assicura(
+        corrente, campagna.settimanaDi(), atlante.sopraSoglia());
+      campagna.setCampagna(c);
+      if (daPubblicare) {
+        await reg.fetch('https://campagne/pubblica', {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(c),
+        });
+      }
     } catch { /* il Mastro tornerà al prossimo risveglio */ }
   }
 
@@ -196,6 +208,11 @@ export class MareDO {
       if (!msg || typeof msg.t !== 'string' || !this.game) return;
       if (!voce.ship) {
         if (msg.t !== 'join') return;
+        // il Mastro a caldo: se è girata la settimana da quando il mare s'è
+        // svegliato, rileggi/risemina la campagna prima che il Game la mandi
+        if (campagna.getCampagna()?.settimana !== campagna.settimanaDi()) {
+          await this.caricaCampagna();
+        }
         // ancoraggio: col token valido il profilo autorevole arriva dai Conti
         if (msg.token && this.env.SESSION_SECRET) {
           const payload = await verificaToken(msg.token, this.env.SESSION_SECRET);
