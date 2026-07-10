@@ -11,6 +11,7 @@ const gilde = require('./gilde-core');
 const livree = require('./livree');
 const og = require('./og-core');
 const { Alleanze, quotaAlleanza } = require('./alleanze');
+const vento = require('./vento');
 
 const TICK = 1 / 30;          // simulazione a 30Hz
 const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
@@ -176,6 +177,7 @@ class Game {
     this.nextId = 1;
     this.nextShotId = 1;
     this.now = Date.now() / 1000;
+    this.vento = vento.FISSO || vento.ventoAl(this.now * 1000); // il vento del mare (issue #41)
     this.tickCount = 0;
     this.fxQueue = [];
     for (let i = 0; i < NPCS.merc; i++) this.spawnNpc('merc');
@@ -1095,6 +1097,8 @@ class Game {
 
   tick() {
     this.now = Date.now() / 1000;
+    // il vento ruota piano, semato sull'orologio (VENTO_FISSO nei collaudi)
+    this.vento = vento.FISSO || vento.ventoAl(this.now * 1000);
     const dt = TICK;
     if (this.smokes.length) this.smokes = this.smokes.filter(s => s.until > this.now);
     for (const ship of this.ships.values()) {
@@ -1124,7 +1128,11 @@ class Game {
 
   move(ship, dt) {
     const st = shipStats(ship);
-    const speed = ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed);
+    // il vento (issue #41) spinge o frena OGNI scafo, NPC compresi (le loro
+    // velocità fisse bypassano shipStats): una regola sola, anche per le
+    // cariche di Speronamento e Colpo di Vento che moltiplicano questa speed
+    const fv = vento.fattore(this.vento, ship.rot);
+    const speed = (ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed)) * fv;
     const turn = (ship.input.left ? -1 : 0) + (ship.input.right ? 1 : 0);
     ship.rot += turn * st.turnRate * dt;
     // durante lo speronamento (o il Colpo di Vento) la nave carica, vele o non vele
@@ -1617,6 +1625,8 @@ class Game {
       }
     }
     const snap = { t: 'snap', ts: Date.now(), ships, forts };
+    // campo additivo: il vento del mare (issue #41) — [verso in cui soffia, forza]
+    snap.vn = [r2(this.vento.dir), r2(this.vento.forza)];
     // campo additivo: i fumogeni attivi (x, y, raggio, secondi restanti)
     if (this.smokes.length) snap.sm = this.smokes.map(s => [r1(s.x), r1(s.y), s.r, r2(s.until - this.now)]);
     this.broadcast(snap);

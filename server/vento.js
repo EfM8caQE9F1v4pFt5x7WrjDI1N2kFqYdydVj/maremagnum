@@ -1,0 +1,68 @@
+// Il vento che governa il Maremagnum (issue #41, prima fetta).
+//
+// Il vento è del MARE, non del client: uno stato solo per tutti, derivato
+// deterministicamente dall'orologio di muro — come il calendario del Mastro —
+// così sopravvive al sonno del DO («il mare dorme quando è vuoto») e ogni
+// macchina che fa lo stesso conto vede lo stesso vento.
+//
+// Ogni PERIODO di 5 minuti ha il suo bersaglio (direzione + forza) semato su
+// 'vento-<n>'; tra un bersaglio e il successivo si interpola con smoothstep:
+// il vento RUOTA in continuo, senza scatti, e nel giro di una sessione si
+// provano andature diverse. La forza non scende mai sotto FORZA_MIN: il vento
+// aiuta o frena, non paralizza (lezione di Windward e Black Flag — le lagne
+// dei giocatori arrivano quando il vento è illeggibile o punitivo, mai
+// quando è morbido).
+//
+// dir è il verso in cui il vento SOFFIA: prua allineata = vento in poppa.
+
+const campagna = require('./campagna-core');
+
+const PERIODO_S = 300; // ogni 5 minuti un nuovo bersaglio, raggiunto per gradi
+const MORSO = 0.15;    // poppa +15%, bolina −15% a piena forza (tetto #11: ±20%)
+const FORZA_MIN = 0.5; // mai bonaccia totale
+
+const smooth = (k) => k * k * (3 - 2 * k);
+
+// il bersaglio del periodo n: stesso seme → stesso vento, ovunque e per sempre
+function bersaglio(n) {
+  const rng = campagna.mulberry32(campagna.hashStr('vento-' + n));
+  return { dir: rng() * Math.PI * 2, forza: FORZA_MIN + rng() * (1 - FORZA_MIN) };
+}
+
+// il vento all'istante tMs (millisecondi epoch), interpolato tra i bersagli
+// del periodo corrente e del prossimo — l'arco più corto, mai giri interi
+function ventoAl(tMs) {
+  const p = tMs / (PERIODO_S * 1000);
+  const n = Math.floor(p);
+  const a = bersaglio(n), b = bersaglio(n + 1);
+  const k = smooth(p - n);
+  let dd = b.dir - a.dir;
+  while (dd > Math.PI) dd -= 2 * Math.PI;
+  while (dd < -Math.PI) dd += 2 * Math.PI;
+  const dir = a.dir + dd * k;
+  return {
+    dir: (dir % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI),
+    forza: a.forza + (b.forza - a.forza) * k,
+  };
+}
+
+// quanto il vento spinge (o frena) una prua: 1 ± MORSO·forza·cos(Δ).
+// Curva unica per tutti i tipi (deciso dal capitano, 2026-07-10): leggibile
+// a colpo d'occhio — poppa spinge, bolina frena, al traverso non cambia nulla.
+function fattore(vento, rot) {
+  return 1 + MORSO * vento.forza * Math.cos(rot - vento.dir);
+}
+
+// VENTO_FISSO="dir,forza" (solo sviluppo/test, via env del server Node — il
+// Worker non ha process.env e naviga sempre col vento vero): inchioda il
+// vento per collaudi riproducibili, p.es. la bolina piena nei budget dei test.
+const FISSO = (() => {
+  try {
+    const v = typeof process !== 'undefined' && process.env && process.env.VENTO_FISSO;
+    if (!v) return null;
+    const [dir, forza] = String(v).split(',').map(Number);
+    return { dir: dir || 0, forza: Number.isFinite(forza) ? forza : 1 };
+  } catch { return null; }
+})();
+
+module.exports = { PERIODO_S, MORSO, FORZA_MIN, FISSO, bersaglio, ventoAl, fattore };

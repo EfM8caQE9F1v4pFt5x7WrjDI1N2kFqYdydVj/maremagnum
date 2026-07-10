@@ -320,7 +320,10 @@ async function main() {
       const tRam = Date.now();
       while (Date.now() - tRam < 4500 && !speronato) {
         const me = D.me(), tgt = eShip();
-        if (tgt && tgt.hp <= 160) { speronato = true; break; } // una speronata (42) su scafo da 200
+        // la speronata ha DUE firme (ramTick colpisce entrambi): bersaglio
+        // −42 E pegno del legno — l'hp del bersaglio da solo inganna, un
+        // Fantasma di passaggio può morderlo durante la carica
+        if (tgt && tgt.hp <= 160 && me && me.hp <= 161) { speronato = true; break; }
         if (me && tgt) {
           const turn = norm(Math.atan2(tgt.y - me.y, tgt.x - me.x) - me.rot);
           D.input({ up: true, left: turn < -0.08, right: turn > 0.08 });
