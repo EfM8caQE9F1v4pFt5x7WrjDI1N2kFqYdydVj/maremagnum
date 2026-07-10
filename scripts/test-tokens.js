@@ -55,6 +55,13 @@ const rgbaColor = [...new Set([...style.matchAll(/rgba?\([^)]*\)/g)].map(m => m[
   .filter(s => !/^rgba?\(\s*0\s*,\s*0\s*,\s*0/.test(s) && !/^rgba?\(\s*255\s*,\s*255\s*,\s*255/.test(s));
 ok(rgbaColor.length === 0, 'style.css non ha rgba colorati scritti a mano' + (rgbaColor.length ? ' — trovati: ' + rgbaColor.join('  ') : ''));
 
+// 5bis) nemmeno ui.js scrive colori CSS a mano (audit Cantiere: i gradienti
+//    della barra HP si nascondevano qui, fuori dalla vista di questo test) —
+//    gli 0x... del canvas sono legittimi, gli hex CSS "#rrggbb" no
+const uiSrc = fs.readFileSync(path.join(root, 'game/src/ui.js'), 'utf8');
+const uiHex = [...new Set([...uiSrc.matchAll(/#[0-9a-fA-F]{6}\b/g)].map(m => m[0]))];
+ok(uiHex.length === 0, 'ui.js non ha hex CSS scritti a mano' + (uiHex.length ? ' — trovati: ' + uiHex.join(' ') : ''));
+
 // 6) ponte canvas: ogni COL.x usato in render.js è servito da palette.js
 //    (tokens.canvas ∪ 'gold', che è condiviso con la UI)
 const render = fs.readFileSync(path.join(root, 'game/src/render.js'), 'utf8');

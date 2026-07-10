@@ -46,14 +46,21 @@ body { font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: 
   clip-path: inset(50%); overflow: hidden; white-space: nowrap;
 }
 
-/* focus visibile ovunque: anello blu su alone chiaro — si vede sia sulla
-   pergamena sia sul legno scuro e sull'acqua (WCAG 2.4.7 / 2.4.13) */
+/* focus visibile ovunque e IN PALETTE (issue #32, rivisto nell'audit del
+   Cantiere): oro chiaro sui fondi scuri (legno, mare, HUD), inchiostro forte
+   su alone chiaro dentro la pergamena — l'anello blu fuori Rovere & Cera
+   non esiste più (WCAG 2.4.7 / 2.4.13: il contrasto lo dà la superficie) */
 :focus-visible {
-  outline: 3px solid var(--focus) !important;
+  outline: 3px solid var(--focus-mare) !important;
   outline-offset: 2px;
-  box-shadow: 0 0 0 6px var(--paper-hi) !important;
   border-radius: var(--r-xs);
 }
+.panel :focus-visible {
+  outline-color: var(--focus) !important;
+  box-shadow: 0 0 0 6px var(--paper-hi) !important;
+}
+/* il pannello stesso confina col mare scuro: torna l'oro, senza alone */
+.panel:focus-visible { outline-color: var(--focus-mare) !important; box-shadow: var(--elev-4) !important; }
 
 /* ---- barra superiore: la plancia di comando ---- */
 #topbar {
@@ -117,6 +124,9 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
   background: var(--bar-bg); overflow: hidden;
 }
 #hpBar { height: 100%; width: 100%; background: linear-gradient(var(--hp-hi), var(--hp)); transition: width .2s; }
+/* le tre soglie (#19), tokenizzate (audit Cantiere): il giallo avvisa in tempo */
+#hpBar.media { background: linear-gradient(var(--hp-mid-hi), var(--hp-mid-lo)); }
+#hpBar.critica { background: linear-gradient(var(--hp-bad-hi), var(--hp-bad-lo)); }
 #hpText {
   position: absolute; inset: 0; text-align: center; font-size: var(--t-xs); line-height: 17px; color: #fff;
   /* orlo scuro su ogni lato: leggibile anche sul verde pieno della barra */
@@ -454,7 +464,9 @@ body.conPannello #hint { opacity: 0; }
 .wname b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wname .tier { font-size: var(--t-2xs); color: var(--edge); font-variant: small-caps; }
 .wname .pips { color: var(--edge); letter-spacing: 2px; font-size: var(--t-xs); text-align: right; }
-.wslot > button, .wslot > .maxed { justify-self: end; }
+/* la scheda dell'arma coi numeri (audit Cantiere): seconda riga sotto il nome */
+.wname .wstat { grid-column: 1 / span 3; font-size: var(--t-2xs); color: var(--ink-mute); }
+.wslot > button, .wslot > .maxed { justify-self: end; grid-column: 4; grid-row: 1 / span 2; }
 .wslot button { padding: var(--s-1) var(--s-3); font-size: var(--t-sm); width: 100%; }
 /* il potenziamento è una spesa d'oro, non un accento alieno (issue #32,
    disciplina dei 3 accenti): oro ACCESO come la scheda attiva del Cantiere.
@@ -475,6 +487,11 @@ body.conPannello #hint { opacity: 0; }
 .shopInfo span { font-size: var(--t-xs); font-style: italic; opacity: .8; }
 .shopInfo .pips { color: var(--edge); letter-spacing: 3px; font-style: normal; font-size: var(--t-sm); }
 .shopInfo .effetti { color: var(--ink-mute); font-style: normal; font-size: var(--t-xs); }
+/* la carta del varo che spiega (audit Cantiere): abilità R ed esclusiva
+   con i numeri, righe distinte invece del muro di testo */
+.shopInfo .abilitaRiga, .shopInfo .esclusivaRiga { margin-top: 2px; }
+.shopInfo .abilitaRiga b, .shopInfo .esclusivaRiga b { font-style: normal; }
+.shopNota { font-size: var(--t-xs); color: var(--ink-mute); margin: 0 0 var(--s-2); text-align: left; }
 .shopRow button { min-width: 96px; }
 
 /* ---- il Negozio delle Livree e il Registro (issue #25) ---- */

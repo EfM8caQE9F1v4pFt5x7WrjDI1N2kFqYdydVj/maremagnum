@@ -130,13 +130,30 @@ const ABILITA = {
   // si entra (o si esce) da un duello, non lo si vince col tasto R
   sciabecco: { nome: 'Colpo di Vento', cd: 30, durata: 2.5, spinta: 1.75 },
 };
-// catalogo pubblico del varo (statico): quello che il Cantiere espone
-const TIPI_PUB = Object.fromEntries(Object.entries(TIPI).map(([k, t]) => [k, {
-  nome: t.nome, motto: t.motto, sconto: t.sconto,
-  hpMul: t.hpMul, speedMul: t.speedMul, turnMul: t.turnMul,
-  esclusiva: W.TYPES[W.EXCLUSIVES[k]].name,
-  abilita: ABILITA[k].nome,
-}]));
+// l'abilità spiegata in una riga (audit Cantiere): i numeri vengono da
+// ABILITA, il testo è code-owned — una sola fonte di verità, mai a braccio
+const ABILITA_EFFETTO = {
+  goletta: (a) => `carichi per ${a.durata}s e speroni: ${a.dmg} danni al bersaglio, ${a.autodanno} al tuo legno`,
+  guerra: (a) => `una cortina di fumo (${a.durata}s): dentro, fantasmi e torri non ti prendono di mira`,
+  galeone: (a) => `per ${a.durata}s ogni bocca spara il doppio, con le canne subito fresche`,
+  sciabecco: (a) => `scatto a vele piene per ${a.durata}s: agganci un duello, o te ne sganci`,
+};
+
+// catalogo pubblico del varo (statico): quello che il Cantiere espone —
+// con la SCHEDA dell'abilità R e i numeri dell'esclusiva (audit Cantiere):
+// il Cantiere spiega, non si limita a nominare
+const TIPI_PUB = Object.fromEntries(Object.entries(TIPI).map(([k, t]) => {
+  const a = ABILITA[k];
+  const es = W.weaponStats({ type: W.EXCLUSIVES[k], lvl: 1 });
+  return [k, {
+    nome: t.nome, motto: t.motto, sconto: t.sconto,
+    hpMul: t.hpMul, speedMul: t.speedMul, turnMul: t.turnMul,
+    esclusiva: W.TYPES[W.EXCLUSIVES[k]].name,
+    abilita: a.nome,
+    abilitaInfo: { nome: a.nome, cd: a.cd, durata: a.durata, effetto: ABILITA_EFFETTO[k](a) },
+    esclusivaInfo: { dmg: es.dmg, range: es.range, reload: es.reload },
+  }];
+}));
 
 const NPCS = { merc: 3, ghost: 2 };
 
@@ -885,10 +902,17 @@ class Game {
         nextSlotCost: W.slotCost(g, ship.mounts[g].length, ship.tipo),
         slots: ship.mounts[g].map((w, i) => {
           const nt = w.lvl >= W.MAX_WEAPON_LVL ? W.nextTier(w.type, ship.tipo) : null;
+          const st = W.weaponStats(w);
           return {
             slot: i, type: w.type, lvl: w.lvl, name: W.TYPES[w.type].name, tier: W.TYPES[w.type].tier,
+            // i numeri dell'arma AL LIVELLO ATTUALE (audit Cantiere): per
+            // decidere un potenziamento non serve la memoria, serve la scheda
+            stats: { dmg: st.dmg, range: st.range, reload: st.reload },
             upCost: W.upgradeCost(w),
-            replace: nt ? { type: nt, name: W.TYPES[nt].name, cost: W.TYPES[nt].cost } : null,
+            replace: nt ? (({ dmg, range, reload }) => ({
+              type: nt, name: W.TYPES[nt].name, cost: W.TYPES[nt].cost,
+              stats: { dmg, range, reload },
+            }))(W.weaponStats({ type: nt, lvl: 1 })) : null,
           };
         }),
       };

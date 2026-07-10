@@ -31,6 +31,10 @@
   --brass-4: #8a5a17;
   --hp: #3d9944;
   --hp-hi: #6cd072;
+  --hp-mid-hi: #e5c34a;
+  --hp-mid-lo: #b98f22;
+  --hp-bad-hi: #e8783f;
+  --hp-bad-lo: #b23a1a;
   --hp-edge: #0d1607;
   --green-txt: #2e5d2e;
   --green-done: #3e6b2f;
@@ -38,7 +42,8 @@
   --danger: #a1261a;
   --death-bg: #241708;
   --death-sub: #d8c49a;
-  --focus: #0b63ce;
+  --focus: #2a1a0c;
+  --focus-mare: #f4d47c;
 
   /* veli e fondali (rgba) */
   --gold-10: rgba(232,194,104,.10);
