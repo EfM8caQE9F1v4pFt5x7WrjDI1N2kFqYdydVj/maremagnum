@@ -49,7 +49,14 @@ const tenuto = campagna.assicura(fresco.dungeon, 'settimanale', wk, isole);
 assert(!tenuto.daPubblicare && tenuto.dungeon === fresco.dungeon, 'stesso periodo → tenuto com\'è');
 const vecchio = campagna.assicura(fresco.dungeon, 'settimanale', wk + 1, isole);
 assert(vecchio.daPubblicare && vecchio.dungeon.periodo === wk + 1, 'periodo nuovo → rigenerato');
-ok(`bersaglio reale + assicura(): «${fin.desc}»`);
+// self-heal: un dungeon del periodo giusto ma senza bersaglio si rigenera se ora ci sono candidati
+const monco = campagna.genera('settimanale', wk, []); // Atlante muto → bersaglio null
+assert(!monco.bersaglio, 'senza candidati il dungeon nasce senza bersaglio');
+const sanato = campagna.assicura(monco, 'settimanale', wk, isole);
+assert(sanato.daPubblicare && sanato.dungeon.bersaglio, 'self-heal: bersaglio nullo + candidati → rigenerato con bersaglio');
+const restaMonco = campagna.assicura(monco, 'settimanale', wk, []); // ancora nessun candidato → si tiene
+assert(!restaMonco.daPubblicare, 'senza candidati non si rigenera a vuoto');
+ok(`bersaglio reale + assicura() + self-heal: «${fin.desc}»`);
 
 // — 1ter-bis) il paniere dei bersagli: mai vuoto, isole della gente in testa —
 const paniere = campagna.bersagli(['cumino.com', 'wikipedia.org']);
