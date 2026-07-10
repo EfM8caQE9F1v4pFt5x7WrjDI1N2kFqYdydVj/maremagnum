@@ -25,56 +25,134 @@ const TEMPLATES = [
   () => ({ key: 'ghost', desc: 'Affonda un Corsaro Fantasma', n: 1, reward: 250 }),
 ];
 
+const MAX_ATTIVE = 3;   // rotte in corso insieme
+const BACHECA_N = 3;    // offerte sempre pronte sulla bacheca del Diario
+
 class Missions {
   constructor(game) {
     this.game = game;
     this.assedio = null; // {phase, targetId, corridori:Set, bloccatori:Set, tPhase}
+    this._id = 0;        // contatore per gli id stabili delle missioni
   }
 
-  // --- missioni personali ---
+  // --- la Bacheca del Diario (issue #39): offerte da accettare, attive in corso ---
 
-  assign(ship) {
-    let tpl;
-    do { tpl = TEMPLATES[(Math.random() * TEMPLATES.length) | 0](); }
-    while (ship.mission && tpl.key === ship.mission.key && TEMPLATES.length > 1);
-    ship.mission = { ...tpl, progress: 0 };
-    this.sendMission(ship);
+  // una nuova offerta con id stabile; evita di ripetere le key già in mano
+  nuovaOfferta(escludiKeys = []) {
+    let tpl, tent = 0;
+    do { tpl = TEMPLATES[(Math.random() * TEMPLATES.length) | 0](); tent++; }
+    while (escludiKeys.includes(tpl.key) && tent < 8);
+    return { id: 'm' + (++this._id), ...tpl, progress: 0 };
   }
 
-  sendMission(ship) {
-    if (ship.npc || !ship.mission) return;
-    const m = ship.mission;
-    this.game.sendTo(ship, { t: 'mission', desc: m.desc, progress: m.progress, n: m.n, reward: m.reward });
+  // rifornisce la bacheca fino a BACHECA_N, senza doppioni di tipo con le attive
+  rifornisci(ship) {
+    ship.bacheca = ship.bacheca || [];
+    ship.missioni = ship.missioni || [];
+    let guardia = 0;
+    while (ship.bacheca.length < BACHECA_N && guardia++ < 20) {
+      const usate = [...ship.bacheca, ...ship.missioni].map(m => m.key);
+      ship.bacheca.push(this.nuovaOfferta(usate));
+    }
   }
 
-  progress(ship, amount = 1) {
-    const m = ship.mission;
-    if (!m) return;
-    m.progress = Math.min(m.n, m.progress + amount);
-    if (m.progress >= m.n) {
+  // ripristina le missioni ATTIVE dal profilo (id nuovi, valori sanificati) e
+  // riempie la bacheca fresca; poi manda tutto al Diario
+  ripristina(ship, salvate) {
+    ship.missioni = [];
+    if (Array.isArray(salvate)) {
+      for (const m of salvate.slice(0, MAX_ATTIVE)) {
+        if (!m || typeof m.key !== 'string' || typeof m.desc !== 'string') continue;
+        const n = Math.max(1, m.n | 0);
+        ship.missioni.push({
+          id: 'm' + (++this._id), key: m.key, tld: m.tld,
+          desc: String(m.desc).slice(0, 80), n, reward: Math.max(0, m.reward | 0),
+          progress: Math.max(0, Math.min(n, m.progress | 0)),
+        });
+      }
+    }
+    ship.bacheca = [];
+    this.rifornisci(ship);
+    this.sendBacheca(ship);
+  }
+
+  sendBacheca(ship) {
+    if (ship.npc) return;
+    const pubblica = (m) => ({ id: m.id, desc: m.desc, n: m.n, reward: m.reward, progress: m.progress || 0 });
+    this.game.sendTo(ship, {
+      t: 'bacheca',
+      disponibili: (ship.bacheca || []).map(pubblica),
+      attive: (ship.missioni || []).map(pubblica),
+    });
+  }
+
+  accetta(ship, id) {
+    if (ship.npc) return;
+    ship.missioni = ship.missioni || [];
+    ship.bacheca = ship.bacheca || [];
+    if (ship.missioni.length >= MAX_ATTIVE) {
+      this.game.sendTo(ship, { t: 'toast', msg: 'Hai già tre rotte in corso: compine o abbandonane una prima.' });
+      return;
+    }
+    const i = ship.bacheca.findIndex(m => m.id === id);
+    if (i < 0) return;
+    const [m] = ship.bacheca.splice(i, 1);
+    m.progress = 0;
+    ship.missioni.push(m);
+    this.rifornisci(ship);
+    this.sendBacheca(ship);
+  }
+
+  rifiuta(ship, id) {
+    if (ship.npc) return;
+    ship.bacheca = ship.bacheca || [];
+    const i = ship.bacheca.findIndex(m => m.id === id);
+    if (i < 0) return;
+    ship.bacheca.splice(i, 1);
+    this.rifornisci(ship);
+    this.sendBacheca(ship);
+  }
+
+  abbandona(ship, id) {
+    if (ship.npc || !ship.missioni) return;
+    const i = ship.missioni.findIndex(m => m.id === id);
+    if (i < 0) return;
+    ship.missioni.splice(i, 1);
+    this.sendBacheca(ship);
+  }
+
+  // avanza TUTTE le missioni attive che combaciano con l'evento (predicato); paga
+  // e toglie quelle compiute, poi rinfresca la bacheca del Diario
+  avanza(ship, predicato) {
+    if (ship.npc || !ship.missioni || !ship.missioni.length) return;
+    let mutata = false;
+    const compiute = [];
+    for (const m of ship.missioni) {
+      if (m.progress >= m.n || !predicato(m)) continue;
+      m.progress = Math.min(m.n, (m.progress || 0) + 1);
+      mutata = true;
+      if (m.progress >= m.n) compiute.push(m);
+    }
+    for (const m of compiute) {
       ship.gold += m.reward;
       this.game.sendGold(ship, m.reward, `Missione compiuta: ${m.desc}`);
       this.game.broadcast({ t: 'feed', msg: `📜 ${ship.name} ha compiuto una missione (${m.reward} 🪙)` });
-      this.assign(ship);
-    } else {
-      this.sendMission(ship);
+      ship.missioni.splice(ship.missioni.indexOf(m), 1);
     }
+    if (mutata) this.sendBacheca(ship);
   }
 
   onDock(ship, island, firstVisit) {
-    const m = ship.mission;
-    if (m) {
-      if (m.key === 'tld' && island.domain && island.domain.endsWith('.' + m.tld)) this.progress(ship);
-      else if (m.key === 'discover' && firstVisit) this.progress(ship);
-    }
+    this.avanza(ship, (m) =>
+      (m.key === 'tld' && island.domain && island.domain.endsWith('.' + m.tld)) ||
+      (m.key === 'discover' && firstVisit));
     this.assedioOnDock(ship, island);
   }
 
   onKill(killer, victim) {
-    const m = killer.mission;
-    if (!m) return;
-    if (m.key === 'merc' && victim.npc === 'merc') this.progress(killer);
-    else if (m.key === 'ghost' && victim.npc === 'ghost') this.progress(killer);
+    this.avanza(killer, (m) =>
+      (m.key === 'merc' && victim.npc === 'merc') ||
+      (m.key === 'ghost' && victim.npc === 'ghost'));
   }
 
   // --- assedio ---
@@ -182,4 +260,4 @@ class Missions {
   }
 }
 
-module.exports = { Missions, ASSEDIO };
+module.exports = { Missions, ASSEDIO, MAX_ATTIVE, BACHECA_N };

@@ -283,6 +283,7 @@ export class MareDO {
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
       dungeonGiorno: ship.dungeonGiorno || 0,
+      missioni: (ship.missioni || []).map(m => ({ key: m.key, tld: m.tld, desc: m.desc, n: m.n, reward: m.reward, progress: m.progress })),
       sfide: ship.sfide || {},
       kills: ship.kills,
       deaths: ship.deaths,

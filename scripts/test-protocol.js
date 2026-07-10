@@ -97,16 +97,19 @@ async function main() {
     ok(A.welcome.you.crewLvl === 4, 'punti nave dal profilo (Ciurma 4)');
     ok(B.welcome.you.helmLvl === 4 && B.welcome.you.holdLvl === 2 && B.welcome.you.gold === 1000,
       'Stiva di Olonese dal profilo, timone tosato al tetto (99 → 4)');
-    ok(!!await A.wait(m => m.t === 'mission', 4000), 'missione personale assegnata al join (profilo veterano)');
+    ok(!!await A.wait(m => m.t === 'bacheca' && m.disponibili && m.disponibili.length, 4000), 'la Bacheca del Diario arriva al join con delle offerte (issue #39)');
 
-    console.log('— Il primo minuto guidato (issue #22) —');
+    console.log('— La Bacheca del Diario (issue #39): accetta / rifiuta —');
     const N = new Player('Novellino', {});
     await N.join();
-    ok(!(await N.wait(m => m.t === 'mission', 2000)), 'profilo vergine: nessuna missione al join');
-    await N.goto(PORTO.x, PORTO.y, 200);
-    N.send({ t: 'dock' });
-    ok(!!await N.wait(m => m.t === 'mission', 4000), 'la prima missione arriva col primo attracco');
-    N.send({ t: 'undock' });
+    const b0 = await N.wait(m => m.t === 'bacheca', 4000);
+    ok(b0 && b0.disponibili.length >= 1 && b0.attive.length === 0, 'anche il profilo vergine ha subito una bacheca con offerte, 0 in corso');
+    N.send({ t: 'accetta', id: b0.disponibili[0].id });
+    const b1 = await N.wait(m => m.t === 'bacheca' && m.attive.length === 1, 4000);
+    ok(!!b1 && b1.disponibili.length === b0.disponibili.length, 'accetta un\'offerta → passa in corso e la bacheca si rifornisce');
+    N.send({ t: 'rifiuta', id: b1.disponibili[0].id });
+    const b2 = await N.wait(m => m.t === 'bacheca' && !m.disponibili.find(o => o.id === b1.disponibili[0].id), 4000);
+    ok(!!b2 && b2.disponibili.length === b1.disponibili.length, 'rifiuta un\'offerta → sparisce e ne arriva un\'altra');
 
     console.log('— Tipi di nave: grandfathering e frontiera di fiducia —');
     // profilo sporco: tipo inventato, Organo comprato ai vecchi tempi,

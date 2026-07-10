@@ -367,12 +367,6 @@ export class UI {
     $('dockHint').textContent = this._dockHint;
   }
 
-  setMission(m) {
-    $('missionHud').innerHTML =
-      `📜 <b>Missione:</b> ${esc(m.desc)} — <b>${m.progress}/${m.n}</b> <span class="reward">(+${m.reward} 🪙)</span>`;
-    this.show('missionHud');
-  }
-
   setAssedio(m) {
     this._assedio = m;
     const hud = $('assedioHud');
@@ -397,36 +391,6 @@ export class UI {
       `<div><b>⚓ Bloccatori</b><br>${m.bloccatori.map(esc).join('<br>') || '—'}</div>`;
     const closed = m.phase === 'running';
     $('joinCorr').disabled = $('joinBlocc').disabled = closed;
-  }
-
-  // L'HUD del Mastro di Rotte (issue #36): la campagna della settimana sempre
-  // sott'occhio, come missionHud/assedioHud — non più solo dentro la Gazzetta.
-  // Mostra la tappa CORRENTE col progresso; sparisce a campagna compiuta (la
-  // versione integrale resta nella Gazzetta, un clic la apre).
-  setCampagnaHud(c) {
-    const hud = $('campagnaHud');
-    const tappa = c && !c.completata && Array.isArray(c.tappe) ? c.tappe[c.tappa] : null;
-    if (!c || c.completata || !tappa) { hud.classList.add('hidden'); return; }
-    hud.innerHTML =
-      `⚔ <b>${esc(c.nome)}:</b> ${esc(tappa.desc)} — <b>${c.fatto | 0}/${tappa.n}</b> ` +
-      `<span class="reward">(+${c.premio} 🪙)</span>`;
-    hud.title = 'Apri la Gazzetta per la campagna completa';
-    hud.onclick = () => { if (this.h.onGazzetta) this.h.onGazzetta(); };
-    hud.classList.remove('hidden');
-  }
-
-  // L'HUD del dungeon del giorno (issue #38): l'assalto del giorno, col bersaglio
-  // reale e il premio. Sparisce una volta incassato (come la campagna compiuta).
-  setDungeonHud(c) {
-    const hud = $('dungeonHud');
-    if (!c || c.fatto) { hud.classList.add('hidden'); return; }
-    const dove = c.bersaglio ? ` — assalto a ${esc(c.bersaglio)}` : '';
-    hud.innerHTML =
-      `🗺 <b>Dungeon del giorno:</b> ${esc(c.nome)}${dove} ` +
-      `<span class="reward">(+${c.premio} 🪙)</span>`;
-    hud.title = 'Il dungeon del giorno del Mastro di Rotte — apri la Gazzetta';
-    hud.onclick = () => { if (this.h.onGazzetta) this.h.onGazzetta(); };
-    hud.classList.remove('hidden');
   }
 
   toast(msg, ms = 2600) {
@@ -1031,56 +995,161 @@ export class UI {
     }
   }
 
-  // la Gazzetta del Corsaro (issue #4): il badge dei non-letti e l'albo
+  // Il Diario del Capitano (issue #39): il pallino delle novità (notizie del mare
+  // non lette). Id legacy gazzetta* per riuso del plumbing dell'overlay.
   setGazzettaBadge(n) {
     const b = $('gazzettaBadge');
     b.textContent = n > 9 ? '9+' : String(n);
     b.classList.toggle('hidden', n <= 0);
     $('gazzettaBtn').setAttribute('aria-label',
-      n > 0 ? `Gazzetta del Corsaro: ${n} notizie non lette` : 'Gazzetta del Corsaro');
+      n > 0 ? `Diario del Capitano: ${n} novità nelle Cronache` : 'Diario del Capitano');
   }
 
-  showGazzetta(voci, lettaFino, campagna) {
-    const box = $('gazzettaVoci');
+  // Apre il Diario e lo popola. `state` = { campagna, dungeon,
+  // bacheca:{disponibili,attive}, gazzetta:[voci del mare], cronache:[eventi miei], lettaFino }
+  showDiario(state) {
+    this._diario = state || {};
+    this._montaSchede();
+    this.renderImprese();
+    this.renderCronache();
+    this._mostraSchedaDiario(this._diarioTab || 'imprese');
+    this.show('gazzettaOverlay');
+  }
+
+  // aggiorna il Diario senza riaprirlo (se è già a schermo), a nuovi dati dal server
+  refreshDiario(state) {
+    if ($('gazzettaOverlay').classList.contains('hidden')) return;
+    this._diario = state || {};
+    this.renderImprese();
+    this.renderCronache();
+  }
+
+  _montaSchede() {
+    if (this._schedeMontate) return;
+    this._schedeMontate = true;
+    $('tabImprese').addEventListener('click', () => this._mostraSchedaDiario('imprese'));
+    $('tabCronache').addEventListener('click', () => this._mostraSchedaDiario('cronache'));
+  }
+
+  _mostraSchedaDiario(quale) {
+    this._diarioTab = quale;
+    const imp = quale === 'imprese';
+    $('tabImprese').setAttribute('aria-selected', imp ? 'true' : 'false');
+    $('tabCronache').setAttribute('aria-selected', imp ? 'false' : 'true');
+    $('diarioImprese').classList.toggle('hidden', !imp);
+    $('diarioCronache').classList.toggle('hidden', imp);
+  }
+
+  _sez(t) { const h = document.createElement('div'); h.className = 'diarioSez'; h.textContent = t; return h; }
+  _vuoto(t) { const p = document.createElement('p'); p.className = 'diarioVuoto'; p.textContent = t; return p; }
+
+  // scheda ① Imprese: in corso (campagna, dungeon, missioni accettate) + bacheca
+  renderImprese() {
+    const box = $('diarioImprese');
     box.innerHTML = '';
-    // la campagna della settimana (issue #3): la vetrina del Mastro di Rotte
-    if (campagna) {
-      const cb = document.createElement('div');
-      cb.className = 'campagnaBox';
-      const titolo = document.createElement('h3');
-      titolo.textContent = `⚔ La campagna della settimana: «${campagna.nome}»`;
-      const lore = document.createElement('p');
-      lore.className = 'campagnaLore';
-      lore.textContent = campagna.lore || '';
-      const lista = document.createElement('ol');
-      lista.className = 'campagnaTappe';
-      campagna.tappe.forEach((t, i) => {
-        const li = document.createElement('li');
-        const fatta = campagna.completata || i < campagna.tappa;
-        const corrente = !campagna.completata && i === campagna.tappa;
-        li.className = fatta ? 'fatta' : corrente ? 'corrente' : 'futura';
-        li.textContent = (fatta ? '✓ ' : corrente ? '➤ ' : '· ') + t.desc +
-          (corrente && campagna.fatto > 0 ? ` (${campagna.fatto}/${t.n})` : '');
-        if (t.lore && (corrente || fatta)) li.title = t.lore;
-        lista.appendChild(li);
-      });
-      const premio = document.createElement('p');
-      premio.className = 'campagnaPremio';
-      premio.textContent = campagna.completata
-        ? `⭐ Compiuta! Il Mastro ti ha pagato ${campagna.premio} 🪙`
-        : `Premio del Mastro: ${campagna.premio} 🪙`;
-      cb.append(titolo, lore, lista, premio);
-      box.appendChild(cb);
+    const s = this._diario || {};
+    box.appendChild(this._sez('In corso'));
+    let qualcosa = false;
+    if (s.campagna) { box.appendChild(this._cardCampagna(s.campagna)); qualcosa = true; }
+    if (s.dungeon && !s.dungeon.fatto) { box.appendChild(this._cardDungeon(s.dungeon)); qualcosa = true; }
+    const attive = (s.bacheca && s.bacheca.attive) || [];
+    for (const m of attive) { box.appendChild(this._cardMissione(m, 'attiva')); qualcosa = true; }
+    if (!qualcosa) box.appendChild(this._vuoto('Nessuna rotta in corso. Accetta un incarico dalla bacheca qui sotto.'));
+    box.appendChild(this._sez('Bacheca'));
+    const off = (s.bacheca && s.bacheca.disponibili) || [];
+    if (!off.length) box.appendChild(this._vuoto('La bacheca è vuota per ora.'));
+    for (const m of off) box.appendChild(this._cardMissione(m, 'offerta'));
+  }
+
+  _cardMissione(m, modo) {
+    const c = document.createElement('div');
+    c.className = 'impresaCard';
+    const h = document.createElement('h4'); h.textContent = m.desc;
+    const r = document.createElement('span'); r.className = 'reward'; r.textContent = `+${m.reward} 🪙`;
+    c.append(h, r);
+    if (modo === 'attiva') {
+      const barra = document.createElement('div'); barra.className = 'impresaBarra';
+      const i = document.createElement('i'); i.style.width = Math.round(100 * (m.progress || 0) / m.n) + '%';
+      barra.appendChild(i);
+      const sub = document.createElement('p'); sub.className = 'sub'; sub.textContent = `${m.progress || 0}/${m.n}`;
+      c.append(barra, sub);
     }
+    const az = document.createElement('div'); az.className = 'impresaAzioni';
+    if (modo === 'offerta') {
+      const acc = document.createElement('button'); acc.textContent = 'Accetta';
+      acc.addEventListener('click', () => this.h.onAccetta && this.h.onAccetta(m.id));
+      const rif = document.createElement('button'); rif.className = 'secondary'; rif.textContent = 'Rifiuta';
+      rif.addEventListener('click', () => this.h.onRifiuta && this.h.onRifiuta(m.id));
+      az.append(acc, rif);
+    } else {
+      const abb = document.createElement('button'); abb.className = 'secondary'; abb.textContent = 'Abbandona';
+      abb.addEventListener('click', () => this.h.onAbbandona && this.h.onAbbandona(m.id));
+      az.append(abb);
+    }
+    c.appendChild(az);
+    return c;
+  }
+
+  _cardCampagna(campagna) {
+    const cb = document.createElement('div'); cb.className = 'impresaCard mastro';
+    const h = document.createElement('h4'); h.textContent = `⚔ Campagna della settimana: «${campagna.nome}»`;
+    cb.appendChild(h);
+    if (campagna.lore) { const l = document.createElement('p'); l.className = 'campagnaLore'; l.textContent = campagna.lore; cb.appendChild(l); }
+    const lista = document.createElement('ol'); lista.className = 'campagnaTappe';
+    (campagna.tappe || []).forEach((t, i) => {
+      const li = document.createElement('li');
+      const fatta = campagna.completata || i < campagna.tappa;
+      const corrente = !campagna.completata && i === campagna.tappa;
+      li.className = fatta ? 'fatta' : corrente ? 'corrente' : 'futura';
+      li.textContent = (fatta ? '✓ ' : corrente ? '➤ ' : '· ') + t.desc +
+        (corrente && campagna.fatto > 0 ? ` (${campagna.fatto}/${t.n})` : '');
+      if (t.lore && (corrente || fatta)) li.title = t.lore;
+      lista.appendChild(li);
+    });
+    cb.appendChild(lista);
+    const premio = document.createElement('p'); premio.className = 'reward';
+    premio.textContent = campagna.completata ? `⭐ Compiuta! (+${campagna.premio} 🪙)` : `Premio del Mastro: ${campagna.premio} 🪙`;
+    cb.appendChild(premio);
+    return cb;
+  }
+
+  _cardDungeon(d) {
+    const c = document.createElement('div'); c.className = 'impresaCard dungeon';
+    const h = document.createElement('h4'); h.textContent = `🗺 Dungeon del giorno: «${d.nome}»`;
+    c.appendChild(h);
+    const sub = document.createElement('p'); sub.className = 'sub';
+    sub.textContent = d.bersaglio ? `Assalta le difese di ${d.bersaglio}` : 'Espugna una Fortezza Proibita';
+    c.appendChild(sub);
+    const premio = document.createElement('p'); premio.className = 'reward'; premio.textContent = `+${d.premio} 🪙`;
+    c.appendChild(premio);
+    return c;
+  }
+
+  // scheda ② Cronache: le mie imprese (accumulate) o tutto il mare (ex-Gazzetta)
+  renderCronache() {
+    const box = $('diarioCronache');
+    box.innerHTML = '';
+    const s = this._diario || {};
+    if (!this._cronacheFiltro) this._cronacheFiltro = 'tutte';
+    const filtro = document.createElement('div'); filtro.className = 'diarioFiltro';
+    for (const [key, lab] of [['mie', 'Le mie'], ['tutte', 'Tutto il mare']]) {
+      const b = document.createElement('button');
+      b.textContent = lab;
+      b.setAttribute('aria-pressed', this._cronacheFiltro === key ? 'true' : 'false');
+      b.addEventListener('click', () => { this._cronacheFiltro = key; this.renderCronache(); });
+      filtro.appendChild(b);
+    }
+    box.appendChild(filtro);
+    const voci = this._cronacheFiltro === 'mie' ? (s.cronache || []) : (s.gazzetta || []);
     if (!voci.length) {
-      const p = document.createElement('p');
-      p.className = 'sub';
-      p.textContent = 'Il mare è quieto: nessuna notizia, per ora.';
-      box.appendChild(p);
+      box.appendChild(this._vuoto(this._cronacheFiltro === 'mie'
+        ? 'Nessuna tua impresa, per ora. Salpa e falle parlare!'
+        : 'Il mare è quieto: nessuna notizia.'));
+      return;
     }
     for (const v of voci) {
       const riga = document.createElement('div');
-      riga.className = 'gazzettaVoce' + (v.t > lettaFino ? ' nuova' : '');
+      riga.className = 'gazzettaVoce' + (s.lettaFino != null && v.t > s.lettaFino ? ' nuova' : '');
       const quando = document.createElement('time');
       quando.textContent = faTempo(v.t);
       quando.dateTime = new Date(v.t).toISOString();
@@ -1089,7 +1158,6 @@ export class UI {
       riga.append(quando, testo);
       box.appendChild(riga);
     }
-    this.show('gazzettaOverlay');
   }
 
   // la stella dell'approdo preferito (issue #13), su dockbar e pannello sito

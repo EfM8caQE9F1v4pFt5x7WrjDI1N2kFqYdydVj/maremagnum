@@ -381,10 +381,9 @@ class Game {
     if (statoCampagna) this.sendTo(ship, { t: 'campagna', stato: statoCampagna });
     const statoDungeon = this.dungeonGiornoPer(ship);
     if (statoDungeon) this.sendTo(ship, { t: 'dungeon', stato: statoDungeon });
-    // il primo minuto ha UN obiettivo (issue #22): al profilo vergine la
-    // missione arriva col primo attracco, non al secondo zero
-    if (p.gold == null) ship.senzaMissione = true;
-    else this.missions.assign(ship);
+    // le rotte del Diario (issue #39): le missioni ACCETTATE tornano dal profilo,
+    // la bacheca delle offerte si rigenera fresca a ogni ingresso
+    this.missions.ripristina(ship, p.missioni);
     this.missions.broadcastState();
     this.broadcast({ t: 'feed', msg: `⚓ ${name} è salpato nel Mare dell'Internet` });
     return ship;
@@ -401,6 +400,7 @@ class Game {
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
       dungeonGiorno: ship.dungeonGiorno || 0,
+      missioni: (ship.missioni || []).map(m => ({ key: m.key, tld: m.tld, desc: m.desc, n: m.n, reward: m.reward, progress: m.progress })),
       sfide: ship.sfide || {},
       kills: ship.kills, deaths: ship.deaths,
     };
@@ -657,6 +657,10 @@ class Game {
       case 'upgradeWeapon': this.upgradeWeapon(ship, msg.group, msg.slot); break;
       case 'replaceWeapon': this.replaceWeapon(ship, msg.group, msg.slot); break;
       case 'assedio': this.missions.assedioJoin(ship, msg.role); break;
+      // la Bacheca del Diario (issue #39): accetta/rifiuta un'offerta, abbandona una attiva
+      case 'accetta': this.missions.accetta(ship, msg.id); break;
+      case 'rifiuta': this.missions.rifiuta(ship, msg.id); break;
+      case 'abbandona': this.missions.abbandona(ship, msg.id); break;
     }
   }
 
@@ -788,11 +792,6 @@ class Game {
       if (best.kind === 'site' && this.onApprodo) this.onApprodo(best.domain);
     }
     this.missions.onDock(ship, best, firstVisit);
-    // il novellino ha attraccato: ora la Bacheca gli parla (issue #22)
-    if (ship.senzaMissione) {
-      ship.senzaMissione = false;
-      this.missions.assign(ship);
-    }
   }
 
   // La stella dell'approdo (issue #13): si segna solo l'isola dove si è

@@ -159,6 +159,10 @@ async function boot() {
     onRiscatto: riscattaIsola,
     onFav: toggleFav,
     onGazzetta: apriGazzetta,
+    // la Bacheca del Diario (issue #39)
+    onAccetta: (id) => net.send({ t: 'accetta', id }),
+    onRifiuta: (id) => net.send({ t: 'rifiuta', id }),
+    onAbbandona: (id) => net.send({ t: 'abbandona', id }),
     onFratellanze: apriFratellanze,
     // il Negozio delle Livree e il Registro (issue #25)
     onCompraLivrea: (id) => net.send({ t: 'compraLivrea', id }),
@@ -290,9 +294,30 @@ function nonLette() {
   return (state.gazzetta || []).filter(v => v.t > fino).length;
 }
 
+// lo stato che alimenta il Diario del Capitano (issue #39)
+function diarioState() {
+  return {
+    campagna: state.campagna || null,
+    dungeon: state.dungeon || null,
+    bacheca: state.bacheca || { disponibili: [], attive: [] },
+    gazzetta: state.gazzetta || [],
+    cronache: state.cronache || [],
+    lettaFino: state.profile.gazzettaLetta || 0,
+  };
+}
+// il Diario si aggiorna sotto gli occhi se è già aperto (nuovi dati dal server)
+function aggiornaDiario() { if (ui) ui.refreshDiario(diarioState()); }
+// le mie imprese nelle Cronache: gli incassi (eventi personali, con la ragione)
+function registraCronaca(testo) {
+  state.cronache = state.cronache || [];
+  state.cronache.unshift({ t: Date.now(), testo });
+  if (state.cronache.length > 80) state.cronache.length = 80;
+  aggiornaDiario();
+}
+
 function apriGazzetta() {
   const fino = state.profile.gazzettaLetta || 0;
-  ui.showGazzetta(state.gazzetta || [], fino, state.campagna);
+  ui.showDiario(diarioState());
   const max = (state.gazzetta || []).reduce((a, v) => Math.max(a, v.t), fino);
   if (max > fino) {
     state.profile.gazzettaLetta = max;
@@ -753,6 +778,8 @@ function wireNet() {
     ui.setGold(m.gold);
     if (m.delta > 0) { sfx.coin(); ui.toast(`+${m.delta} 🪙 — ${m.reason}`); }
     else if (m.delta < 0) ui.toast(`${m.delta} 🪙 — ${m.reason}`);
+    // gli incassi sono eventi personali: finiscono nelle mie Cronache (issue #39)
+    if (m.delta > 0 && m.reason) registraCronaca(`🪙 +${m.delta} — ${m.reason}`);
   });
 
   net.on('conquered', (m) => {
@@ -764,7 +791,10 @@ function wireNet() {
 
   net.on('fortFall', (m) => { renderer.addShake(10); });
 
-  net.on('mission', (m) => ui.setMission(m));
+  net.on('bacheca', (m) => {
+    state.bacheca = { disponibili: m.disponibili || [], attive: m.attive || [] };
+    aggiornaDiario();
+  });
   net.on('assedio', (m) => { ui.setAssedio(m); if (m && m.phase === 'battle') engage(12000); });
 
   net.on('shots', (m) => {
@@ -811,29 +841,21 @@ function wireNet() {
     state.gildaFondazione = m.fondazione || 25000;
     rinfrescaFratellanze();
   });
-  net.on('campagna', (m) => {
-    state.campagna = m.stato || null;
-    ui.setCampagnaHud(state.campagna); // l'HUD persistente del Mastro (issue #36)
-    // se l'albo è aperto, la checklist si aggiorna sotto gli occhi
-    if (!document.getElementById('gazzettaOverlay').classList.contains('hidden')) {
-      ui.showGazzetta(state.gazzetta || [], state.profile.gazzettaLetta || 0, state.campagna);
-    }
-  });
-  net.on('dungeon', (m) => {
-    state.dungeon = m.stato || null;
-    ui.setDungeonHud(state.dungeon); // il dungeon del giorno sull'HUD (issue #38)
-  });
+  net.on('campagna', (m) => { state.campagna = m.stato || null; aggiornaDiario(); }); // Imprese del Diario (#36/#39)
+  net.on('dungeon', (m) => { state.dungeon = m.stato || null; aggiornaDiario(); });    // (#38/#39)
   net.on('gazzetta', (m) => {
     state.gazzetta = Array.isArray(m.voci) ? m.voci : [];
     ui.setGazzettaBadge(nonLette());
+    aggiornaDiario();
   });
   net.on('notifica', (m) => {
     if (!m.voce) return;
     state.gazzetta = state.gazzetta || [];
     state.gazzetta.unshift(m.voce);
     if (state.gazzetta.length > 100) state.gazzetta.length = 100;
-    // niente toast: il badge cresce in silenzio (l'ingorgo è bonificato)
+    // niente toast: il pallino cresce in silenzio
     ui.setGazzettaBadge(nonLette());
+    aggiornaDiario();
   });
   net.on('toast', (m) => ui.toast(m.msg));
   net.on('feed', (m) => ui.feed(m.msg));
@@ -1056,32 +1078,43 @@ if (devParams.get('forceshop')) {
   setTimeout(open, 700);
 }
 
-// ?forcehud=campagna|dungeon (sviluppo): popola gli HUD del Mastro (issue #36/#38)
-// con dati finti, per fotografarli headless senza dover salpare e attendere i
-// messaggi dal server.
-if (devParams.get('forcehud')) {
-  const quali = devParams.get('forcehud').split(',');
-  const openH = () => {
-    if (typeof ui === 'undefined' || !ui || !ui.setCampagnaHud) { setTimeout(openH, 200); return; }
+// ?forcediario=imprese|cronache (sviluppo): apre il Diario del Capitano con dati
+// finti, per fotografarlo headless senza salpare (issue #39).
+if (devParams.get('forcediario')) {
+  const tab = devParams.get('forcediario');
+  const openD = () => {
+    if (typeof ui === 'undefined' || !ui || !ui.showDiario) { setTimeout(openD, 200); return; }
     document.body.classList.remove('benvenuto');
-    if (quali.includes('missione')) ui.setMission({
-      desc: 'Attracca a tre isole con dominio di primo livello .org mai visitate prima', n: 3, progress: 1, reward: 225,
-    });
-    if (quali.includes('campagna')) ui.setCampagnaHud({
-      settimana: 2949, nome: 'La Marea dei Corsari delle Nebbie Perdute', premio: 700,
-      tappe: [
-        { desc: 'Affonda 2 Mercantili', n: 2 },
-        { desc: 'Scopri 3 isole mai visitate nelle acque inesplorate del nord', n: 3 },
-        { desc: 'Espugna le difese di wikipedia.org', n: 1 },
+    const now = Date.now();
+    ui._diarioTab = tab === 'cronache' ? 'cronache' : 'imprese';
+    ui.showDiario({
+      campagna: {
+        nome: 'La Marea dei Corsari delle Nebbie Perdute', lore: 'Tre convogli spariti nel Mare delle Ombre. Il Mastro chiede vendetta.', premio: 700,
+        tappe: [{ desc: 'Affonda 2 Mercantili', n: 2 }, { desc: 'Scopri 3 isole mai visitate', n: 3 }, { desc: 'Espugna le difese di wikipedia.org', n: 1 }],
+        tappa: 1, fatto: 1, completata: false,
+      },
+      dungeon: { nome: 'Le Fauci del Kraken', bersaglio: 'openstreetmap.org', premio: 1000, difficolta: 'tosto', fatto: false },
+      bacheca: {
+        attive: [{ id: 'a1', desc: 'Affonda 2 Mercantili', n: 2, reward: 140, progress: 1 }],
+        disponibili: [
+          { id: 'o1', desc: "Attracca a un'isola .org", n: 1, reward: 120 },
+          { id: 'o2', desc: 'Scopri 3 isole mai visitate', n: 3, reward: 225 },
+          { id: 'o3', desc: 'Affonda un Corsaro Fantasma', n: 1, reward: 250 },
+        ],
+      },
+      gazzetta: [
+        { t: now - 36e5, testo: '«Barbanera» ha ESPUGNATO archive.org! Il blocco è caduto.' },
+        { t: now - 8 * 36e5, testo: 'Fondata la fratellanza «I Corsari del Nord».' },
+        { t: now - 26 * 36e5, testo: 'Il Mastro di Rotte traccia la rotta della settimana.' },
       ],
-      tappa: 1, fatto: 1, completata: false,
-    });
-    if (quali.includes('dungeon')) ui.setDungeonHud({
-      periodo: 20645, nome: 'Le Fauci del Kraken degli Abissi Insonni', bersaglio: 'openstreetmap.org',
-      premio: 1000, difficolta: 'tosto', fatto: false,
+      cronache: [
+        { t: now - 5 * 36e4, testo: '🪙 +140 — Missione compiuta: Affonda 2 mercantili' },
+        { t: now - 20 * 36e4, testo: '🪙 +1000 — Dungeon del giorno espugnato: "Le Fauci del Kraken"' },
+      ],
+      lettaFino: now - 5 * 36e5,
     });
   };
-  setTimeout(openH, 700);
+  setTimeout(openD, 700);
 }
 
 // ?forcepanel=settings|help (sviluppo): apre un overlay senza dati dal server,
@@ -1095,14 +1128,7 @@ if (devParams.get('forcepanel')) {
     try {
       if (which === 'settings') ui.show('settingsOverlay');
       else if (which === 'help') ui.show('helpOverlay');
-      else if (which === 'gazzetta') ui.showGazzetta(
-        [{ t: now - 36e5, testo: '«Barbanera» ha espugnato la fortezza di example.com — il dominio è libero.' },
-         { t: now - 8 * 36e5, testo: 'Fondata la fratellanza «I Corsari del Nord».' },
-         { t: now - 26 * 36e5, testo: 'Il Mastro di Rotte ha voltato pagina: nuova campagna in mare.' }],
-        now - 5 * 36e5,
-        { nome: 'La Vendetta del Mastro', lore: 'Tre mercantili spariti nel Mare delle Ombre. Il Mastro chiede vendetta.',
-          tappe: [{ desc: 'Affonda 3 mercantili', n: 3 }, { desc: 'Scaccia i Corsari Fantasma', n: 5 }, { desc: 'Espugna la fortezza', n: 1 }],
-          tappa: 1, completata: false, fatto: 2, premio: 1500 });
+      // il Diario ha un hook dedicato: ?forcediario=imprese|cronache
       else if (which === 'fratellanze') ui.showFratellanze({ fondazione: 25000, elenco: [
         { id: 'nord', nome: 'I Corsari del Nord', tag: 'CDN', categoria: 'Guerra', membri: new Array(12), aperta: true, sfidabile: true, bandiera: { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 } },
         { id: 'fant', nome: 'Flotta Fantasma', tag: 'FF', categoria: 'Caccia', membri: new Array(8), aperta: false, sfidabile: false, bandiera: { fondo: 2, taglio: 1, tinta2: 3, emblema: 2, tintaEmblema: 1 } },
