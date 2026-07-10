@@ -1195,12 +1195,32 @@ if (devParams.get('forceshop')) {
     gold: 2400,
     ship: { hullLvl: 2, sailsLvl: 1, helmLvl: 1, crewLvl: 2, holdLvl: 1, hullCost: 900, sailsCost: 1200, helmCost: 600, crewCost: 1500, holdCost: 800 },
     varo: { tipo: 'guerra', cost: 90, tipi: {
-      // il mock rispecchia TIPI_PUB del server (#41 fetta 2-bis): stessi
-      // numeri e stesse abilità del Cantiere vero, o la foto mente
-      goletta: { nome: 'Goletta', motto: 'Chi fugge vive per combattere domani', hpMul: 0.85, speedMul: 1.12, turnMul: 1, sconto: 'helmLvl', abilita: 'Speronamento', esclusiva: 'Colubrina Lunga' },
-      guerra: { nome: 'Brigantino da Guerra', motto: 'La matrice di sempre', hpMul: 1, speedMul: 1, turnMul: 1, sconto: 'crewLvl', abilita: 'Fumogeno', esclusiva: 'Carronata Pesante' },
-      galeone: { nome: 'Galeone', motto: 'La fortezza che naviga', hpMul: 1.2, speedMul: 1, turnMul: 0.88, sconto: 'hullLvl', abilita: 'Bordata Doppia', esclusiva: 'Organo di Da Vinci' },
-      sciabecco: { nome: 'Sciabecco', motto: 'Punge di prua e di poppa', hpMul: 0.9, speedMul: 1, turnMul: 1.15, sconto: 'holdLvl', abilita: 'Colpo di Vento', esclusiva: 'Falconetto a Ripetizione' },
+      // il mock rispecchia TIPI_PUB del server (#41 fetta 2-bis + audit
+      // Cantiere): stessi numeri e stesse schede del Cantiere vero, o la foto mente
+      goletta: {
+        nome: 'Goletta', motto: 'Chi fugge vive per combattere domani', hpMul: 0.85, speedMul: 1.12, turnMul: 1, sconto: 'helmLvl',
+        abilita: 'Speronamento', esclusiva: 'Colubrina Lunga',
+        abilitaInfo: { nome: 'Speronamento', cd: 30, durata: 2.2, effetto: 'carichi per 2.2s e speroni: 42 danni al bersaglio, 10 al tuo legno' },
+        esclusivaInfo: { dmg: 34, range: 560, reload: 2.2 },
+      },
+      guerra: {
+        nome: 'Brigantino da Guerra', motto: 'La matrice di sempre', hpMul: 1, speedMul: 1, turnMul: 1, sconto: 'crewLvl',
+        abilita: 'Fumogeno', esclusiva: 'Carronata Pesante',
+        abilitaInfo: { nome: 'Fumogeno', cd: 40, durata: 10, effetto: 'una cortina di fumo (10s): dentro, fantasmi e torri non ti prendono di mira' },
+        esclusivaInfo: { dmg: 44, range: 210, reload: 3.2 },
+      },
+      galeone: {
+        nome: 'Galeone', motto: 'La fortezza che naviga', hpMul: 1.2, speedMul: 1, turnMul: 0.88, sconto: 'hullLvl',
+        abilita: 'Bordata Doppia', esclusiva: 'Organo di Da Vinci',
+        abilitaInfo: { nome: 'Bordata Doppia', cd: 40, durata: 4, effetto: 'per 4s ogni bocca spara il doppio, con le canne subito fresche' },
+        esclusivaInfo: { dmg: 8, range: 350, reload: 1.6 },
+      },
+      sciabecco: {
+        nome: 'Sciabecco', motto: 'Punge di prua e di poppa', hpMul: 0.9, speedMul: 1, turnMul: 1.15, sconto: 'holdLvl',
+        abilita: 'Colpo di Vento', esclusiva: 'Falconetto a Ripetizione',
+        abilitaInfo: { nome: 'Colpo di Vento', cd: 30, durata: 2.5, effetto: 'scatto a vele piene per 2.5s: agganci un duello, o te ne sganci' },
+        esclusivaInfo: { dmg: 14, range: 300, reload: 0.9 },
+      },
     } },
     negozio: {
       catalogo: {
@@ -1215,15 +1235,17 @@ if (devParams.get('forceshop')) {
       bandiera: { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 },
     },
     groups: {
+      // stats = weaponStats(type, lvl) del server, ricopiati a mano: la foto
+      // deve mostrare la scheda coi numeri veri (audit Cantiere)
       left: { max: 3, nextSlotCost: 200, slots: [
-        { slot: 0, type: 'colubrina', lvl: 2, name: 'Colubrina', tier: 1, upCost: 1200, replace: null },
-        { slot: 1, type: 'carronata', lvl: 1, name: 'Carronata', tier: 2, upCost: 600, replace: { type: 'mortaio', name: 'Mortaio ad Area', cost: 3000 } },
+        { slot: 0, type: 'colubrina', lvl: 2, name: 'Colubrina', tier: 1, upCost: 1200, replace: null, stats: { dmg: 11, range: 295, reload: 1.85 } },
+        { slot: 1, type: 'carronata', lvl: 1, name: 'Carronata', tier: 2, upCost: 600, stats: { dmg: 34, range: 230, reload: 2.6 }, replace: { type: 'mortaio', name: 'Mortaio ad Area', cost: 3000, stats: { dmg: 34, range: 500, reload: 4.2 } } },
       ] },
       right: { max: 3, nextSlotCost: 200, slots: [
-        { slot: 0, type: 'colubrina', lvl: 3, name: 'Colubrina', tier: 1, upCost: null, replace: { type: 'cannone', name: 'Cannone', cost: 900 } },
+        { slot: 0, type: 'colubrina', lvl: 3, name: 'Colubrina', tier: 1, upCost: null, stats: { dmg: 14, range: 320, reload: 1.7 }, replace: { type: 'cannone', name: 'Cannone', cost: 900, stats: { dmg: 16, range: 330, reload: 2.3 } } },
       ] },
       bow: { max: 2, nextSlotCost: 300, slots: [
-        { slot: 0, type: 'cannone', lvl: 1, name: 'Cannone', tier: 2, upCost: 800, replace: null },
+        { slot: 0, type: 'cannone', lvl: 1, name: 'Cannone', tier: 2, upCost: 800, replace: null, stats: { dmg: 16, range: 330, reload: 2.3 } },
       ] },
       stern: { max: 1, nextSlotCost: 0, slots: [] },
     },

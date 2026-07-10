@@ -347,10 +347,10 @@ export class UI {
     const bar = $('hpBar');
     const frac = Math.max(0, Math.min(1, hp / maxHp));
     bar.style.width = (frac * 100) + '%';
-    // tre soglie (#19): il giallo avvisa quando c'è ancora tempo per scappare
-    bar.style.background = frac > 0.6 ? 'linear-gradient(#6cd072,#3d9944)'
-      : frac > 0.35 ? 'linear-gradient(#e5c34a,#b98f22)'
-        : 'linear-gradient(#e8783f,#b23a1a)';
+    // tre soglie (#19): il giallo avvisa quando c'è ancora tempo per
+    // scappare — i gradienti stanno in style.css coi token, non qui
+    bar.classList.toggle('media', frac <= 0.6 && frac > 0.35);
+    bar.classList.toggle('critica', frac <= 0.35);
     const v = Math.ceil(hp);
     if (v !== this._hpDetto) {
       this._hpDetto = v;
@@ -567,6 +567,12 @@ export class UI {
 
     const wep = $('shopWeapons');
     wep.innerHTML = '';
+    // il ponte fra Cantiere e mare (audit Cantiere): le munizioni si
+    // scelgono al timone, ma è QUI che uno se lo chiede
+    const nota = document.createElement('p');
+    nota.className = 'shopNota';
+    nota.textContent = '⚫ In mare ogni bocca spara la munizione scelta col tasto X: palle piene (danno pieno), catene (tagliano le vele), mitraglia (falcidia la ciurma). Il colpo in poppa morde ×1.5.';
+    wep.appendChild(nota);
     for (const [g, data] of Object.entries(m.groups)) {
       // il tipo non regge il gruppo (galeone senza assiali): niente vetrina vuota
       if (!data.max && !data.slots.length) continue;
@@ -580,7 +586,10 @@ export class UI {
         const row = document.createElement('div');
         row.className = 'wslot';
         const pips = '●'.repeat(s.lvl) + '○'.repeat(3 - s.lvl);
-        row.innerHTML = `<div class="wname"><b>${esc(s.name)}</b> <span class="tier">Tier ${ROMAN[s.tier - 1]}</span><span class="pips">${pips}</span></div>`;
+        // la scheda dell'arma (audit Cantiere): i numeri del livello attuale
+        const statRiga = s.stats
+          ? `<span class="wstat">${s.stats.dmg} danni · gittata ${s.stats.range} · ricarica ${s.stats.reload}s</span>` : '';
+        row.innerHTML = `<div class="wname"><b>${esc(s.name)}</b> <span class="tier">Tier ${ROMAN[s.tier - 1]}</span><span class="pips">${pips}</span>${statRiga}</div>`;
         if (s.upCost !== null) {
           const b = document.createElement('button');
           b.textContent = `Potenzia · ${s.upCost} 🪙`;
@@ -594,10 +603,14 @@ export class UI {
           const b = document.createElement('button');
           b.className = 'tierUp';
           b.textContent = `→ ${s.replace.name} · ${s.replace.cost} 🪙`;
-          b.setAttribute('aria-label', `Sostituisci ${s.name} con ${s.replace.name} per ${s.replace.cost} monete`);
+          const conStats = s.replace.stats
+            ? ` (${s.replace.stats.dmg} danni, gittata ${s.replace.stats.range}, ricarica ${s.replace.stats.reload}s)` : '';
+          b.setAttribute('aria-label', `Sostituisci ${s.name} con ${s.replace.name}${conStats} per ${s.replace.cost} monete`);
           b.dataset.fk = `rep-${g}-${s.slot}`;
           b.disabled = m.gold < s.replace.cost;
-          if (b.disabled) b.title = `Servono ${s.replace.cost} 🪙 — ne hai ${m.gold}`;
+          b.title = b.disabled
+            ? `Servono ${s.replace.cost} 🪙 — ne hai ${m.gold}`
+            : `${s.replace.name}${conStats}`;
           b.addEventListener('click', () => this.h.onReplaceWeapon(g, s.slot));
           row.appendChild(b);
         } else {
@@ -648,9 +661,16 @@ export class UI {
       eff.push(`${LINEA[t.sconto]} a metà prezzo`);
       const row = document.createElement('div');
       row.className = 'shopRow';
-      if (t.abilita) eff.push(`abilità: ${t.abilita}`);
+      // la carta spiega (audit Cantiere): cosa fa R, quanto dura, ogni
+      // quanto torna — e l'esclusiva coi suoi numeri, non solo il nome
+      const ab = t.abilitaInfo;
+      const es = t.esclusivaInfo;
+      const righeExtra = ab
+        ? `<span class="effetti abilitaRiga">✦ <b>R — ${esc(ab.nome)}</b> (ricarica ${ab.cd}s): ${esc(ab.effetto)}</span>
+           <span class="effetti esclusivaRiga">☄ esclusiva: <b>${esc(t.esclusiva)}</b>${es ? ` — ${es.dmg} danni · gittata ${es.range} · ricarica ${es.reload}s` : ''}</span>`
+        : `<span class="effetti">abilità: ${esc(t.abilita || '—')} · esclusiva: ${esc(t.esclusiva)}</span>`;
       row.innerHTML = `<div class="shopInfo"><b>${EMOJI[key] || '⚓'} ${esc(t.nome)}</b><span>${esc(t.motto)}</span>
-        <span class="effetti">${esc(eff.join(' · '))} · esclusiva: ${esc(t.esclusiva)}</span></div>`;
+        <span class="effetti">${esc(eff.join(' · '))}</span>${righeExtra}</div>`;
       const btn = document.createElement('button');
       btn.dataset.fk = `varo-${key}`;
       if (varo.tipo === key) { btn.textContent = 'La tua nave'; btn.disabled = true; }
