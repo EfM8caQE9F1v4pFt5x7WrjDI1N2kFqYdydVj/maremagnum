@@ -22,7 +22,7 @@
     <button type="submit" data-i18n="course.submit">🧭 Traccia la rotta</button>
   </form>
   <div id="gold">🪙 <span class="visuallyhidden" data-i18n="gold.aria">monete d'oro: </span><b id="goldVal">0</b></div>
-  <button id="gazzettaBtn" data-i18n-aria="gazzetta.aria" data-i18n-title="gazzetta.title" aria-label="Gazzetta del Corsaro" title="La Gazzetta del Corsaro — le notizie del mare">🗞<span id="gazzettaBadge" class="hidden" aria-hidden="true"></span></button>
+  <button id="gazzettaBtn" aria-label="Diario del Capitano" title="Il Diario del Capitano — imprese, bacheca e cronache del mare">📖<span id="gazzettaBadge" class="hidden" aria-hidden="true"></span></button>
   <button id="registroBtn" data-i18n-aria="registro.aria" data-i18n-title="registro.title" aria-label="Registro delle Collezioni" title="Il Registro delle Collezioni — ciò che hai conquistato">🏆</button>
   <button id="helpBtn" data-i18n-aria="help.aria" data-i18n-title="help.title" aria-label="Manuale del Corsaro" title="Il Manuale del Corsaro — come funziona Maremagnum">📜</button>
   <button id="settingsBtn" data-i18n-aria="settings.aria" data-i18n-title="settings.title" aria-label="Impostazioni di bordo" title="Impostazioni di bordo">⚙</button>
@@ -40,11 +40,6 @@
   <button id="setSailBtn">⛵ Salpa</button>
 </div>
 
-<div id="hudStack">
-  <div id="missionHud" class="hidden" role="status"></div>
-  <div id="campagnaHud" class="hidden" role="status" title="Apri la Gazzetta per la campagna completa"></div>
-  <div id="dungeonHud" class="hidden" role="status" title="Il dungeon del giorno del Mastro di Rotte"></div>
-</div>
 <div id="assedioHud" class="hidden"></div>
 
 <div id="hud">
@@ -251,11 +246,14 @@
       <b>Colpo di Vento</b> dello Sciabecco (una raffica in poppa: si entra — o si
       esce — da un duello, vele o non vele).</p>
 
-      <h3 class="shopSection">🗞 La Gazzetta del Corsaro</h3>
-      <p>L'albo delle notizie del Maremagnum: espugnazioni, arrembaggi e annunci
-      dell'Ammiragliato. Il bottone 🗞 lassù tiene il conto delle notizie che ti sei
-      perso mentre eri a terra. Tutto vive <b>solo in gioco</b>: niente email, niente
-      notifiche fuori dal mare.</p>
+      <h3 class="shopSection">📖 Il Diario del Capitano</h3>
+      <p>Un solo posto per la tua rotta: il bottone 📖 lassù. La scheda
+      <b>Imprese</b> raccoglie la campagna della settimana e il dungeon del giorno del
+      Mastro, la <b>bacheca</b> delle missioni da <b>accettare</b> o rifiutare, e quelle
+      in corso col progresso. La scheda <b>Cronache</b> è l'albo delle notizie del
+      Maremagnum — espugnazioni, arrembaggi, annunci — con filtro <i>le mie / tutto il
+      mare</i>. Il pallino conta le novità perse mentre eri a terra. Tutto vive
+      <b>solo in gioco</b>: niente email, niente notifiche fuori dal mare.</p>
 
       <h3 class="shopSection">🎨 Il Negozio delle Livree e il Registro</h3>
       <p>Al Cantiere, la scheda <b>Livree</b>: vesti la nave di colori — vele nere,
@@ -278,10 +276,11 @@
       ufficiali. Serve l'Ancoraggio: le Fratellanze sono fatte di nomi veri.</p>
 
       <h3 class="shopSection">⚔ Il Mastro di Rotte</h3>
-      <p>Ogni lunedì il Mastro di Rotte proclama la <b>campagna della settimana</b>:
-      tre tappe in crescendo, chiusura in Fortezza, premio fisso a chi la compie.
-      La trovi in cima alla Gazzetta, col segno sulle tappe già battute. Chi la
-      compie finisce agli atti, coi complimenti del Mastro.</p>
+      <p>Il Mastro di Rotte traccia i <b>dungeon</b> del Maremagnum: la <b>campagna
+      della settimana</b> (tre tappe in crescendo, chiusura sull'isola difesa) e il
+      <b>dungeon del giorno</b>, con un bersaglio reale da assaltare abbattendone le
+      difese. Li trovi nel <b>Diario</b> (📖), scheda Imprese, col segno sulle tappe
+      già battute. Chi compie finisce agli atti, coi complimenti del Mastro.</p>
 
       <h3 class="shopSection">🪙 La legge del mare</h3>
       <p><b>Vita a zero fra capitani = nave BLOCCATA, non affondata.</b> Il vincitore
@@ -368,11 +367,16 @@
   </div>
 </div>
 
+<!-- id legacy gazzettaOverlay/gazzettaBtn/gazzettaClose per riuso del plumbing overlay -->
 <div id="gazzettaOverlay" class="overlay hidden">
-  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloGazzetta">
-    <h2 id="titoloGazzetta">🗞 La Gazzetta del Corsaro</h2>
-    <p class="sub">Le notizie del Maremagnum — anche quelle accadute mentre eri a terra.</p>
-    <div id="gazzettaVoci"></div>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloDiario">
+    <h2 id="titoloDiario">📖 Diario del Capitano</h2>
+    <div id="diarioTabs" role="tablist" aria-label="Sezioni del Diario">
+      <button id="tabImprese" class="diarioTab" role="tab" aria-selected="true">⚔ Imprese</button>
+      <button id="tabCronache" class="diarioTab" role="tab" aria-selected="false">🗞 Cronache</button>
+    </div>
+    <div id="diarioImprese" class="diarioPanel" role="tabpanel"></div>
+    <div id="diarioCronache" class="diarioPanel hidden" role="tabpanel"></div>
     <button id="gazzettaClose" class="linkish">Chiudi</button>
   </div>
 </div>

@@ -172,7 +172,7 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 /* Il benvenuto vivo (issue #21): dietro la pergamena il mare respira,
    l'interfaccia di bordo aspetta il varo */
 body.benvenuto #hud, body.benvenuto #minimap, body.benvenuto #hint,
-body.benvenuto #killfeed, body.benvenuto #hudStack { display: none; }
+body.benvenuto #killfeed { display: none; }
 
 /* i placeholder dei codici non si troncano: la spaziatura larga
    appartiene al codice digitato, non alla scritta di cortesia */
@@ -326,25 +326,37 @@ body.conPannello #hint { opacity: 0; }
 }
 
 /* ---- missione & assedio ---- */
-/* i tre avvisi in alto a sinistra (missione, campagna, dungeon del giorno) si
-   IMPILANO in una colonna flex: se un testo va a capo spingono giù chi sta
-   sotto, senza mai sovrapporsi — niente più top fissi hardcoded */
-#hudStack {
-  position: fixed; top: 66px; left: 16px; z-index: var(--z-pill); transition: top .25s;
-  display: flex; flex-direction: column; gap: var(--s-2); align-items: flex-start;
-  max-width: 420px; pointer-events: none;
+/* Il Diario del Capitano (issue #39): schede, bacheca e cronache. Gli obiettivi
+   non stanno più a schermo — vivono qui, ordinati. */
+#diarioTabs { display: flex; gap: var(--s-2); margin: var(--s-3) 0; border-bottom: 1px solid var(--wood-1); }
+.diarioTab {
+  background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer;
+  padding: var(--s-2) var(--s-3); font-size: var(--t-base); color: var(--ink); opacity: .6; font-family: inherit;
 }
-#missionHud, #campagnaHud, #dungeonHud {
-  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: var(--r-md);
-  padding: var(--s-2) var(--s-3); font-size: var(--t-sm); max-width: 100%;
-  box-shadow: var(--elev-2); pointer-events: auto;
+.diarioTab[aria-selected="true"] { color: var(--gold); border-bottom-color: var(--gold); font-weight: bold; }
+.diarioPanel { min-height: 40vh; }
+.diarioSez { margin: var(--s-4) 0 var(--s-2); font-size: var(--t-sm); color: var(--ink); opacity: .6; text-transform: uppercase; letter-spacing: .04em; }
+.diarioVuoto { color: var(--ink); opacity: .7; font-size: var(--t-sm); font-style: italic; padding: var(--s-2) 0; }
+.impresaCard {
+  background: var(--paper-2); color: var(--ink);
+  border: 1px solid var(--wood-1); border-left: 3px solid var(--wood-1);
+  border-radius: var(--r-md); padding: var(--s-3); margin-bottom: var(--s-2);
 }
-#campagnaHud, #dungeonHud { cursor: pointer; }
-#campagnaHud { border-left: 3px solid var(--gold); }
-#dungeonHud { border-left: 3px solid var(--danger); }
-#campagnaHud:hover { border-color: var(--gold); }
-#dungeonHud:hover { border-color: var(--danger); }
-#missionHud .reward, #campagnaHud .reward, #dungeonHud .reward { color: var(--gold); }
+.impresaCard.mastro { border-left-color: var(--gold); }
+.impresaCard.dungeon { border-left-color: var(--danger); }
+.impresaCard h4 { margin: 0 0 var(--s-1); font-size: var(--t-base); }
+.impresaCard .reward { color: var(--gold-deep); font-size: var(--t-sm); font-weight: bold; }
+.impresaCard .sub { margin: var(--s-1) 0 0; }
+.impresaBarra { height: 6px; background: var(--wood-1); border-radius: 3px; overflow: hidden; margin: var(--s-2) 0; }
+.impresaBarra > i { display: block; height: 100%; background: var(--gold); }
+.impresaAzioni { display: flex; gap: var(--s-2); margin-top: var(--s-2); flex-wrap: wrap; }
+.impresaAzioni button { font-size: var(--t-sm); padding: var(--s-1) var(--s-3); }
+.diarioFiltro { display: flex; gap: var(--s-2); margin-bottom: var(--s-3); }
+.diarioFiltro button {
+  background: none; border: 1px solid var(--wood-1); border-radius: var(--r-pill, 999px);
+  padding: var(--s-1) var(--s-3); font-size: var(--t-sm); cursor: pointer; color: var(--ink); opacity: .75; font-family: inherit;
+}
+.diarioFiltro button[aria-pressed="true"] { background: var(--gold); color: var(--ink); opacity: 1; border-color: var(--gold); }
 #assedioHud {
   position: fixed; top: 66px; left: 50%; transform: translateX(-50%); z-index: var(--z-pill); transition: top .25s;
   background: var(--assedio-bg); border: 2px solid var(--danger); border-radius: var(--r-md);
@@ -470,7 +482,7 @@ body.conPannello #hint { opacity: 0; }
 #guardInfo.spento { opacity: .4; text-decoration: line-through; }
 
 /* con la barra d'attracco aperta, le pillole scendono sotto di lei */
-body.attraccato #hudStack, body.attraccato #assedioHud, body.attraccato #killfeed { top: 108px; }
+body.attraccato #assedioHud, body.attraccato #killfeed { top: 108px; }
 
 /* ruoli dell'assedio, spiegati in una riga */
 .ruoli { font-size: var(--t-xs); font-style: italic; color: var(--ink-cocoa); margin-bottom: var(--s-3); }
