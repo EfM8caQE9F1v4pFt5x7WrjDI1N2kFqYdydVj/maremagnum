@@ -78,6 +78,28 @@ function parseCourse(q) {
 // Knob per i test end-to-end: fortezze di cartapesta (WEAK_FORTS=1).
 const HPX = (typeof process !== 'undefined' ? process.env.WEAK_FORTS : undefined) ? 0.05 : 1;
 
+// Le difese temporanee di un dungeon (#38): stesse KIND delle fortezze (stessa
+// meccanica e stessi numeri per pezzo — quelli restano del codice), ma la
+// COMPOSIZIONE (quante torri/bombarde, se c'è lo specchio) la decide il Mastro,
+// già clampata a range sani in campagna-core. Disposizione stabile nel periodo.
+function makeDungeonDefs(x, y, r, spec, seed) {
+  const rng = mulberry32(seed >>> 0);
+  const defs = [];
+  const t = FORT.torre, b = FORT.bombarda;
+  const nt = Math.max(0, spec.torri | 0), nb = Math.max(0, spec.bombarde | 0);
+  const off = rng() * Math.PI * 2;
+  for (let k = 0; k < nt; k++) {
+    const a = (k / Math.max(1, nt)) * Math.PI * 2 + off;
+    defs.push(makeDefense('t', x + Math.cos(a) * (r + t.ringDist), y + Math.sin(a) * (r + t.ringDist), t.hp));
+  }
+  for (let k = 0; k < nb; k++) {
+    const a = (k / Math.max(1, nb)) * Math.PI * 2 + off + 0.7;
+    defs.push(makeDefense('b', x + Math.cos(a) * (r * 0.5 + b.ringDist), y + Math.sin(a) * (r * 0.5 + b.ringDist), b.hp));
+  }
+  if (spec.specchio) defs.push(makeDefense('s', x, y, FORT.specchio.hp));
+  return defs;
+}
+
 function makeDefense(kind, x, y, hp) {
   hp = Math.max(10, Math.round(hp * HPX));
   return { kind, x, y, hp, max: hp, dead: false, deadAt: 0, fireAt: 0, lastHit: 0 };
@@ -141,11 +163,45 @@ class Archipelago {
     this.islands.set(domain, island);
     return { island, isNew: true };
   }
+
+  // Il Mastro di Rotte v2 (#38): stende un dungeon TEMPORANEO su un'isola
+  // normale — per la durata del periodo riceve difese generate dal Mastro, poi
+  // si azzera (clearDungeon). Una fortezza vera non diventa dungeon: ha già le
+  // sue. Ritorna l'isola pronta (o null se non applicabile).
+  applyDungeon(dungeon) {
+    if (!dungeon || !dungeon.bersaglio) return null;
+    const { island } = this.ensure(dungeon.bersaglio);
+    if (island.fortress) return null; // le acque proibite hanno già un padrone
+    if (island.dungeon) {
+      // già steso per questo periodo → non ricostruire (non azzerare le difese)
+      if (island.dungeon.tipo === dungeon.tipo && island.dungeon.periodo === dungeon.periodo) return island;
+      // un altro tipo tiene già l'isola → non scippargliela (il settimanale vince)
+      if (island.dungeon.tipo !== dungeon.tipo) return null;
+    }
+    island.dungeon = {
+      tipo: dungeon.tipo, periodo: dungeon.periodo, nome: dungeon.nome,
+      premio: dungeon.premio, scadenza: dungeon.scadenza,
+    };
+    island.dungeonUntil = dungeon.scadenza;
+    island.defs = makeDungeonDefs(island.x, island.y, island.r, dungeon.difese || {}, island.seed ^ (dungeon.periodo | 0));
+    island.fallenUntil = 0;
+    return island;
+  }
+
+  clearDungeon(domain) {
+    const island = this.islands.get(dominioBase(domain));
+    if (!island || !island.dungeon) return null;
+    delete island.dungeon;
+    delete island.defs;
+    island.dungeonUntil = 0;
+    island.fallenUntil = 0;
+    return island;
+  }
 }
 
 // Versione dell'isola sicura da mandare ai client (senza stato interno delle difese).
 function publicIsland(i) {
-  return { id: i.id, kind: i.kind, domain: i.domain, name: i.name, x: i.x, y: i.y, r: i.r, seed: i.seed, fortress: i.fortress };
+  return { id: i.id, kind: i.kind, domain: i.domain, name: i.name, x: i.x, y: i.y, r: i.r, seed: i.seed, fortress: i.fortress, dungeon: !!i.dungeon };
 }
 
 module.exports = { WORLD, PORT, FORT, hashStr, mulberry32, parseCourse, Archipelago, publicIsland };

@@ -373,8 +373,13 @@ class Game {
         completata: !!p.campagna.completata,
       };
     }
+    // il dungeon del giorno (#38): l'ultimo periodo già incassato, per non
+    // ripagare il premio a chi lo rivince nello stesso giorno
+    ship.dungeonGiorno = p.dungeonGiorno | 0;
     const statoCampagna = this.campagnaPer(ship);
     if (statoCampagna) this.sendTo(ship, { t: 'campagna', stato: statoCampagna });
+    const statoDungeon = this.dungeonGiornoPer(ship);
+    if (statoDungeon) this.sendTo(ship, { t: 'dungeon', stato: statoDungeon });
     // il primo minuto ha UN obiettivo (issue #22): al profilo vergine la
     // missione arriva col primo attracco, non al secondo zero
     if (p.gold == null) ship.senzaMissione = true;
@@ -394,6 +399,7 @@ class Game {
       livree: [...ship.livree], livrea: ship.livrea, scia: ship.scia, bandiera: ship.bandiera,
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
+      dungeonGiorno: ship.dungeonGiorno || 0,
       sfide: ship.sfide || {},
       kills: ship.kills, deaths: ship.deaths,
     };
@@ -439,6 +445,31 @@ class Game {
       tappe: c.tappe.map(t => ({ desc: t.desc, lore: t.lore, n: t.n })),
       tappa: st.tappa, fatto: st.fatto, completata: !!st.completata,
     };
+  }
+
+  // Il dungeon del giorno (#38) per l'HUD: obiettivo singolo (l'assalto), con il
+  // bersaglio reale, la fascia e se il capitano l'ha già incassato oggi.
+  dungeonGiornoPer(ship) {
+    const dg = campagna.getDungeon('giornaliero');
+    if (!dg) return null;
+    return {
+      periodo: dg.periodo, nome: dg.nome, lore: dg.lore, bersaglio: dg.bersaglio || null,
+      premio: dg.premio, difficolta: dg.difficolta, scadenza: dg.scadenza,
+      fatto: ship.dungeonGiorno === dg.periodo,
+    };
+  }
+
+  // Stende i dungeon del Mastro (#38) sulle isole bersaglio: le difese temporanee
+  // compaiono su isole normali per la durata del periodo. Il settimanale ha la
+  // precedenza sul giornaliero se puntano la stessa isola. Idempotente (non
+  // azzera le difese se il dungeon è già steso per quel periodo).
+  applicaDungeoni() {
+    for (const tipo of ['settimanale', 'giornaliero']) {
+      const dg = campagna.getDungeon(tipo);
+      if (!dg) continue;
+      const isl = this.archipelago.applyDungeon(dg);
+      if (isl) this.broadcast({ t: 'island', island: publicIsland(isl) });
+    }
   }
 
   // --- le Fratellanze (issue #5) ---
@@ -716,7 +747,9 @@ class Game {
   // --- attracco / porto ---
 
   fortressBlocks(ship, island) {
-    if (!island.fortress) return false;
+    // sbarra l'approdo sia le Fortezze Proibite sia i dungeon temporanei del
+    // Mastro (#38): entrambi hanno difese da abbattere prima di poter attraccare
+    if (!island.defs || (!island.fortress && !island.dungeon)) return false;
     if (ship.conquered.has(island.id)) return false;
     if (island.fallenUntil > this.now) return false;
     return island.defs.some(d => !d.dead);
@@ -1238,7 +1271,9 @@ class Game {
   fortressFalls(island, byId) {
     island.fallenUntil = this.now + FORT.fallDuration;
     const hero = this.ships.get(byId);
-    if (hero && !hero.npc) {
+    if (island.dungeon) {
+      this.dungeonFalls(island, hero); // il dungeon del Mastro (#38) ha regole sue
+    } else if (hero && !hero.npc) {
       hero.gold += FORT.conquestBounty;
       hero.conquered.add(island.id);
       hero.kills++;
@@ -1252,9 +1287,45 @@ class Game {
     this.broadcast({ t: 'fortFall', island: island.id });
   }
 
+  // Un dungeon (#38) su un'isola normale è caduto: premio SPENDIBILE bounded (dal
+  // listino, blindato in campagna-core), MAI conquista permanente — l'isola non
+  // è bloccata, le difese sono un evento a tempo. Il settimanale lascia che sia
+  // la campagna a pagare (c.premio, evita il doppio premio); il giornaliero paga
+  // una volta al giorno. Il resto del bottino (lore/trofei) è dell'AI, altrove.
+  dungeonFalls(island, hero) {
+    const dg = island.dungeon;
+    if (!hero || hero.npc) {
+      this.broadcast({ t: 'feed', msg: `⚔ Le difese di ${island.name} sono cadute!` });
+      return;
+    }
+    if (dg.tipo === 'settimanale') {
+      this.avanzaCampagna(hero, 'espugnazione'); // la campagna paga al completamento
+      return;
+    }
+    if (hero.dungeonGiorno !== dg.periodo) {
+      hero.dungeonGiorno = dg.periodo;
+      hero.gold += dg.premio;
+      hero.kills++;
+      this.sendGold(hero, dg.premio, `Dungeon del giorno espugnato: "${dg.nome}"!`);
+      this.annuncia('campagna', `⚔ ${hero.name} ha espugnato il dungeon del giorno "${dg.nome}" su ${island.name}! (+${dg.premio} 🪙)`);
+      this.sendTo(hero, { t: 'dungeon', stato: this.dungeonGiornoPer(hero) }); // HUD → incassato
+    } else {
+      this.sendTo(hero, { t: 'toast', msg: '⚔ Difese abbattute! Il premio del giorno l\'hai già incassato.' });
+    }
+  }
+
   tickForts(dt) {
     for (const island of this.archipelago.list()) {
       if (!island.defs) continue;
+      // il dungeon del Mastro (#38) scade a fine periodo (orologio VERO, non il
+      // tempo di gioco): le difese temporanee svaniscono, l'isola torna approdo
+      if (island.dungeon && Date.now() >= island.dungeon.scadenza) {
+        const nome = island.name;
+        this.archipelago.clearDungeon(island.domain);
+        this.broadcast({ t: 'island', island: publicIsland(island) });
+        this.broadcast({ t: 'feed', msg: `⚓ La marea si ritira da ${nome}: le difese del Mastro svaniscono.` });
+        continue;
+      }
       if (island.fallenUntil > this.now) continue;
       if (island.fallenUntil && island.fallenUntil <= this.now) {
         island.fallenUntil = 0;

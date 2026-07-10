@@ -1037,6 +1037,17 @@ export class Renderer {
     this.smokes = next;
   }
 
+  // quando un dungeon del Mastro (#38) scade, le sue difese vanno tolte dal
+  // canvas: l'isola torna un approdo normale
+  clearFort(islandId) {
+    const g = this.forts.get(islandId);
+    if (!g) return;
+    g.clear();
+    this.fortLayer.removeChild(g);
+    g.destroy();
+    this.forts.delete(islandId);
+  }
+
   updateFort(islandId, defs) {
     let g = this.forts.get(islandId);
     if (!g) { g = new Graphics(); this.fortLayer.addChild(g); this.forts.set(islandId, g); }

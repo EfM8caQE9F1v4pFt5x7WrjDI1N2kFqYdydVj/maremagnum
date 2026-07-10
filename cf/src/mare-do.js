@@ -88,24 +88,28 @@ export class MareDO {
     } catch { /* le notizie arriveranno al prossimo risveglio */ }
   }
 
-  // La campagna della settimana torna a bordo al risveglio del mare — e se
-  // manca o è stantia (deploy fresco, oppure il cron del lunedì non l'ha ancora
-  // rinfrescata su questo mare caldo) la si semina al volo col vestito
-  // procedurale e la si ripubblica: niente attesa del lunedì. Le tappe d'assedio
-  // nominano isole reali sopra soglia dell'Atlante (già caricato in `pronto`).
-  async caricaCampagna() {
+  // I dungeon del Mastro (#38: giornaliero e settimanale) tornano a bordo al
+  // risveglio del mare — e se mancano o sono stantii (deploy fresco, oppure il
+  // cron non li ha ancora rinfrescati su questo mare caldo) li si semina al volo
+  // col vestito procedurale e li si ripubblica: niente attesa del cron. I
+  // bersagli sono isole reali sopra soglia dell'Atlante (già caricato in `pronto`).
+  // Se il Game è già in piedi, stende subito le difese sui bersagli del periodo.
+  async caricaDungeoni() {
     try {
       const reg = this.env.CAMPAGNE.get(this.env.CAMPAGNE.idFromName('campagne'));
       const res = await reg.fetch('https://campagne/corrente');
-      const corrente = res.ok ? (await res.json()).campagna : null;
-      const { campagna: c, daPubblicare } = campagna.assicura(
-        corrente, campagna.settimanaDi(), atlante.sopraSoglia());
-      campagna.setCampagna(c);
-      if (daPubblicare) {
-        await reg.fetch('https://campagne/pubblica', {
-          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(c),
-        });
+      const correnti = res.ok ? await res.json() : {};
+      for (const tipo of ['giornaliero', 'settimanale']) {
+        const { dungeon, daPubblicare } = campagna.assicura(
+          correnti[tipo], tipo, campagna.periodoDi(tipo), atlante.sopraSoglia());
+        campagna.setDungeon(tipo, dungeon);
+        if (daPubblicare) {
+          await reg.fetch('https://campagne/pubblica', {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(dungeon),
+          });
+        }
       }
+      if (this.game) this.game.applicaDungeoni();
     } catch { /* il Mastro tornerà al prossimo risveglio */ }
   }
 
@@ -125,7 +129,7 @@ export class MareDO {
         await this.caricaBlocklist();
         await this.caricaAtlante();
         await this.caricaGazzetta();
-        await this.caricaCampagna();
+        await this.caricaDungeoni();
         await this.caricaGilde();
         this.game = new Game((obj) => {
           const s = JSON.stringify(obj);
@@ -134,6 +138,7 @@ export class MareDO {
           }
         });
         this.game.pausa(); // nasce addormentato: si sveglia col primo capitano
+        this.game.applicaDungeoni(); // le difese del Mastro (#38) sui bersagli del periodo
         // le mutazioni delle Fratellanze si persistono in write-through
         this.game.onGilde = (op, g) => {
           const reg = this.env.GILDE.get(this.env.GILDE.idFromName('gilde'));
@@ -210,8 +215,9 @@ export class MareDO {
         if (msg.t !== 'join') return;
         // il Mastro a caldo: se è girata la settimana da quando il mare s'è
         // svegliato, rileggi/risemina la campagna prima che il Game la mandi
-        if (campagna.getCampagna()?.settimana !== campagna.settimanaDi()) {
-          await this.caricaCampagna();
+        if (campagna.getDungeon('settimanale')?.periodo !== campagna.settimanaDi() ||
+            campagna.getDungeon('giornaliero')?.periodo !== campagna.giornoDi()) {
+          await this.caricaDungeoni();
         }
         // ancoraggio: col token valido il profilo autorevole arriva dai Conti
         if (msg.token && this.env.SESSION_SECRET) {
@@ -276,6 +282,7 @@ export class MareDO {
       bandiera: ship.bandiera || null,
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
+      dungeonGiorno: ship.dungeonGiorno || 0,
       sfide: ship.sfide || {},
       kills: ship.kills,
       deaths: ship.deaths,

@@ -14,19 +14,21 @@ export class CampagneDO {
   async fetch(req) {
     const url = new URL(req.url);
 
+    // #38: un dungeon per TIPO (giornaliero/settimanale), storicizzato per periodo
     if (url.pathname === '/pubblica' && req.method === 'POST') {
-      const campagna = await req.json().catch(() => null);
-      if (!campagna || typeof campagna.settimana !== 'number' || !Array.isArray(campagna.tappe)) {
-        return json({ errore: 'campagna?' }, 400);
+      const d = await req.json().catch(() => null);
+      if (!d || typeof d.periodo !== 'number' || typeof d.tipo !== 'string' || !Array.isArray(d.tappe)) {
+        return json({ errore: 'dungeon?' }, 400);
       }
-      await this.state.storage.put('campagna:corrente', campagna);
-      await this.state.storage.put('campagna:sett:' + campagna.settimana, campagna);
-      return json({ ok: true, campagna });
+      await this.state.storage.put('dungeon:' + d.tipo + ':corrente', d);
+      await this.state.storage.put('dungeon:' + d.tipo + ':' + d.periodo, d);
+      return json({ ok: true, dungeon: d });
     }
 
     if (url.pathname === '/corrente' && req.method === 'GET') {
-      const campagna = (await this.state.storage.get('campagna:corrente')) || null;
-      return json({ campagna });
+      const giornaliero = (await this.state.storage.get('dungeon:giornaliero:corrente')) || null;
+      const settimanale = (await this.state.storage.get('dungeon:settimanale:corrente')) || null;
+      return json({ giornaliero, settimanale });
     }
 
     return json({ errore: 'rotta ignota' }, 404);
