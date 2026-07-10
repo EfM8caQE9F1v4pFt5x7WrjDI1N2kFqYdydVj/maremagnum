@@ -1152,9 +1152,9 @@ export class Renderer {
       // il fondino della targhetta si infittisce col buio (issue #40): i nomi
       // compensano la notte come già fanno lanterne e faro
       if (c.fondino) c.fondino.alpha = 0.42 + 0.26 * night;
-      // i debuff delle munizioni (#41 fetta 2): glifi sopra il nome —
-      // ⛓ vele tagliate, ☠ ciurma falcidiata; si vede CHI è menomato
-      const glifi = (s.vt ? '⛓' : '') + (s.cf ? (s.vt ? ' ' : '') + '☠' : '');
+      // i glifi di stato sopra il nome (#41 fette 2 e 3): ⛓ vele tagliate,
+      // ☠ ciurma falcidiata, 🏳 resa — si vede chi è menomato o ammainato
+      const glifi = [s.vt && '⛓', s.cf && '☠', s.rs && '🏳'].filter(Boolean).join(' ');
       if ((c.debuffGlifi || '') !== glifi && c.tag) {
         c.debuffGlifi = glifi;
         if (!c.debuffText) {

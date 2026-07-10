@@ -1386,11 +1386,15 @@ function interpolatedShips() {
       vel: lerp(sa.vel, sb.vel, t),
     });
   }
-  // ?forcedebuff=1 (sviluppo): la propria nave posa da colpita — glifi ⛓☠
-  // e barre rallentate in foto, senza aspettare una vera bordata
-  if (devParams.get('forcedebuff')) {
+  // ?forcedebuff=1|rs (sviluppo): la propria nave posa da colpita (glifi ⛓☠)
+  // o da arresa (🏳) in foto, senza aspettare una vera bordata
+  const fd = devParams.get('forcedebuff');
+  if (fd) {
     const me = out.find(s => s.id === state.meId);
-    if (me) { me.vt = 3; me.cf = 4; }
+    if (me) {
+      if (fd.includes('rs')) me.rs = 9;
+      else { me.vt = 3; me.cf = 4; }
+    }
   }
   return out;
 }

@@ -20,6 +20,18 @@ const RESPAWN_S = 6;
 const DISCOVERY_GOLD = 25;
 const MAX_SHIP_LVL = 4;       // ogni linea del Cantiere: scafo, vele, timone, ciurma, stiva
 const PVE_BOUNTY = { merc: 25, ghost: 60 }; // taglie magre e fisse per tipologia
+// La resa dei mercantili (issue #41, fetta 3, alla Sid Meier's Pirates!):
+// sotto la soglia ammainano — chi li TOCCA li saccheggia (bottino FISSO dal
+// listino, una volta per resa), chi preferisce la missione li affonda lo
+// stesso. Il cooldown è la diga anti-farming; il mare non è un bancomat.
+const RESA = { soglia: 0.3, durata: 25, bottino: 150, bottinoConvoglio: 400, cooldown: 180, hpRitorno: 0.5 };
+// Il convoglio scortato (issue #41, fetta 3): un mercantile panciuto con due
+// fantasmi di scorta, in rotta annunciata tra due isole vere. Attacchi uno,
+// rispondono tutti — l'ecologia delle prede di Pirates!.
+const CONVOGLIO = { ogni: 300, scorte: 2, minacciaTtl: 30, stazza: 2 };
+// CONVOGLIO_SUBITO=1 (env, solo Node dev/test): il primo convoglio salpa al
+// primo tick invece che dopo 5 minuti — per collaudi riproducibili
+const CONVOGLIO_SUBITO = !!(typeof process !== 'undefined' && process.env && process.env.CONVOGLIO_SUBITO);
 // L'economia del blocco (issue #15, arrembaggio v1): vita a zero per mano di
 // un capitano = nave BLOCCATA, non affondata. Il doppiofondo della Stiva è
 // SEMPRE protetto; il resto è "il forziere in gioco": 25% subito al vincitore,
@@ -199,6 +211,9 @@ class Game {
     this.nextShotId = 1;
     this.now = Date.now() / 1000;
     this.vento = vento.FISSO || vento.ventoAl(this.now * 1000); // il vento del mare (issue #41)
+    // il convoglio scortato (issue #41, fetta 3): uno alla volta, a orologio
+    this.convoglio = null;
+    this.prossimoConvoglio = this.now + (CONVOGLIO_SUBITO ? 0 : CONVOGLIO.ogni);
     this.tickCount = 0;
     this.fxQueue = [];
     for (let i = 0; i < NPCS.merc; i++) this.spawnNpc('merc');
@@ -256,6 +271,8 @@ class Game {
       // le munizioni (issue #41, fetta 2): scelta di sessione, mai persistita;
       // i debuff sono temporanei e si rinfrescano, non si sommano
       munizione: 'palle', veleTagliateUntil: 0, falcidiaUntil: 0,
+      // la resa dei mercantili e il convoglio (issue #41, fetta 3)
+      resaUntil: 0, resaCooldownUntil: 0, saccheggiato: false, convoglio: null,
       visited: new Set(), conquered: new Set(), preferiti: new Set(),
       livree: new Set(), livrea: null, vele: null, scia: null, bandiera: null,
       mission: null, wp: null, fleeUntil: 0,
@@ -300,7 +317,8 @@ class Game {
     return ship;
   }
 
-  npcMaxHp(ship) { return ship.npc === 'merc' ? 140 : 320; } // +100% come le navi vere
+  // +100% come le navi vere; il capo del convoglio è panciuto (stazza, fetta 3)
+  npcMaxHp(ship) { return (ship.npc === 'merc' ? 140 : 320) * (ship.stazza || 1); }
 
   syncReady(ship) {
     for (const g of Object.keys(W.GROUPS)) {
@@ -1167,14 +1185,19 @@ class Game {
             Math.hypot(p.x - ship.x, p.y - ship.y) < BLOCCO.tocco) this.abborda(ship);
         continue;
       }
-      if (ship.npc === 'merc') this.steerMerc(ship);
-      else if (ship.npc === 'ghost') this.steerGhost(ship);
+      // la resa (issue #41, fetta 3): bandiera ammainata, timone e vele ferme
+      if (ship.resaUntil > this.now) {
+        ship.input.up = ship.input.left = ship.input.right = false;
+      } else if (ship.npc === 'merc') (ship.convoglio ? this.steerCapo(ship) : this.steerMerc(ship));
+      else if (ship.npc === 'ghost') (ship.convoglio ? this.steerScorta(ship) : this.steerGhost(ship));
       this.move(ship, dt);
       if (ship.ramUntil > this.now) this.ramTick(ship);
       this.regen(ship, dt);
     }
     this.moveShots(dt);
     this.tickForts(dt);
+    this.tickResa();
+    this.tickConvoglio();
     this.missions.tick(this.now);
     this.tickCount++;
     if (this.fxQueue.length) { this.broadcast({ t: 'fx', list: this.fxQueue }); this.fxQueue = []; }
@@ -1230,6 +1253,136 @@ class Game {
       ship.wp = { x: 500 + Math.random() * (WORLD.W - 1000), y: 500 + Math.random() * (WORLD.H - 1000) };
     }
     this.steerToward(ship, ship.wp.x, ship.wp.y);
+  }
+
+  // --- il convoglio scortato e la resa (issue #41, fetta 3) ---
+
+  // il capo del convoglio tira dritto verso il porto di destinazione:
+  // niente giri turistici, la rotta è quella annunciata
+  steerCapo(ship) {
+    const c = this.convoglio;
+    if (!c) { this.steerMerc(ship); return; }
+    this.steerToward(ship, c.meta.x, c.meta.y);
+  }
+
+  // la scorta tiene la stazione ai lati del capo; se qualcuno tocca il
+  // convoglio, molla la formazione e gli dà la caccia (mutuo soccorso)
+  steerScorta(ship) {
+    const c = this.convoglio;
+    const capo = c && this.ships.get(c.capo);
+    if (!c || !capo || this.isSunk(capo)) { this.steerGhost(ship); return; }
+    const preda = c.minaccia && c.minaccia.fino > this.now ? this.ships.get(c.minaccia.id) : null;
+    if (preda && !this.isSunk(preda) && !preda.docked && !this.inSmoke(preda) &&
+        Math.hypot(preda.x - ship.x, preda.y - ship.y) < 900) {
+      const d = Math.hypot(preda.x - ship.x, preda.y - ship.y);
+      if (d > 240) { this.steerToward(ship, preda.x, preda.y); return; }
+      // al traverso e fuoco, come i fantasmi liberi
+      const want = Math.atan2(preda.y - ship.y, preda.x - ship.x);
+      const scelte = [want - Math.PI / 2, want + Math.PI / 2]
+        .map((rot) => ({ rot, d: Math.abs(this.normAngle(rot - ship.rot)) }))
+        .sort((a, b) => a.d - b.d);
+      const lato = scelte[0].rot === want - Math.PI / 2 ? 'right' : 'left';
+      const diff = this.normAngle(scelte[0].rot - ship.rot);
+      ship.input.left = diff < -0.08; ship.input.right = diff > 0.08; ship.input.up = d > 150;
+      if (Math.abs(diff) < 0.35) this.fire(ship, lato);
+      return;
+    }
+    // stazione: un fianco per scorta, dietro le spalle del capo
+    const posto = ship.convoglio.posto === 0 ? -2.5 : 2.5;
+    const tx = capo.x + Math.cos(capo.rot + posto) * 95;
+    const ty = capo.y + Math.sin(capo.rot + posto) * 95;
+    this.steerToward(ship, tx, ty, Math.hypot(tx - ship.x, ty - ship.y) > 55);
+  }
+
+  normAngle(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
+
+  // il convoglio salpa: capo panciuto + scorte, rotta vera annunciata in Gazzetta
+  spawnConvoglio() {
+    const isole = this.archipelago.list().filter(i => !i.fortress);
+    if (isole.length < 2) return;
+    let da = null, a = null;
+    for (let tenta = 0; tenta < 12 && !a; tenta++) {
+      da = isole[Math.floor(Math.random() * isole.length)];
+      const lontane = isole.filter(i => i !== da && Math.hypot(i.x - da.x, i.y - da.y) > 2200);
+      if (lontane.length) a = lontane[Math.floor(Math.random() * lontane.length)];
+    }
+    if (!a) return;
+    const capo = this.spawnNpc('merc');
+    capo.name = 'Mercantile di Convoglio';
+    capo.stazza = CONVOGLIO.stazza;
+    capo.hp = this.npcMaxHp(capo);
+    const ang = Math.atan2(a.y - da.y, a.x - da.x);
+    capo.x = da.x + Math.cos(ang) * (da.r + 140);
+    capo.y = da.y + Math.sin(ang) * (da.r + 140);
+    capo.rot = ang;
+    capo.convoglio = { ruolo: 'capo' };
+    const scorte = [];
+    for (let i = 0; i < CONVOGLIO.scorte; i++) {
+      const s = this.spawnNpc('ghost');
+      s.name = 'Scorta del Convoglio';
+      s.x = capo.x + Math.cos(capo.rot + (i === 0 ? -2.5 : 2.5)) * 95;
+      s.y = capo.y + Math.sin(capo.rot + (i === 0 ? -2.5 : 2.5)) * 95;
+      s.rot = ang;
+      s.convoglio = { ruolo: 'scorta', posto: i };
+      scorte.push(s.id);
+    }
+    this.convoglio = { capo: capo.id, scorte, meta: { x: a.x, y: a.y, r: a.r, nome: a.name }, minaccia: null };
+    this.annuncia('convoglio', `🚢 Un convoglio scortato è salpato: da ${da.name} verso ${a.name}, stive piene!`);
+  }
+
+  // fine corsa: all'ARRIVO tutti a terra (spariscono in porto); se il capo
+  // AFFONDA le scorte non svaniscono a mezz'aria — restano a caccia come
+  // orfane e il mare se le riprende quando affondano (niente respawn)
+  sciogliConvoglio(motivo, arrivo) {
+    const c = this.convoglio;
+    if (!c) return;
+    for (const id of [c.capo, ...c.scorte]) {
+      const s = this.ships.get(id);
+      if (!s) continue;
+      if (arrivo && !this.isSunk(s)) this.ships.delete(id);
+      // i relitti e le orfane conservano ship.convoglio: al "respawn" si tolgono
+    }
+    this.convoglio = null;
+    this.prossimoConvoglio = this.now + CONVOGLIO.ogni;
+    if (motivo) this.broadcast({ t: 'feed', msg: motivo });
+  }
+
+  tickConvoglio() {
+    if (!this.convoglio) {
+      if (this.now >= this.prossimoConvoglio) this.spawnConvoglio();
+      return;
+    }
+    const c = this.convoglio;
+    const capo = this.ships.get(c.capo);
+    if (!capo) { this.sciogliConvoglio(null); return; }
+    if (this.isSunk(capo)) {
+      this.sciogliConvoglio('🌊 Il mercantile di convoglio è perduto: la scorta, orfana, dà la caccia ai colpevoli.', false);
+      return;
+    }
+    if (Math.hypot(capo.x - c.meta.x, capo.y - c.meta.y) < c.meta.r + 170) {
+      this.sciogliConvoglio(`⚓ Il convoglio è giunto sano e salvo a ${c.meta.nome}.`, true);
+    }
+  }
+
+  // il saccheggio col tocco: primo capitano accosto al mercantile arreso
+  tickResa() {
+    for (const ship of this.ships.values()) {
+      if (ship.npc !== 'merc' || ship.resaUntil <= this.now || ship.saccheggiato) continue;
+      for (const p of this.ships.values()) {
+        if (p.npc || p.docked || this.isSunk(p)) continue;
+        if (Math.hypot(p.x - ship.x, p.y - ship.y) >= BLOCCO.tocco) continue;
+        const bottino = ship.convoglio ? RESA.bottinoConvoglio : RESA.bottino;
+        ship.saccheggiato = true;
+        ship.resaUntil = this.now + 3; // issa la bandiera e riprende il largo
+        ship.resaCooldownUntil = this.now + RESA.cooldown;
+        ship.hp = Math.max(ship.hp, this.npcMaxHp(ship) * RESA.hpRitorno);
+        p.gold += bottino;
+        this.sendGold(p, bottino, `Hai saccheggiato ${ship.name} senza colpo ferire!`);
+        this.broadcast({ t: 'feed', msg: `⚓ ${p.name} ha saccheggiato ${ship.name} (+${bottino} 🪙)` });
+        if (ship.convoglio) this.annuncia('convoglio', `💰 ${p.name} ha svuotato le stive del convoglio!`);
+        break;
+      }
+    }
   }
 
   inSafeWaters(ship) {
@@ -1500,6 +1653,19 @@ class Game {
     // RINFRESCANO senza sommarsi — mai oltre il malus dichiarato nel catalogo
     if (shot && shot.mun === 'catene') ship.veleTagliateUntil = this.now + W.MUNIZIONI.catene.taglia.durata;
     if (shot && shot.mun === 'mitraglia') ship.falcidiaUntil = this.now + W.MUNIZIONI.mitraglia.falcidia.durata;
+    // il convoglio fa quadrato (issue #41, fetta 3): tocchi uno, rispondono le scorte
+    if (ship.convoglio && this.convoglio && typeof byId === 'string' && !byId.startsWith('fort:')) {
+      const attaccante = this.ships.get(byId);
+      if (attaccante && !attaccante.npc) this.convoglio.minaccia = { id: byId, fino: this.now + CONVOGLIO.minacciaTtl };
+    }
+    // la resa dei mercantili (issue #41, fetta 3): sotto la soglia ammainano.
+    // Si può ancora affondarli (la missione è missione): la resa è un'OFFERTA
+    if (ship.npc === 'merc' && ship.hp > 0 && ship.resaUntil <= this.now &&
+        this.now >= ship.resaCooldownUntil && ship.hp <= this.npcMaxHp(ship) * RESA.soglia) {
+      ship.resaUntil = this.now + RESA.durata;
+      ship.saccheggiato = false;
+      this.broadcast({ t: 'feed', msg: `🏳 ${ship.name} ammaina bandiera: chi lo tocca lo saccheggia!` });
+    }
     if (ship.hp <= 0) {
       // fra capitani il colpo di grazia BLOCCA (issue #15); NPC e fortezze
       // affondano come sempre
@@ -1637,6 +1803,9 @@ class Game {
   }
 
   respawn(ship) {
+    // i membri del convoglio non rinascono (issue #41, fetta 3): il relitto
+    // ha fatto la sua scena, il mare se lo riprende
+    if (ship.npc && ship.convoglio) { this.ships.delete(ship.id); return; }
     ship.sunkUntil = 0;
     ship.lastHitBy = null;
     ship.blockedUntil = 0; ship.blockedBy = null; ship.bloccoSalvo = 0; ship.bloccoPerso = 0; ship.immuneUntil = 0;
@@ -1684,6 +1853,8 @@ class Game {
         ...(s.veleTagliateUntil > this.now ? { vt: r2(s.veleTagliateUntil - this.now) } : {}),
         ...(s.falcidiaUntil > this.now ? { cf: r2(s.falcidiaUntil - this.now) } : {}),
         ...(abUntil > this.now ? { ab: r2(abUntil - this.now) } : {}),
+        // la resa (#41 fetta 3): bandiera bianca coi secondi restanti
+        ...(s.resaUntil > this.now ? { rs: r2(s.resaUntil - this.now) } : {}),
         ...(s.gilda ? { gt: s.gilda.tag } : {}), // la bandierina della gilda
         // il guardaroba in mare (issue #25), campi ADDITIVI: lv = livrea,
         // ve = vele tinte, sc = colore scia, bf = bandiera personale (la gilda vince)
