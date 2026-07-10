@@ -1064,17 +1064,20 @@ if (devParams.get('forcehud')) {
   const openH = () => {
     if (typeof ui === 'undefined' || !ui || !ui.setCampagnaHud) { setTimeout(openH, 200); return; }
     document.body.classList.remove('benvenuto');
+    if (quali.includes('missione')) ui.setMission({
+      desc: 'Attracca a tre isole con dominio di primo livello .org mai visitate prima', n: 3, progress: 1, reward: 225,
+    });
     if (quali.includes('campagna')) ui.setCampagnaHud({
-      settimana: 2949, nome: 'La Marea dei Corsari', premio: 700,
+      settimana: 2949, nome: 'La Marea dei Corsari delle Nebbie Perdute', premio: 700,
       tappe: [
         { desc: 'Affonda 2 Mercantili', n: 2 },
-        { desc: 'Scopri 3 isole mai visitate', n: 3 },
+        { desc: 'Scopri 3 isole mai visitate nelle acque inesplorate del nord', n: 3 },
         { desc: 'Espugna le difese di wikipedia.org', n: 1 },
       ],
       tappa: 1, fatto: 1, completata: false,
     });
     if (quali.includes('dungeon')) ui.setDungeonHud({
-      periodo: 20645, nome: 'Le Fauci del Kraken', bersaglio: 'archive.org',
+      periodo: 20645, nome: 'Le Fauci del Kraken degli Abissi Insonni', bersaglio: 'openstreetmap.org',
       premio: 1000, difficolta: 'tosto', fatto: false,
     });
   };
