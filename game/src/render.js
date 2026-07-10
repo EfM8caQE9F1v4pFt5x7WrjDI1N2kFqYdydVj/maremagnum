@@ -1038,7 +1038,9 @@ export class Renderer {
       // personale (issue #25) sventola accanto se NON c'è gilda; il fondino
       // si ridisegna quando il testo cambia larghezza
       if (c.tag && c.fondino) {
-        const testo = (s.gt ? '[' + s.gt + '] ' : '') + s.name;
+        // il 🤝 degli alleati (issue #37): si riconoscono in mezzo alla battaglia
+        const alleato = this.alleati && this.alleati.has(s.id) && s.id !== selfId;
+        const testo = (alleato ? '🤝 ' : '') + (s.gt ? '[' + s.gt + '] ' : '') + s.name;
         const bfKey = (!s.gt && Array.isArray(s.bf)) ? s.bf.join('.') : '';
         if (c.label.text !== testo || c.tagBf !== bfKey) {
           c.label.text = testo;
@@ -1245,6 +1247,9 @@ export class Renderer {
   }
 
   setDest(island) { this.dest = island; }
+
+  // gli alleati della sessione (issue #37): il nome si veste del 🤝
+  setAlleati(ids) { this.alleati = ids || null; }
 
   // --- frame ---
 

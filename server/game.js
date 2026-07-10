@@ -10,6 +10,7 @@ const campagna = require('./campagna-core');
 const gilde = require('./gilde-core');
 const livree = require('./livree');
 const og = require('./og-core');
+const { Alleanze, quotaAlleanza } = require('./alleanze');
 
 const TICK = 1 / 30;          // simulazione a 30Hz
 const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
@@ -164,6 +165,7 @@ class Game {
     this.archipelago = new Archipelago();
     this.semina();
     this.missions = new Missions(this);
+    this.alleanze = new Alleanze(this); // le alleanze temporanee (#37)
     this.ships = new Map();
     this.shots = new Map();
     this.smokes = [];
@@ -231,6 +233,7 @@ class Game {
       visited: new Set(), conquered: new Set(), preferiti: new Set(),
       livree: new Set(), livrea: null, vele: null, scia: null, bandiera: null,
       mission: null, wp: null, fleeUntil: 0,
+      alleanzaId: null, // l'alleanza temporanea (#37): effimera, mai nel profilo
     };
   }
 
@@ -385,6 +388,8 @@ class Game {
     // profilo tornano solo progressi, strike e conto della settimana
     this.missions.ripristina(ship, p);
     this.missions.broadcastState();
+    // le alleanze temporanee (#37): il nuovo arrivato vede le bandiere aperte
+    this.sendTo(ship, { t: 'alleanzeAperte', bandiere: this.alleanze.bandiereAperte() });
     this.broadcast({ t: 'feed', msg: `⚓ ${name} è salpato nel Mare dell'Internet` });
     return ship;
   }
@@ -415,6 +420,7 @@ class Game {
   leave(ship) {
     // scappare staccando la spina non paga: chi resta vince (issue #15)
     if (ship.blockedUntil > this.now) this.abborda(ship);
+    this.alleanze.leave(ship); // chi sbarca esce dall'alleanza (#37)
     this.missions.leave(ship);
     this.ships.delete(ship.id);
     this.broadcast({ t: 'feed', msg: `${ship.name} è tornato sulla terraferma` });
@@ -663,6 +669,10 @@ class Game {
       case 'upgradeWeapon': this.upgradeWeapon(ship, msg.group, msg.slot); break;
       case 'replaceWeapon': this.replaceWeapon(ship, msg.group, msg.slot); break;
       case 'assedio': this.missions.assedioJoin(ship, msg.role); break;
+      // le alleanze temporanee (#37): invito diretto o bandiera aperta
+      case 'alleanzaInvita': case 'alleanzaAccetta': case 'alleanzaRifiuta':
+      case 'alleanzaLascia': case 'alleanzaApri': case 'alleanzaChiudi':
+      case 'alleanzaUnisciti': this.alleanze.handle(ship, msg); break;
       // compat coi client vecchi (#39): le tre del giorno si accettano da sole
       case 'accetta': this.missions.accetta(ship); break;
       case 'rifiuta': this.missions.rifiuta(ship); break;
@@ -1267,6 +1277,9 @@ class Game {
   }
 
   damageDefense(island, def, dmg, byId) {
+    // il registro dell'assalto (#37): chi batte le difese è in squadra quando
+    // cadono — il tempo dell'ultimo colpo decide chi era davvero in battaglia
+    (island.assalitori = island.assalitori || new Map()).set(byId, this.now);
     def.hp -= dmg;
     def.lastHit = this.now;
     if (def.hp <= 0 && !def.dead) {
@@ -1293,6 +1306,7 @@ class Game {
       this.broadcast({ t: 'feed', msg: `🏰 Le difese di ${island.name} sono cadute!` });
     }
     this.broadcast({ t: 'fortFall', island: island.id });
+    island.assalitori = null; // l'assalto è chiuso: il registro si azzera (#37)
   }
 
   // Un dungeon (#38) su un'isola normale è caduto: premio SPENDIBILE bounded (dal
@@ -1300,25 +1314,40 @@ class Game {
   // è bloccata, le difese sono un evento a tempo. Il settimanale lascia che sia
   // la campagna a pagare (c.premio, evita il doppio premio); il giornaliero paga
   // una volta al giorno. Il resto del bottino (lore/trofei) è dell'AI, altrove.
+  // In alleanza (#37) la SQUADRA — l'eroe più gli alleati che hanno battuto le
+  // difese — si spartisce l'esito: quota code-owned a testa, ognuno gated dal
+  // SUO dungeonGiorno; nel settimanale ognuno avanza la SUA campagna.
   dungeonFalls(island, hero) {
     const dg = island.dungeon;
     if (!hero || hero.npc) {
       this.broadcast({ t: 'feed', msg: `⚔ Le difese di ${island.name} sono cadute!` });
       return;
     }
+    const squadra = this.alleanze.squadra(hero, island);
     if (dg.tipo === 'settimanale') {
-      this.avanzaCampagna(hero, 'espugnazione'); // la campagna paga al completamento
+      for (const s of squadra) this.avanzaCampagna(s, 'espugnazione'); // la campagna paga al completamento
       return;
     }
-    if (hero.dungeonGiorno !== dg.periodo) {
-      hero.dungeonGiorno = dg.periodo;
-      hero.gold += dg.premio;
-      hero.kills++;
-      this.sendGold(hero, dg.premio, `Dungeon del giorno espugnato: "${dg.nome}"!`);
-      this.annuncia('campagna', `⚔ ${hero.name} ha espugnato il dungeon del giorno "${dg.nome}" su ${island.name}! (+${dg.premio} 🪙)`);
-      this.sendTo(hero, { t: 'dungeon', stato: this.dungeonGiornoPer(hero) }); // HUD → incassato
+    const quota = quotaAlleanza(dg.premio, squadra.length);
+    let pagati = 0;
+    for (const s of squadra) {
+      if (s.dungeonGiorno === dg.periodo) {
+        this.sendTo(s, { t: 'toast', msg: '⚔ Difese abbattute! Il premio del giorno l\'hai già incassato.' });
+        continue;
+      }
+      s.dungeonGiorno = dg.periodo;
+      s.gold += quota;
+      s.kills++;
+      this.sendGold(s, quota, `Dungeon del giorno espugnato: "${dg.nome}"!`);
+      this.sendTo(s, { t: 'dungeon', stato: this.dungeonGiornoPer(s) }); // HUD → incassato
+      pagati++;
+    }
+    if (!pagati) return;
+    if (squadra.length > 1) {
+      const nomi = squadra.map(s => s.name).join(' + ');
+      this.annuncia('campagna', `⚔ L'alleanza di ${nomi} ha espugnato il dungeon del giorno "${dg.nome}" su ${island.name}! (+${quota} 🪙 a testa)`);
     } else {
-      this.sendTo(hero, { t: 'toast', msg: '⚔ Difese abbattute! Il premio del giorno l\'hai già incassato.' });
+      this.annuncia('campagna', `⚔ ${hero.name} ha espugnato il dungeon del giorno "${dg.nome}" su ${island.name}! (+${dg.premio} 🪙)`);
     }
   }
 
@@ -1338,6 +1367,7 @@ class Game {
       if (island.fallenUntil && island.fallenUntil <= this.now) {
         island.fallenUntil = 0;
         for (const def of island.defs) { def.dead = false; def.hp = def.max; }
+        island.assalitori = null; // assedio nuovo, registro nuovo (#37)
         this.broadcast({ t: 'feed', msg: `🏰 ${island.name} è stata ricostruita. Il blocco è di nuovo attivo.` });
       }
       const volley = [];

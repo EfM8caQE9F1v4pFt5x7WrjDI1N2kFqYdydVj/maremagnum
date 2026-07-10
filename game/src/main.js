@@ -160,6 +160,15 @@ async function boot() {
     onFav: toggleFav,
     onGazzetta: apriGazzetta,
     onFratellanze: apriFratellanze,
+    // le Alleanze temporanee (issue #37)
+    onAlleanze: apriAlleanze,
+    onAlleanzaInvita: (id) => net.send({ t: 'alleanzaInvita', id }),
+    onAlleanzaAccetta: (id) => { rimuoviInvitoAlleanza(id); net.send({ t: 'alleanzaAccetta', id }); },
+    onAlleanzaRifiuta: (id) => { rimuoviInvitoAlleanza(id); net.send({ t: 'alleanzaRifiuta', id }); },
+    onAlleanzaLascia: () => net.send({ t: 'alleanzaLascia' }),
+    onAlleanzaApri: () => net.send({ t: 'alleanzaApri' }),
+    onAlleanzaChiudi: () => net.send({ t: 'alleanzaChiudi' }),
+    onAlleanzaUnisciti: (id) => net.send({ t: 'alleanzaUnisciti', id }),
     // il Negozio delle Livree e il Registro (issue #25)
     onCompraLivrea: (id) => net.send({ t: 'compraLivrea', id }),
     onIndossaLivrea: (id, genere) => net.send({ t: 'indossaLivrea', id, genere }),
@@ -337,6 +346,38 @@ function apriRegistro() {
     catalogo: state.livreeCatalogo || {},
     campagna: p.campagna,
   });
+}
+
+// Le Alleanze temporanee (issue #37): il party effimero della sessione.
+// L'elenco dei capitani presenti esce dall'ultimo snapshot (il client li
+// conosce già tutti); lo stato dell'alleanza e le bandiere dal server.
+function alleanzeState() {
+  const membri = new Set(((state.alleanza && state.alleanza.membri) || []).map(m => m.id));
+  const snap = state.snaps[state.snaps.length - 1];
+  const presenti = [];
+  if (snap) {
+    for (const s of snap.ships.values()) {
+      if (s.k === 'p' && s.id !== state.meId && !membri.has(s.id)) presenti.push({ id: s.id, nome: s.name });
+    }
+  }
+  // gli inviti scaduti si tolgono da soli: mai una rada di lettere morte
+  state.invitiAlleanza = (state.invitiAlleanza || []).filter(i => !i.fino || i.fino > Date.now());
+  return {
+    mia: state.alleanza || null,
+    inviti: state.invitiAlleanza,
+    bandiere: state.alleanzeAperte || [],
+    presenti,
+    meId: state.meId,
+  };
+}
+function apriAlleanze() { ui.showAlleanze(alleanzeState()); }
+function aggiornaAlleanze() {
+  ui.setAlleanzaBadge((state.invitiAlleanza || []).filter(i => !i.fino || i.fino > Date.now()).length);
+  ui.refreshAlleanze(alleanzeState());
+}
+function rimuoviInvitoAlleanza(id) {
+  state.invitiAlleanza = (state.invitiAlleanza || []).filter(i => i.id !== id);
+  aggiornaAlleanze();
 }
 
 // Le Fratellanze (issue #5): il pannello vive di due messaggi del server.
@@ -844,6 +885,24 @@ function wireNet() {
     state.gildaFondazione = m.fondazione || 25000;
     rinfrescaFratellanze();
   });
+  // le Alleanze temporanee (issue #37): stato mio, inviti, bandiere aperte
+  net.on('alleanza', (m) => {
+    state.alleanza = m.membri ? { membri: m.membri, aperta: !!m.aperta, max: m.max || 4 } : null;
+    // gli alleati si riconoscono in mare: il render mette il 🤝 sul nome
+    renderer.setAlleati(new Set((m.membri || []).map(x => x.id)));
+    aggiornaAlleanze();
+  });
+  net.on('alleanzaInvito', (m) => {
+    if (!m.da) return;
+    state.invitiAlleanza = (state.invitiAlleanza || []).filter(i => i.id !== m.da.id);
+    state.invitiAlleanza.push({ id: m.da.id, nome: m.da.nome, fino: Date.now() + (m.ttl || 90) * 1000 });
+    ui.toast(`🤝 ${m.da.nome} ti propone un'alleanza: decidi dal pannello 🤝 lassù`, 6000);
+    aggiornaAlleanze();
+  });
+  net.on('alleanzeAperte', (m) => {
+    state.alleanzeAperte = Array.isArray(m.bandiere) ? m.bandiere : [];
+    aggiornaAlleanze();
+  });
   net.on('campagna', (m) => { state.campagna = m.stato || null; aggiornaDiario(); }); // Imprese del Diario (#36/#39)
   net.on('dungeon', (m) => { state.dungeon = m.stato || null; aggiornaDiario(); });    // (#38/#39)
   net.on('gazzetta', (m) => {
@@ -1126,6 +1185,35 @@ if (devParams.get('forcediario')) {
     });
   };
   setTimeout(openD, 700);
+}
+
+// ?forcealleanza=solo|party (sviluppo): apre il pannello delle Alleanze con dati
+// finti, per fotografarlo headless senza un secondo capitano (issue #37).
+// «solo» = nessuna alleanza (inviti + bandiere + presenti); «party» = in alleanza.
+if (devParams.get('forcealleanza')) {
+  const modo = devParams.get('forcealleanza');
+  const openA = () => {
+    if (typeof ui === 'undefined' || !ui || !ui.showAlleanze) { setTimeout(openA, 200); return; }
+    document.body.classList.remove('benvenuto');
+    ui.hide('nameOverlay'); // la foto headless vuole il pannello, non il benvenuto
+    const dati = modo === 'party' ? {
+      mia: { membri: [{ id: 'p1', nome: 'Morgan il Rosso' }, { id: 'p2', nome: 'Anna dei Venti' }], aperta: true, max: 4 },
+      inviti: [],
+      bandiere: [],
+      presenti: [{ id: 'p3', nome: 'Barbanera' }, { id: 'p4', nome: 'La Vedova Nera' }],
+      meId: 'p1',
+    } : {
+      mia: null,
+      inviti: [{ id: 'p2', nome: 'Anna dei Venti' }],
+      bandiere: [{ id: 'a1', nomi: ['Barbanera', 'Calico Jack'], posti: 2 }],
+      presenti: [{ id: 'p2', nome: 'Anna dei Venti' }, { id: 'p3', nome: 'Barbanera' },
+        { id: 'p4', nome: 'La Vedova Nera' }, { id: 'p5', nome: 'Silver Gamba di Legno' }],
+      meId: 'p1',
+    };
+    try { ui.setAlleanzaBadge(dati.inviti.length); ui.showAlleanze(dati); }
+    catch (e) { console.error('forcealleanza err:', e && e.message); }
+  };
+  setTimeout(openA, 700);
 }
 
 // ?forcepanel=settings|help (sviluppo): apre un overlay senza dati dal server,

@@ -114,6 +114,37 @@ async function main() {
     ok(!!await N.wait(m => m.t === 'toast' && /si accettano da sole/.test(m.msg), 4000),
       'accetta è un no-op gentile: niente rifornimento infinito di missioni');
 
+    console.log('— Le Alleanze temporanee (#37): invito, stato, bandiera aperta —');
+    const M = new Player('Compare', {});
+    await M.join();
+    const ba0 = await M.wait(m => m.t === 'alleanzeAperte', 4000);
+    ok(ba0 && Array.isArray(ba0.bandiere), 'al join arrivano le bandiere aperte (elenco, anche vuoto)');
+    N.send({ t: 'alleanzaInvita', id: M.id });
+    const inv = await M.wait(m => m.t === 'alleanzaInvito', 4000);
+    ok(inv && inv.da && inv.da.nome === 'Novellino' && inv.ttl > 0, "l'invito d'alleanza arriva al destinatario, con la scadenza");
+    M.send({ t: 'alleanzaAccetta', id: inv.da.id });
+    ok(!!await M.wait(m => m.t === 'alleanza' && m.membri && m.membri.length === 2, 4000),
+      'accettando, lo stato (2 vele) arriva a chi accetta');
+    ok(!!await N.wait(m => m.t === 'alleanza' && m.membri && m.membri.length === 2, 4000),
+      'e anche a chi ha invitato');
+    M.send({ t: 'alleanzaLascia' });
+    ok(!!await N.wait(m => m.t === 'alleanza' && m.membri === null, 4000),
+      'chi resta solo senza bandiera è sciolto: membri null');
+    M.send({ t: 'alleanzaApri' });
+    const ba1 = await N.wait(m => m.t === 'alleanzeAperte' && m.bandiere.length === 1, 4000);
+    ok(ba1 && ba1.bandiere[0].posti === 3 && ba1.bandiere[0].nomi.includes('Compare'),
+      'la bandiera aperta di uno solo sventola in broadcast (recluta, 3 posti)');
+    N.send({ t: 'alleanzaUnisciti', id: ba1.bandiere[0].id });
+    ok(!!await N.wait(m => m.t === 'alleanza' && m.membri && m.membri.length === 2, 4000),
+      'con la bandiera aperta ci si unisce senza invito');
+    N.send({ t: 'alleanzaLascia' });
+    ok(!!await M.wait(m => m.t === 'alleanza' && m.membri && m.membri.length === 1 && m.aperta, 4000),
+      'la bandiera aperta sopravvive in uno: sta reclutando');
+    M.send({ t: 'alleanzaChiudi' });
+    ok(!!await M.wait(m => m.t === 'alleanza' && m.membri === null, 4000),
+      'ammainata la bandiera da soli, l\'alleanza svanisce');
+    M.ws.close();
+
     console.log('— Tipi di nave: grandfathering e frontiera di fiducia —');
     // profilo sporco: tipo inventato, Organo comprato ai vecchi tempi,
     // e un'esclusiva di un ALTRO tipo infilata di contrabbando
@@ -579,10 +610,13 @@ async function main() {
     A.input({});
     ok(abbordo && abbordo.gold === Math.round(pre * 0.2),
       `arrembaggio col tocco: alla vittima resta il doppiofondo (${abbordo && abbordo.gold}/${pre} 🪙)`);
-    const morte = await B.wait(m => m.t === 'dead', 6000);
+    // si aspetta la morte DELL'ARREMBAGGIO: un Fantasma può aver affondato
+    // Olonese nelle lunghe sezioni precedenti, e quel 'dead' stantio in coda
+    // non è il conto che stiamo verificando
+    const morte = await B.wait(m => m.t === 'dead' && m.da === 'Barbanera', 6000);
     ok(!!morte, 'la vittima abbordata affonda');
     // la morte racconta (issue #23): chi, il totale perso, il doppiofondo
-    ok(morte && morte.da === 'Barbanera' && morte.perso === inGioco && morte.salvo === Math.round(pre * 0.2),
+    ok(morte && morte.perso === inGioco && morte.salvo === Math.round(pre * 0.2),
       `…e il conto è servito: da ${morte && morte.da}, −${morte && morte.perso} 🪙, salvati ${morte && morte.salvo}`);
     ok(!!await B.wait(m => m.t === 'respawned', 12000), 'la vittima rispunta al porto');
 

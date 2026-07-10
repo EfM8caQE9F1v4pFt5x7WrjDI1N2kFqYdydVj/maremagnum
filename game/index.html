@@ -23,6 +23,7 @@
   </form>
   <div id="gold">🪙 <span class="visuallyhidden" data-i18n="gold.aria">monete d'oro: </span><b id="goldVal">0</b></div>
   <button id="gazzettaBtn" aria-label="Diario del Capitano" title="Il Diario del Capitano — imprese, bacheca e cronache del mare">📖<span id="gazzettaBadge" class="hidden" aria-hidden="true"></span></button>
+  <button id="alleanzaBtn" aria-label="Alleanze temporanee" title="Le Alleanze temporanee — unisci le vele per un dungeon ostico">🤝<span id="alleanzaBadge" class="hidden" aria-hidden="true"></span></button>
   <button id="registroBtn" data-i18n-aria="registro.aria" data-i18n-title="registro.title" aria-label="Registro delle Collezioni" title="Il Registro delle Collezioni — ciò che hai conquistato">🏆</button>
   <button id="helpBtn" data-i18n-aria="help.aria" data-i18n-title="help.title" aria-label="Manuale del Corsaro" title="Il Manuale del Corsaro — come funziona Maremagnum">📜</button>
   <button id="settingsBtn" data-i18n-aria="settings.aria" data-i18n-title="settings.title" aria-label="Impostazioni di bordo" title="Impostazioni di bordo">⚙</button>
@@ -275,6 +276,16 @@
       vale 7 giorni). Porte aperte = dentro subito; porte chiuse = decidono capitano e
       ufficiali. Serve l'Ancoraggio: le Fratellanze sono fatte di nomi veri.</p>
 
+      <h3 class="shopSection">🤝 Le Alleanze temporanee</h3>
+      <p>Un dungeon troppo ostico per una nave sola? Il bottone 🤝 lassù apre le
+      <b>Alleanze temporanee</b>: inviti un capitano presente (c'è la ricerca per nome)
+      o issi la <b>bandiera aperta</b>, e chi vuole si unisce — fino a 4 vele. Quando le
+      difese cadono, <b>chi le ha battute si spartisce l'esito</b>: una quota a testa
+      più il bonus d'alleanza, e nel dungeon della settimana ognuno avanza la propria
+      campagna. L'alleanza dura la <b>sessione</b>: si scioglie quando vuoi, o quando
+      si sbarca. Niente ruoli, niente ancoraggio richiesto — e occhio: il fuoco amico
+      resta acceso, il tradimento è parte del mestiere.</p>
+
       <h3 class="shopSection">⚔ Il Mastro di Rotte</h3>
       <p>Il Mastro di Rotte traccia i <b>dungeon</b> del Maremagnum: la <b>campagna
       della settimana</b> (tre tappe in crescendo, chiusura sull'isola difesa) e il
@@ -378,6 +389,22 @@
     <div id="diarioImprese" class="diarioPanel" role="tabpanel"></div>
     <div id="diarioCronache" class="diarioPanel hidden" role="tabpanel"></div>
     <button id="gazzettaClose" class="linkish">Chiudi</button>
+  </div>
+</div>
+
+<div id="alleanzaOverlay" class="overlay hidden">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloAlleanza">
+    <h2 id="titoloAlleanza">🤝 Le Alleanze temporanee</h2>
+    <p class="sub">Unisci le vele con altri corsari per un dungeon ostico: quando le difese cadono,
+    la <b>squadra si spartisce il bottino</b>. L'alleanza dura la sessione — chi sbarca ne è fuori.
+    E la polvere non guarda in faccia nessuno: <b>anche i colpi degli alleati feriscono</b>.</p>
+    <div id="alleanzaMia"></div>
+    <div id="alleanzaInviti"></div>
+    <div id="alleanzaBandiere"></div>
+    <h3 class="shopSection">⚓ Capitani in mare</h3>
+    <input id="alleanzaCerca" aria-label="Cerca un capitano per nome" placeholder="cerca un capitano per nome…" autocomplete="off" spellcheck="false">
+    <div id="alleanzaPresentiBox"></div>
+    <button id="alleanzaClose" class="linkish">Chiudi</button>
   </div>
 </div>
 
