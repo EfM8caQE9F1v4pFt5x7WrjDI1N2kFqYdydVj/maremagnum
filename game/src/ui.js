@@ -20,17 +20,17 @@ function faTempo(t) {
 }
 
 // ordine di priorità degli overlay quando sono impilati (es. Manuale sul Cantiere)
-const OVERLAY_ORDINE = ['gildaOverlay', 'gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay',
+const OVERLAY_ORDINE = ['gildaOverlay', 'alleanzaOverlay', 'gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay',
   'mapOverlay', 'shopOverlay', 'searchOverlay', 'siteOverlay', 'deathOverlay', 'salpaOverlay', 'nameOverlay'];
 
 // La disciplina dei pannelli (issue #18): i fluttuanti si ESCLUDONO a vicenda
 // (aprirne uno chiude l'altro), quelli di banchina si SOSPENDONO sotto e
 // tornano a galla alla chiusura — mai due pannelli impilati a schermo.
-const FLUTTUANTI = ['gildaOverlay', 'gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay'];
+const FLUTTUANTI = ['gildaOverlay', 'alleanzaOverlay', 'gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay'];
 const DI_BANCHINA = ['shopOverlay', 'searchOverlay', 'siteOverlay'];
 // I documenti lunghi si aprono dall'INIZIO: fuoco al pannello (2.4.3 resta:
 // il fuoco entra comunque nel dialogo), non al primo campo in fondo.
-const DALL_INIZIO = ['gildaOverlay', 'gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'shopOverlay'];
+const DALL_INIZIO = ['gildaOverlay', 'alleanzaOverlay', 'gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'shopOverlay'];
 
 export class UI {
   constructor(handlers) {
@@ -68,6 +68,11 @@ export class UI {
     $('gazzettaClose').addEventListener('click', () => this.hide('gazzettaOverlay'));
     $('gildaOpen').addEventListener('click', () => this.h.onFratellanze());
     $('gildaClose').addEventListener('click', () => this.hide('gildaOverlay'));
+    // le Alleanze temporanee (issue #37): pannello dal bottone 🤝
+    $('alleanzaBtn').addEventListener('click', () => this.h.onAlleanze());
+    $('alleanzaClose').addEventListener('click', () => this.hide('alleanzaOverlay'));
+    // la ricerca del capitano: filtra l'elenco senza ricostruire il pannello
+    $('alleanzaCerca').addEventListener('input', () => this._renderAlleanzaPresenti());
     // il Cantiere a schede (issue #24): meno muro, più bottega
     this._shopScheda = 'nave';
     for (const [id, scheda] of [['tabNave', 'nave'], ['tabVaro', 'varo'], ['tabArmi', 'armi'], ['tabLivree', 'livree']]) {
@@ -139,7 +144,7 @@ export class UI {
     $('joinBlocc').addEventListener('click', () => this.h.onAssedioJoin('bloccatori'));
 
     // click fuori dal pannello = chiudi (solo overlay non distruttivi)
-    for (const oid of ['mapOverlay', 'settingsOverlay', 'assedioOverlay', 'helpOverlay', 'gazzettaOverlay']) {
+    for (const oid of ['mapOverlay', 'settingsOverlay', 'assedioOverlay', 'helpOverlay', 'gazzettaOverlay', 'alleanzaOverlay']) {
       $(oid).addEventListener('click', (e) => { if (e.target.id === oid) this.hide(oid); });
     }
 
@@ -190,7 +195,7 @@ export class UI {
     const digitando = a && (a.tagName === 'TEXTAREA' ||
       (a.tagName === 'INPUT' && !['checkbox', 'radio', 'range', 'button', 'submit'].includes(a.type)));
     if (digitando) { a.blur(); return; }
-    for (const oid of ['gazzettaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay']) {
+    for (const oid of ['gazzettaOverlay', 'alleanzaOverlay', 'registroOverlay', 'helpOverlay', 'settingsOverlay', 'assedioOverlay', 'mapOverlay']) {
       if (!$(oid).classList.contains('hidden')) { this.hide(oid); return; }
     }
     for (const oid of ['shopOverlay', 'searchOverlay', 'siteOverlay']) {
@@ -1022,6 +1027,148 @@ export class UI {
       chiedi.addEventListener('click', () => this.h.onGildaRichiesta(g.id));
       riga.appendChild(chiedi);
       box.appendChild(riga);
+    }
+  }
+
+  // --- le Alleanze temporanee (issue #37) ---
+
+  // il pallino degli inviti in rada sul bottone 🤝
+  setAlleanzaBadge(n) {
+    const b = $('alleanzaBadge');
+    b.textContent = n > 9 ? '9+' : String(n);
+    b.classList.toggle('hidden', n <= 0);
+    $('alleanzaBtn').setAttribute('aria-label',
+      n > 0 ? `Alleanze temporanee: ${n} inviti in rada` : 'Alleanze temporanee');
+  }
+
+  // Apre il pannello. `d` = { mia: {membri,aperta,max}|null, inviti:[{id,nome}],
+  // bandiere:[{id,nomi,posti}], presenti:[{id,nome}] }
+  showAlleanze(d) {
+    this._alleanza = d || {};
+    this._renderAlleanza();
+    this.show('alleanzaOverlay');
+  }
+
+  // aggiorna il pannello sotto gli occhi (se è aperto), a nuovi dati dal server
+  refreshAlleanze(d) {
+    if ($('alleanzaOverlay').classList.contains('hidden')) return;
+    this._alleanza = d || {};
+    this._renderAlleanza();
+  }
+
+  _renderAlleanza() {
+    const d = this._alleanza || {};
+    const riga = (box) => { const r = document.createElement('div'); r.className = 'gildaRiga'; box.appendChild(r); return r; };
+    const titolo = (box, t) => { const h = document.createElement('h3'); h.className = 'shopSection'; h.textContent = t; box.appendChild(h); };
+
+    // la MIA alleanza: membri pari, scioglimento e bandiera aperta
+    const mia = $('alleanzaMia');
+    mia.innerHTML = '';
+    if (d.mia) {
+      titolo(mia, `🤝 La tua alleanza (${d.mia.membri.length}/${d.mia.max})`);
+      for (const m of d.mia.membri) {
+        const r = riga(mia);
+        const nome = document.createElement('span');
+        nome.textContent = `⛵ ${m.nome}${m.id === d.meId ? ' — tu' : ''}`;
+        r.appendChild(nome);
+      }
+      const azioni = document.createElement('div');
+      azioni.className = 'row';
+      const bandiera = document.createElement('button');
+      bandiera.textContent = d.mia.aperta ? '🏳 Ammaina la bandiera aperta' : '🏴 Issa la bandiera aperta';
+      bandiera.title = d.mia.aperta
+        ? 'Chiudi l\'arruolamento: nessun altro potrà unirsi da solo'
+        : 'Chiunque potrà unirsi finché c\'è posto';
+      bandiera.addEventListener('click', () => d.mia.aperta ? this.h.onAlleanzaChiudi() : this.h.onAlleanzaApri());
+      const lascia = document.createElement('button');
+      lascia.className = 'linkish';
+      lascia.textContent = '🌊 Sciogli le vele';
+      lascia.setAttribute('aria-label', 'Lascia l\'alleanza');
+      lascia.addEventListener('click', () => this.h.onAlleanzaLascia());
+      azioni.append(bandiera, lascia);
+      mia.appendChild(azioni);
+    }
+
+    // gli inviti in rada: si accetta o si declina
+    const inviti = $('alleanzaInviti');
+    inviti.innerHTML = '';
+    if ((d.inviti || []).length) {
+      titolo(inviti, '✉ Inviti in rada');
+      for (const i of d.inviti) {
+        const r = riga(inviti);
+        const nome = document.createElement('span');
+        nome.textContent = `${i.nome} ti propone un'alleanza`;
+        const si = document.createElement('button');
+        si.textContent = '🤝 Accetta';
+        si.disabled = !!d.mia;
+        if (si.disabled) si.title = 'Sei già in un\'alleanza: prima sciogli le vele';
+        si.addEventListener('click', () => this.h.onAlleanzaAccetta(i.id));
+        const no = document.createElement('button');
+        no.className = 'linkish';
+        no.textContent = 'Declina';
+        no.addEventListener('click', () => this.h.onAlleanzaRifiuta(i.id));
+        r.append(nome, si, no);
+      }
+    }
+
+    // le bandiere aperte degli altri: ci si unisce con un click (chi è già
+    // in un'alleanza non ne può abbordare un'altra: la sezione tace)
+    const bandiere = $('alleanzaBandiere');
+    bandiere.innerHTML = '';
+    if ((d.bandiere || []).length && !d.mia) {
+      titolo(bandiere, '🏴 Bandiere aperte');
+      for (const b of d.bandiere) {
+        const r = riga(bandiere);
+        const nome = document.createElement('span');
+        nome.textContent = `Alleanza di ${b.nomi.join(', ')} — ${b.posti} ${b.posti === 1 ? 'posto' : 'posti'}`;
+        const btn = document.createElement('button');
+        btn.textContent = '🤝 Unisciti';
+        btn.setAttribute('aria-label', `Unisciti all'alleanza di ${b.nomi.join(', ')}`);
+        btn.addEventListener('click', () => this.h.onAlleanzaUnisciti(b.id));
+        r.append(nome, btn);
+      }
+    }
+
+    this._renderAlleanzaPresenti();
+  }
+
+  // l'elenco dei capitani presenti, col filtro di ricerca testuale: con tanta
+  // gente in mare si cerca per nome invece di scorrere all'infinito
+  _renderAlleanzaPresenti() {
+    const d = this._alleanza || {};
+    const box = $('alleanzaPresentiBox');
+    box.innerHTML = '';
+    const filtro = $('alleanzaCerca').value.trim().toLowerCase();
+    const tutti = d.presenti || [];
+    const scelti = filtro ? tutti.filter(p => p.nome.toLowerCase().includes(filtro)) : tutti;
+    if (!tutti.length) {
+      const p = document.createElement('p');
+      p.className = 'sub';
+      p.textContent = 'Nessun altro capitano in queste acque, per ora.';
+      box.appendChild(p);
+      return;
+    }
+    if (!scelti.length) {
+      const p = document.createElement('p');
+      p.className = 'sub';
+      p.textContent = `Nessun capitano risponde a «${filtro}».`;
+      box.appendChild(p);
+      return;
+    }
+    const pieno = d.mia && d.mia.membri.length >= d.mia.max;
+    for (const c of scelti) {
+      const r = document.createElement('div');
+      r.className = 'gildaRiga';
+      const nome = document.createElement('span');
+      nome.textContent = `⛵ ${c.nome}`;
+      const btn = document.createElement('button');
+      btn.textContent = '✉ Invita';
+      btn.setAttribute('aria-label', `Invita ${c.nome} nell'alleanza`);
+      btn.disabled = !!pieno;
+      if (pieno) btn.title = 'L\'alleanza è al completo';
+      btn.addEventListener('click', () => this.h.onAlleanzaInvita(c.id));
+      r.append(nome, btn);
+      box.appendChild(r);
     }
   }
 

@@ -183,15 +183,20 @@ body.benvenuto #killfeed { display: none; }
 #hint { transition: opacity .3s; }
 body.conPannello #hint { opacity: 0; }
 
-/* la Gazzetta del Corsaro (issue #4): badge dei non-letti e albo */
-#gazzettaBtn { position: relative; }
-#gazzettaBadge {
+/* la Gazzetta del Corsaro (issue #4): badge dei non-letti e albo.
+   Il bottone 🤝 delle Alleanze (issue #37) riusa lo stesso pallino. */
+#gazzettaBtn, #alleanzaBtn { position: relative; }
+#gazzettaBadge, #alleanzaBadge {
   position: absolute; top: -4px; right: -6px;
   min-width: 16px; height: 16px; padding: 0 3px;
   border-radius: var(--r-pill); background: var(--gold); color: var(--line-strong);
   font-size: var(--t-2xs); font-weight: bold; line-height: 16px; text-align: center;
   border: 1px solid var(--edge);
 }
+
+/* le Alleanze temporanee (issue #37): la ricerca del capitano nel pannello */
+#alleanzaCerca { width: min(420px, 90%); margin: var(--s-2) auto var(--s-1); display: block; }
+#alleanzaPresentiBox { max-height: 40vh; overflow-y: auto; }
 .gazzettaVoce { padding: var(--s-2) var(--s-1); border-bottom: 1px solid var(--hair-30); text-align: left; }
 .gazzettaVoce time { display: block; font-size: var(--t-xs); font-style: italic; color: var(--ink-soft); margin-bottom: var(--s-1); }
 .gazzettaVoce p { margin: 0; }
