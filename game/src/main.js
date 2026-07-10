@@ -159,10 +159,6 @@ async function boot() {
     onRiscatto: riscattaIsola,
     onFav: toggleFav,
     onGazzetta: apriGazzetta,
-    // la Bacheca del Diario (issue #39)
-    onAccetta: (id) => net.send({ t: 'accetta', id }),
-    onRifiuta: (id) => net.send({ t: 'rifiuta', id }),
-    onAbbandona: (id) => net.send({ t: 'abbandona', id }),
     onFratellanze: apriFratellanze,
     // il Negozio delle Livree e il Registro (issue #25)
     onCompraLivrea: (id) => net.send({ t: 'compraLivrea', id }),
@@ -302,7 +298,7 @@ function diarioState() {
   return {
     campagna: state.campagna || null,
     dungeon: state.dungeon || null,
-    bacheca: state.bacheca || { disponibili: [], attive: [] },
+    giornaliere: state.giornaliere || null,
     gazzetta: state.gazzetta || [],
     cronache: state.cronache || [],
     lettaFino: state.profile.gazzettaLetta || 0,
@@ -674,7 +670,7 @@ function wireNet() {
     for (const i of m.islands) { state.islands.set(i.id, i); renderer.addIsland(i); }
     applyYou(m.you);
     for (const id of m.you.conquered || []) renderer.markConquered(id);
-    ui.toast('⚓ Attracca al Porto Franco (tasto F) per il Cantiere e la Bacheca delle missioni', 6000);
+    ui.toast('⚓ Attracca al Porto Franco (tasto F) per il Cantiere e la Bacheca degli Assedi', 6000);
   });
 
   net.on('island', (m) => {
@@ -795,7 +791,8 @@ function wireNet() {
   net.on('fortFall', (m) => { renderer.addShake(10); });
 
   net.on('bacheca', (m) => {
-    state.bacheca = { disponibili: m.disponibili || [], attive: m.attive || [] };
+    // le tre del giorno: missioni, tris, strike, settimana, scadenza
+    state.giornaliere = m;
     aggiornaDiario();
   });
   net.on('assedio', (m) => { ui.setAssedio(m); if (m && m.phase === 'battle') engage(12000); });
@@ -1088,6 +1085,7 @@ if (devParams.get('forcediario')) {
   const openD = () => {
     if (typeof ui === 'undefined' || !ui || !ui.showDiario) { setTimeout(openD, 200); return; }
     document.body.classList.remove('benvenuto');
+    ui.hide('nameOverlay'); // la foto headless vuole il Diario, non il benvenuto
     const now = Date.now();
     ui._diarioTab = tab === 'cronache' ? 'cronache' : 'imprese';
     ui.showDiario({
@@ -1097,13 +1095,16 @@ if (devParams.get('forcediario')) {
         tappa: 1, fatto: 1, completata: false,
       },
       dungeon: { nome: 'Le Fauci del Kraken', bersaglio: 'openstreetmap.org', premio: 1000, difficolta: 'tosto', fatto: false },
-      bacheca: {
-        attive: [{ id: 'a1', desc: 'Affonda 2 Mercantili', n: 2, reward: 140, progress: 1 }],
-        disponibili: [
-          { id: 'o1', desc: "Attracca a un'isola .org", n: 1, reward: 120 },
-          { id: 'o2', desc: 'Scopri 3 isole mai visitate', n: 3, reward: 225 },
-          { id: 'o3', desc: 'Affonda un Corsaro Fantasma', n: 1, reward: 250 },
+      giornaliere: {
+        giornaliere: [
+          { id: 'g1-0', desc: 'Affonda 2 mercantili', n: 2, reward: 100, progress: 1, fatta: false },
+          { id: 'g1-1', desc: "Attracca a un'isola .org", n: 1, reward: 100, progress: 1, fatta: true },
+          { id: 'g1-2', desc: 'Scopri 3 isole mai visitate', n: 3, reward: 100, progress: 0, fatta: false },
         ],
+        tris: { fatto: false, premio: 150 },
+        strike: { n: 4, bonus: 25, cap: 7 },
+        settimana: { pieni: 4, premio: 1000 },
+        scadenza: now + 7 * 36e5,
       },
       gazzetta: [
         { t: now - 36e5, testo: '«Barbanera» ha ESPUGNATO archive.org! Il blocco è caduto.' },

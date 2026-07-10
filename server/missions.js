@@ -1,7 +1,16 @@
 'use strict';
 
-// Missioni personali (esplorazione/caccia) e l'Assedio: il "dungeon" PvP in cui
+// Le TRE DEL GIORNO (missioni giornaliere) e l'Assedio: il "dungeon" PvP in cui
 // i Corridori devono attraccare a un'isola bersaglio e i Bloccatori impedirlo.
+//
+// Niente più bacheca da accettare (il rifornimento infinito era oro infinito):
+// le giornaliere sono AUTO-ATTIVE, uguali per tutti (seme = giorno, stesso
+// calendario dei dungeon del Mastro #38), fattibili UNA volta, e si rinnovano
+// a mezzanotte UTC. Chi le compie tutte e tre incassa il tris; i tris in giorni
+// consecutivi allungano lo strike; il tris per tutti i 7 giorni della settimana
+// paga il premio settimanale. È il motivo per loggarsi ogni giorno.
+
+const campagna = require('./campagna-core');
 
 const ASSEDIO = {
   lobbyMin: { corridori: 1, bloccatori: 1 },
@@ -12,134 +21,167 @@ const ASSEDIO = {
   targets: ['wikipedia.org', 'archive.org', 'openstreetmap.org', 'gutenberg.org', 'wiktionary.org'],
 };
 
-const TEMPLATES = [
-  () => {
-    const tld = ['org', 'edu', 'gov', 'net', 'it'][(Math.random() * 5) | 0];
-    return { key: 'tld', tld, desc: `Attracca a un'isola .${tld}`, n: 1, reward: 120 };
-  },
-  () => {
-    const n = 2 + ((Math.random() * 2) | 0);
-    return { key: 'discover', desc: `Scopri ${n} isole mai visitate`, n, reward: n * 75 };
-  },
-  () => ({ key: 'merc', desc: 'Affonda 2 mercantili', n: 2, reward: 140 }),
-  () => ({ key: 'ghost', desc: 'Affonda un Corsaro Fantasma', n: 1, reward: 250 }),
-];
+// Economia FISSA e code-owned (paletto #38: mai cifre da fuori, mai premi
+// ripetibili all'infinito). Il tris di un giorno vale al massimo
+// missione×3 + tris + strike pieno = 300 + 150 + 175: sotto il dungeon "medio".
+const PREMI = {
+  missione: 100,   // ogni giornaliera compiuta
+  tris: 150,       // tutte e tre nello stesso giorno
+  strike: 25,      // × giorni di tris consecutivi…
+  strikeCap: 7,    // …fino al 7°: +175
+  settimana: 1000, // tris tutti i 7 giorni della settimana
+};
+const GIORNALIERE_N = 3;
 
-const MAX_ATTIVE = 3;   // rotte in corso insieme
-const BACHECA_N = 3;    // offerte sempre pronte sulla bacheca del Diario
+// I mestieri possibili: il rng arriva dal seme del giorno, così le tre di oggi
+// sono le stesse per ogni capitano (e il reconnect non le rimescola).
+const TEMPLATES = [
+  (rng) => {
+    const tld = ['org', 'edu', 'gov', 'net', 'it'][(rng() * 5) | 0];
+    return { key: 'tld', tld, desc: `Attracca a un'isola .${tld}`, n: 1 };
+  },
+  (rng) => {
+    const n = 2 + ((rng() * 2) | 0);
+    return { key: 'discover', desc: `Scopri ${n} isole mai visitate`, n };
+  },
+  () => ({ key: 'merc', desc: 'Affonda 2 mercantili', n: 2 }),
+  () => ({ key: 'ghost', desc: 'Affonda un Corsaro Fantasma', n: 1 }),
+];
 
 class Missions {
   constructor(game) {
     this.game = game;
     this.assedio = null; // {phase, targetId, corridori:Set, bloccatori:Set, tPhase}
-    this._id = 0;        // contatore per gli id stabili delle missioni
+    this._giorno = this.oggi(); // sentinella del giro di mezzanotte (tick)
   }
 
-  // --- la Bacheca del Diario (issue #39): offerte da accettare, attive in corso ---
+  // il giorno corrente del calendario (#38, UTC) — stubbabile nei test
+  oggi() { return campagna.giornoDi(); }
 
-  // una nuova offerta con id stabile; evita di ripetere le key già in mano
-  nuovaOfferta(escludiKeys = []) {
-    let tpl, tent = 0;
-    do { tpl = TEMPLATES[(Math.random() * TEMPLATES.length) | 0](); tent++; }
-    while (escludiKeys.includes(tpl.key) && tent < 8);
-    return { id: 'm' + (++this._id), ...tpl, progress: 0 };
-  }
+  // --- le tre del giorno ---
 
-  // rifornisce la bacheca fino a BACHECA_N, senza doppioni di tipo con le attive
-  rifornisci(ship) {
-    ship.bacheca = ship.bacheca || [];
-    ship.missioni = ship.missioni || [];
-    let guardia = 0;
-    while (ship.bacheca.length < BACHECA_N && guardia++ < 20) {
-      const usate = [...ship.bacheca, ...ship.missioni].map(m => m.key);
-      ship.bacheca.push(this.nuovaOfferta(usate));
+  // genera le giornaliere di un giorno: 3 mestieri DISTINTI pescati col seme
+  genera(giorno) {
+    const rng = campagna.mulberry32(campagna.hashStr('giornaliere-' + giorno));
+    const idx = TEMPLATES.map((_, i) => i);
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = (rng() * (i + 1)) | 0;
+      [idx[i], idx[j]] = [idx[j], idx[i]];
     }
+    return idx.slice(0, GIORNALIERE_N).map((t, i) => ({
+      id: `g${giorno}-${i}`, ...TEMPLATES[t](rng),
+      reward: PREMI.missione, progress: 0, fatta: false,
+    }));
   }
 
-  // ripristina le missioni ATTIVE dal profilo (id nuovi, valori sanificati) e
-  // riempie la bacheca fresca; poi manda tutto al Diario
-  ripristina(ship, salvate) {
-    ship.missioni = [];
-    if (Array.isArray(salvate)) {
-      for (const m of salvate.slice(0, MAX_ATTIVE)) {
-        if (!m || typeof m.key !== 'string' || typeof m.desc !== 'string') continue;
-        const n = Math.max(1, m.n | 0);
-        ship.missioni.push({
-          id: 'm' + (++this._id), key: m.key, tld: m.tld,
-          desc: String(m.desc).slice(0, 80), n, reward: Math.max(0, m.reward | 0),
-          progress: Math.max(0, Math.min(n, m.progress | 0)),
-        });
-      }
+  // la nave ha le giornaliere del giorno CORRENTE? Se no, gliele rinnova.
+  assicura(ship) {
+    const oggi = this.oggi();
+    if (ship.giornaliere && ship.missioniGiorno === oggi) return false;
+    ship.missioniGiorno = oggi;
+    ship.giornaliere = this.genera(oggi);
+    return true;
+  }
+
+  // ripristina lo stato dal profilo (mai fidarsi: le missioni sono quelle del
+  // seme, dal profilo tornano solo progressi e contatori, sagomati e clampati)
+  ripristina(ship, p) {
+    const oggi = this.oggi();
+    ship.missioniGiorno = -1;
+    this.assicura(ship);
+    const g = p && p.giornaliere;
+    if (g && (g.giorno | 0) === oggi) {
+      ship.giornaliere.forEach((m, i) => {
+        m.progress = Math.max(0, Math.min(m.n, (Array.isArray(g.progressi) ? g.progressi[i] : 0) | 0));
+        m.fatta = Array.isArray(g.fatte) && !!g.fatte[i];
+        if (m.fatta) m.progress = m.n;
+      });
     }
-    ship.bacheca = [];
-    this.rifornisci(ship);
+    const s = (p && p.strike) || {};
+    ship.strike = { giorno: Math.min(oggi, s.giorno | 0), n: Math.max(0, Math.min(9999, s.n | 0)) };
+    if (ship.strike.giorno < oggi - 1) ship.strike.n = 0; // catena spezzata: ieri niente tris
+    // la settimana piena: mai più giorni pieni di quanti ne sono passati
+    const sett = Math.floor(oggi / 7);
+    const w = (p && p.settimana) || {};
+    const maxPieni = (oggi % 7) + (ship.strike.giorno === oggi ? 1 : 0);
+    ship.settimana = (w.periodo | 0) === sett
+      ? { periodo: sett, pieni: Math.max(0, Math.min(maxPieni, w.pieni | 0)) }
+      : { periodo: sett, pieni: 0 };
     this.sendBacheca(ship);
+  }
+
+  // lo stato per il Diario: le tre di oggi, tris, strike, settimana, scadenza
+  statoPer(ship) {
+    const strike = ship.strike || { giorno: 0, n: 0 };
+    const settimana = ship.settimana || { periodo: 0, pieni: 0 };
+    return {
+      giornaliere: (ship.giornaliere || []).map(m => ({
+        id: m.id, desc: m.desc, n: m.n, reward: m.reward,
+        progress: m.progress || 0, fatta: !!m.fatta,
+      })),
+      tris: { fatto: !!(ship.giornaliere || []).length && ship.giornaliere.every(m => m.fatta), premio: PREMI.tris },
+      strike: { n: strike.n, bonus: PREMI.strike, cap: PREMI.strikeCap },
+      settimana: { pieni: settimana.pieni, premio: PREMI.settimana },
+      scadenza: campagna.scadenzaDi('giornaliero', ship.missioniGiorno | 0),
+    };
   }
 
   sendBacheca(ship) {
     if (ship.npc) return;
-    const pubblica = (m) => ({ id: m.id, desc: m.desc, n: m.n, reward: m.reward, progress: m.progress || 0 });
-    this.game.sendTo(ship, {
-      t: 'bacheca',
-      disponibili: (ship.bacheca || []).map(pubblica),
-      attive: (ship.missioni || []).map(pubblica),
-    });
+    this.game.sendTo(ship, { t: 'bacheca', ...this.statoPer(ship) });
   }
 
-  accetta(ship, id) {
+  // compat coi client vecchi (#39): le rotte del giorno si accettano da sole
+  accetta(ship) { this._nonSiAccetta(ship); }
+  rifiuta(ship) { this._nonSiAccetta(ship); }
+  abbandona(ship) { this._nonSiAccetta(ship); }
+  _nonSiAccetta(ship) {
     if (ship.npc) return;
-    ship.missioni = ship.missioni || [];
-    ship.bacheca = ship.bacheca || [];
-    if (ship.missioni.length >= MAX_ATTIVE) {
-      this.game.sendTo(ship, { t: 'toast', msg: 'Hai già tre rotte in corso: compine o abbandonane una prima.' });
-      return;
-    }
-    const i = ship.bacheca.findIndex(m => m.id === id);
-    if (i < 0) return;
-    const [m] = ship.bacheca.splice(i, 1);
-    m.progress = 0;
-    ship.missioni.push(m);
-    this.rifornisci(ship);
+    this.game.sendTo(ship, { t: 'toast', msg: 'Le rotte del giorno si accettano da sole: si rinnovano a mezzanotte.' });
     this.sendBacheca(ship);
   }
 
-  rifiuta(ship, id) {
-    if (ship.npc) return;
-    ship.bacheca = ship.bacheca || [];
-    const i = ship.bacheca.findIndex(m => m.id === id);
-    if (i < 0) return;
-    ship.bacheca.splice(i, 1);
-    this.rifornisci(ship);
-    this.sendBacheca(ship);
-  }
-
-  abbandona(ship, id) {
-    if (ship.npc || !ship.missioni) return;
-    const i = ship.missioni.findIndex(m => m.id === id);
-    if (i < 0) return;
-    ship.missioni.splice(i, 1);
-    this.sendBacheca(ship);
-  }
-
-  // avanza TUTTE le missioni attive che combaciano con l'evento (predicato); paga
-  // e toglie quelle compiute, poi rinfresca la bacheca del Diario
+  // avanza le giornaliere che combaciano con l'evento (predicato): ognuna paga
+  // UNA volta; col tris scattano bonus, strike e conto della settimana
   avanza(ship, predicato) {
-    if (ship.npc || !ship.missioni || !ship.missioni.length) return;
+    if (ship.npc) return;
+    this.assicura(ship); // se la mezzanotte è passata sotto i piedi, si riparte
     let mutata = false;
-    const compiute = [];
-    for (const m of ship.missioni) {
-      if (m.progress >= m.n || !predicato(m)) continue;
+    for (const m of ship.giornaliere) {
+      if (m.fatta || !predicato(m)) continue;
       m.progress = Math.min(m.n, (m.progress || 0) + 1);
       mutata = true;
-      if (m.progress >= m.n) compiute.push(m);
+      if (m.progress >= m.n) {
+        m.fatta = true;
+        ship.gold += m.reward;
+        this.game.sendGold(ship, m.reward, `Missione del giorno compiuta: ${m.desc}`);
+        this.game.broadcast({ t: 'feed', msg: `📜 ${ship.name} ha compiuto una missione del giorno (+${m.reward} 🪙)` });
+      }
     }
-    for (const m of compiute) {
-      ship.gold += m.reward;
-      this.game.sendGold(ship, m.reward, `Missione compiuta: ${m.desc}`);
-      this.game.broadcast({ t: 'feed', msg: `📜 ${ship.name} ha compiuto una missione (${m.reward} 🪙)` });
-      ship.missioni.splice(ship.missioni.indexOf(m), 1);
-    }
+    if (mutata && ship.giornaliere.every(m => m.fatta)) this.pagaTris(ship);
     if (mutata) this.sendBacheca(ship);
+  }
+
+  // il tris del giorno: bonus + strike; se la settimana si riempie, paga anche lei
+  pagaTris(ship) {
+    const oggi = this.oggi();
+    const st = ship.strike || { giorno: 0, n: 0 };
+    if (st.giorno === oggi) return; // già pagato oggi: mai due volte
+    st.n = st.giorno === oggi - 1 ? st.n + 1 : 1;
+    st.giorno = oggi;
+    ship.strike = st;
+    const bonus = PREMI.tris + PREMI.strike * Math.min(st.n, PREMI.strikeCap);
+    ship.gold += bonus;
+    this.game.sendGold(ship, bonus, `Tris del giorno! (strike di ${st.n} ${st.n === 1 ? 'giorno' : 'giorni'})`);
+    this.game.broadcast({ t: 'feed', msg: `🌟 ${ship.name} ha compiuto il tris del giorno (strike ×${st.n})` });
+    const sett = Math.floor(oggi / 7);
+    if (!ship.settimana || ship.settimana.periodo !== sett) ship.settimana = { periodo: sett, pieni: 0 };
+    ship.settimana.pieni = Math.min(7, ship.settimana.pieni + 1);
+    if (ship.settimana.pieni === 7) {
+      ship.gold += PREMI.settimana;
+      this.game.sendGold(ship, PREMI.settimana, 'Settimana piena: il tris tutti i giorni!');
+      this.game.broadcast({ t: 'feed', msg: `👑 ${ship.name} ha compiuto la settimana piena (+${PREMI.settimana} 🪙)` });
+    }
   }
 
   onDock(ship, island, firstVisit) {
@@ -206,6 +248,14 @@ class Missions {
   }
 
   tick(now) {
+    // il giro di mezzanotte (UTC): a chi è in mare si rinnovano le tre del giorno
+    const oggi = this.oggi();
+    if (oggi !== this._giorno) {
+      this._giorno = oggi;
+      for (const s of this.game.ships.values()) {
+        if (!s.npc && this.assicura(s)) this.sendBacheca(s);
+      }
+    }
     const a = this.assedio;
     if (!a) return;
     if (a.phase === 'lobby') {
@@ -260,4 +310,4 @@ class Missions {
   }
 }
 
-module.exports = { Missions, ASSEDIO, MAX_ATTIVE, BACHECA_N };
+module.exports = { Missions, ASSEDIO, PREMI, GIORNALIERE_N };
