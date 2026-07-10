@@ -167,6 +167,9 @@ async function boot() {
     // il Negozio delle Livree e il Registro (issue #25)
     onCompraLivrea: (id) => net.send({ t: 'compraLivrea', id }),
     onIndossaLivrea: (id, genere) => net.send({ t: 'indossaLivrea', id, genere }),
+    // anteprima fedele della livrea nel Cantiere (issue #34): la nave è
+    // invisibile mentre sei attraccato, così il cambio si vede qui
+    onLivreaPreview: (livreaId) => renderer ? renderer.previewLivrea(livreaId, latestMe()) : Promise.resolve(null),
     onVessillo: (bandiera) => net.send({ t: 'bandiera', bandiera }),
     onRegistro: apriRegistro,
     onGildaFonda: (dati) => net.send({ t: 'gildaFonda', ...dati }),

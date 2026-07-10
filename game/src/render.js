@@ -211,6 +211,42 @@ export class Renderer {
     } catch { /* la nave resta di legno: pazienza */ }
   }
 
+  // Anteprima FEDELE della nave con una livrea (issue #34): estrae in un canvas
+  // lo STESSO sprite bakeato che si vede in mare — così il cambio si vede subito
+  // nel Cantiere, dove la nave è invisibile perché sei attraccato. `s` è lo stato
+  // della propria nave (tp/sl/maxHp/k) per la classe esatta. Ritorna un canvas
+  // (o null se l'atlante non è pronto). Async: aspetta il caricamento della livrea.
+  async previewLivrea(livreaId, s) {
+    if (!s) return null;
+    // aspetta che l'atlante serva pronto (in gioco è già caricato: attesa nulla)
+    const attendi = (test) => new Promise((res) => {
+      let i = 0;
+      const giro = () => (test() && i++ < 120) ? setTimeout(giro, 50) : res();
+      giro();
+    });
+    // il caricamento non deve MAI appendere l'anteprima: race col tempo
+    if (livreaId && this.livree[livreaId] === undefined) {
+      await Promise.race([this.loadLivrea(livreaId), new Promise(r => setTimeout(r, 6000))]);
+    }
+    await attendi(() => livreaId && this.livree[livreaId] === null); // atlante livrea in volo
+    const classe = this.shipClass(s);
+    const liv = livreaId && this.livree[livreaId] && this.livree[livreaId].frames[classe];
+    if (!liv) await attendi(() => !this.navi); // senza livrea (o classe assente) serve l'atlante navi
+    const atlante = liv ? this.livree[livreaId] : this.navi;
+    if (!atlante) return null;
+    const frames = atlante.frames[classe] || atlante.frames.pirata
+      || atlante.frames[Object.keys(atlante.frames)[0]];
+    if (!frames || !frames.length) return null;
+    const ang = Math.round(frames.length * 0.625) % frames.length; // vista di 3/4
+    const spr = new Sprite(frames[ang]);
+    spr.anchor.set(0.5);
+    let canvas = null;
+    try { canvas = this.app.renderer.extract.canvas({ target: spr }); }
+    catch { /* estrazione non riuscita: niente anteprima */ }
+    spr.destroy();
+    return canvas;
+  }
+
   // --- il Cartellone dell'isola (issue #27) ---
   // L'anteprima OG su un'insegna di pergamena al centro dell'isola: appare
   // in dissolvenza quando la nave si accosta, sparisce allontanandosi.

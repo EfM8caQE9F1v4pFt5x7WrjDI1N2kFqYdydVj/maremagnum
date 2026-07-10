@@ -443,6 +443,13 @@ body.conPannello #hint { opacity: 0; }
   border: 1.5px solid var(--brown-deep); vertical-align: -2px; margin-right: var(--s-1);
 }
 .shopRow.indossata { outline: 2px solid var(--brass-2); outline-offset: -2px; }
+/* l'anteprima fedele della nave nel Negozio delle Livree (issue #34) */
+.livreaPreview {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  min-height: 130px; margin: var(--s-2) 0 var(--s-3);
+  background: var(--paper-2); border: 1px solid var(--wood-1); border-radius: var(--r-md);
+}
+.livreaPreviewCanvas { max-width: 220px; max-height: 140px; width: auto; height: auto; }
 .vessillo {
   display: flex; gap: var(--s-3); align-items: flex-start; flex-wrap: wrap;
   padding: var(--s-2); justify-content: flex-start;

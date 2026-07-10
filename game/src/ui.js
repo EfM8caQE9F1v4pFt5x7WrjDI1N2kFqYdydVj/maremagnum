@@ -656,6 +656,19 @@ export class UI {
     head.className = 'wgroupHead';
     head.innerHTML = '<b>🎨 Il Negozio delle Livree</b><span>solo estetica, mai vantaggio</span>';
     block.appendChild(head);
+    // anteprima FEDELE della nave (issue #34): mostra la nave con la livrea
+    // indossata — feedback immediato, dato che attraccati la nave è invisibile
+    const anteprima = document.createElement('div');
+    anteprima.className = 'livreaPreview';
+    anteprima.innerHTML = '<span class="sub">anteprima della nave…</span>';
+    block.appendChild(anteprima);
+    if (this.h.onLivreaPreview) {
+      this.h.onLivreaPreview(negozio.livrea || null).then((canvas) => {
+        anteprima.innerHTML = '';
+        if (canvas) { canvas.className = 'livreaPreviewCanvas'; anteprima.appendChild(canvas); }
+        else anteprima.innerHTML = '<span class="sub">Salpa per vedere la livrea in mare.</span>';
+      }).catch(() => { anteprima.innerHTML = ''; });
+    }
     const possedute = new Set(negozio.possedute || []);
     for (const [id, l] of Object.entries(negozio.catalogo || {})) {
       const row = document.createElement('div');
