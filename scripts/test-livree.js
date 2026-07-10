@@ -40,6 +40,31 @@ ok(g2.livrea === null && g2.vele === null && g2.scia === null,
 ok(L.sanificaGuardaroba(null).livree.size === 0, 'profilo marcio → guardaroba vuoto');
 ok(L.sanificaGuardaroba({ bandiera: 'x' }).bandiera === null, 'vessillo non-oggetto → niente vessillo');
 
+console.log('— Gli atlanti a scafi nudi: la tela DEVE coprire tutta la flotta —');
+// col fix "cannoni sopra le vele" gli atlanti base/livree sono SENZA vele:
+// se una variante manca in tela.json (o una livrea non ha la sua tinta),
+// quella nave naviga da relitto — il contratto si controlla qui, senza browser
+{
+  const fs = require('fs');
+  const path = require('path');
+  const leggi = (p) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', p), 'utf8'));
+  const navi = leggi('game/assets/navi.json');
+  const tela = leggi('game/assets/vele/tela.json');
+  ok(Object.keys(navi.variants).every(v => tela.variants[v] !== undefined),
+    'ogni variante della flotta (NPC compresi) ha la sua tela nell\'atlante');
+  ok(tela.tinte && Object.keys(navi.variants).every(v => Number.isInteger(tela.tinte.base[v])),
+    'ogni variante ha la tinta di tela di default (dal bake, fonte unica)');
+  const livree = Object.entries(L.CATALOGO).filter(([, v]) => v.genere === 'livrea').map(([id]) => id);
+  ok(tela.tinte && livree.every(id => Number.isInteger(tela.tinte.livree[id])),
+    'ogni livrea del catalogo ha la tinta di tela (le vele della livrea)');
+  ok(livree.every(id => {
+    const lj = leggi('game/assets/livree/' + id + '.json');
+    return Object.keys(lj.variants).every(v => tela.variants[v] !== undefined);
+  }), 'ogni variante di ogni livrea è coperta dalla tela');
+  ok(navi.frame === tela.frame && navi.steps === tela.steps && navi.scala === tela.scala,
+    'scafo e tela sono cotti alla stessa scala e passo (pixel-perfect)');
+}
+
 console.log('— La scia effettiva: comprata > vele > livrea —');
 ok(L.sciaDi({ livrea: 'nera', vele: 'velenere', scia: 'sciaoro' }) === L.CATALOGO.sciaoro.scia, 'scia comprata > tutto');
 ok(L.sciaDi({ livrea: 'nera', vele: 'veledoro', scia: null }) === L.CATALOGO.veledoro.scia, 'le vele colorano prima della livrea');

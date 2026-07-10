@@ -1,8 +1,11 @@
 'use strict';
 
 // Cuoce l'atlante delle VELE: bundle della pagina three.js → Electron → UN
-// solo WebP di tela bianca (bandiera grigia) in game/assets/vele/tela.webp.
-// La tinta la dà il client dal catalogo: una vela nuova NON richiede bake.
+// solo WebP di tela bianca (bandiera OCCLUSA: resta quella colorata dello
+// scafo) in game/assets/vele/tela.webp. La tinta la dà il client dal catalogo
+// (vele comprate) o da tela.json `tinte` (variante/livrea): una vela nuova
+// NON richiede bake. Gli atlanti base/livree sono SCAFI NUDI: senza questa
+// tela la flotta è un relitto — vedi labscafi.html per il collaudo visivo.
 // Uso: node scripts/bake-vele.js   (rigenerare se cambiano i modelli)
 // Dove Electron non gira (sandbox): chrome headless con ?vele=1&dump=1 e
 // --dump-dom, poi scripts/estrai-bake.js sul dump.
