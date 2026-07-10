@@ -130,6 +130,7 @@ export class UI {
         sfx: $('setSfx').checked,
         guard: $('setGuard').checked,
         calma: $('setCalma').checked,
+        notte: $('setNotte').checked,
         volume: $('setVol').valueAsNumber / 100,
       });
     };
@@ -137,6 +138,7 @@ export class UI {
     $('setSfx').addEventListener('change', emitSettings);
     $('setGuard').addEventListener('change', emitSettings);
     $('setCalma').addEventListener('change', emitSettings);
+    $('setNotte').addEventListener('change', emitSettings);
     $('setVol').addEventListener('input', emitSettings);
     $('assedioOpen').addEventListener('click', () => { this.show('assedioOverlay'); });
     $('assedioClose').addEventListener('click', () => this.hide('assedioOverlay'));
@@ -270,11 +272,12 @@ export class UI {
     return !!a && (a.tagName === 'BUTTON' || a.tagName === 'A');
   }
 
-  setSettings({ music, sfx, guard, calma, volume }) {
+  setSettings({ music, sfx, guard, calma, notte, volume }) {
     $('setMusic').checked = music;
     $('setSfx').checked = sfx;
     $('setGuard').checked = guard;
     $('setCalma').checked = !!calma;
+    $('setNotte').checked = !!notte;
     $('setVol').value = Math.round(volume * 100);
     $('guardInfo').classList.toggle('spento', !guard);
   }

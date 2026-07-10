@@ -446,14 +446,16 @@ export class Renderer {
 
   // La notte di DREDGE: un cerchio di visione attorno alla nave, il resto
   // annega nel buio. Trasparente al centro, blu-carbone spesso ai bordi.
+  // Gradiente ammorbidito (issue #40): il cerchio resta atmosfera, ma il
+  // bordo non è più un muro — isole e navi si intuiscono anche fuori.
   makeFogTexture() {
     const c = document.createElement('canvas');
     c.width = 1024; c.height = 1024;
     const g = c.getContext('2d');
-    const grad = g.createRadialGradient(512, 512, 130, 512, 512, 512);
+    const grad = g.createRadialGradient(512, 512, 210, 512, 512, 512);
     grad.addColorStop(0, 'rgba(9,14,26,0)');
-    grad.addColorStop(0.45, 'rgba(9,14,26,0.55)');
-    grad.addColorStop(1, 'rgba(9,14,26,0.96)');
+    grad.addColorStop(0.45, 'rgba(9,14,26,0.38)');
+    grad.addColorStop(1, 'rgba(9,14,26,0.78)');
     g.fillStyle = grad;
     g.fillRect(0, 0, 1024, 1024);
     return Texture.from(c);
@@ -991,8 +993,11 @@ export class Renderer {
       label.baseFill = label.style.fill;
       const tag = new Container();
       const fondino = new Graphics();
+      // il fill è pieno: l'alpha vive sulla proprietà del Graphics, così di
+      // notte il fondino si infittisce senza ridisegnare (issue #40)
       fondino.roundRect(-label.width / 2 - 6, -10, label.width + 12, 20, 9)
-        .fill({ color: 0x0c141c, alpha: 0.42 });
+        .fill({ color: 0x0c141c });
+      fondino.alpha = 0.42;
       tag.addChild(fondino, label);
       tag.position.set(0, -44);
       tag.baseY = -44;
@@ -1078,7 +1083,7 @@ export class Renderer {
           if (c.bandSpr) { c.bandSpr.destroy(); c.bandSpr = null; }
           const sinistra = bfKey ? 26 : 0; // lo spazio del vessillo
           c.fondino.clear().roundRect(-c.label.width / 2 - 6 - sinistra, -10, c.label.width + 12 + sinistra, 20, 9)
-            .fill({ color: 0x0c141c, alpha: 0.42 });
+            .fill({ color: 0x0c141c });
           if (bfKey) {
             c.bandSpr = new Sprite(this.bandieraTex(s.bf));
             c.bandSpr.anchor.set(0.5);
@@ -1098,6 +1103,9 @@ export class Renderer {
       c.glow.alpha = s.sunk ? 0 : Math.max(
         oro ? 0.13 + 0.05 * Math.sin(this.t * 2.1) : 0,
         night * (s.id === selfId ? 0.34 : 0.27));
+      // il fondino della targhetta si infittisce col buio (issue #40): i nomi
+      // compensano la notte come già fanno lanterne e faro
+      if (c.fondino) c.fondino.alpha = 0.42 + 0.26 * night;
       const scale = s.sunk ? Math.max(0.5, c.body.scale.x - dt * 0.5) : 1;
       c.body.scale.set(scale);
       // vele che respirano col vento e con l'andatura

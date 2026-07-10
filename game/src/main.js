@@ -9,6 +9,7 @@ import { Net, serverUrl } from './net.js';
 import { sfx } from './audio.js';
 import { music } from './music.js';
 import { lerp, anglerp, pirateName } from './util.js';
+import { setNotteChiara } from './daycycle.js';
 import QRCode from 'qrcode';
 import { initLang, applyI18n, setLang, getLang, onLang } from './i18n.js';
 import './dict.js'; // registra le stringhe estratte (issue #33)
@@ -226,6 +227,7 @@ async function boot() {
     sfx: state.profile.sfxOn !== false,
     guard: state.profile.guardOn !== false,
     calma: state.profile.calmaOn ?? matchMedia('(prefers-reduced-motion: reduce)').matches,
+    notte: state.profile.notteOn === true, // Notte chiara (#40): spenta di default
     volume: state.profile.volume ?? 0.8,
   };
   applySettings(prefs, true);
@@ -582,11 +584,12 @@ function wireAncora() {
   });
 }
 
-function applySettings({ music: m, sfx: s, guard: g, calma: c, volume: v }, skipSave) {
+function applySettings({ music: m, sfx: s, guard: g, calma: c, notte: n, volume: v }, skipSave) {
   state.profile.musicOn = m;
   state.profile.sfxOn = s;
   state.profile.guardOn = g;
   state.profile.calmaOn = c;
+  state.profile.notteOn = n;
   state.profile.volume = v;
   if (!skipSave) saveProfile();
   sfx.setEnabled(s);
@@ -594,8 +597,9 @@ function applySettings({ music: m, sfx: s, guard: g, calma: c, volume: v }, skip
   music.setEnabled(m);
   music.setVolume(v);
   renderer.setCalma(!!c);
+  setNotteChiara(!!n);
   if (shell) shell.setGuard(g);
-  ui.setSettings({ music: m, sfx: s, guard: g, calma: c, volume: v });
+  ui.setSettings({ music: m, sfx: s, guard: g, calma: c, notte: n, volume: v });
 }
 
 // --- la timoneria: tasti rimappabili ---
