@@ -663,45 +663,62 @@ export class UI {
     anteprima.innerHTML = '<span class="sub">anteprima della nave…</span>';
     block.appendChild(anteprima);
     if (this.h.onLivreaPreview) {
-      this.h.onLivreaPreview(negozio.livrea || null).then((canvas) => {
+      this.h.onLivreaPreview(negozio.livrea || null, negozio.vele || null).then((canvas) => {
         anteprima.innerHTML = '';
         if (canvas) { canvas.className = 'livreaPreviewCanvas'; anteprima.appendChild(canvas); }
         else anteprima.innerHTML = '<span class="sub">Salpa per vedere la livrea in mare.</span>';
       }).catch(() => { anteprima.innerHTML = ''; });
     }
     const possedute = new Set(negozio.possedute || []);
-    for (const [id, l] of Object.entries(negozio.catalogo || {})) {
-      const row = document.createElement('div');
-      row.className = 'shopRow';
-      const scia = '#' + (l.scia | 0).toString(16).padStart(6, '0');
-      const genere = l.genere === 'scia' ? 'scia' : 'livrea';
-      row.innerHTML = `<div class="shopInfo"><b><span class="swatch" style="background:${scia}" aria-hidden="true"></span> ${esc(l.nome)}</b>
-        <span>${esc(l.motto || '')}</span></div>`;
-      const btn = document.createElement('button');
-      btn.dataset.fk = `livrea-${id}`;
-      const indossata = negozio[genere] === id;
-      if (indossata) {
-        btn.textContent = 'Riponi';
-        btn.setAttribute('aria-label', `Riponi ${l.nome}`);
-        btn.addEventListener('click', () => this.h.onIndossaLivrea(null, genere));
-        row.classList.add('indossata');
-      } else if (possedute.has(id)) {
-        btn.textContent = 'Indossa';
-        btn.setAttribute('aria-label', `Indossa ${l.nome}`);
-        btn.addEventListener('click', () => this.h.onIndossaLivrea(id, genere));
-      } else if (l.prezzo === null) {
-        btn.textContent = 'Si guadagna';
-        btn.disabled = true;
-        btn.title = 'Compi la campagna del Mastro di Rotte per guadagnarla';
-      } else {
-        btn.textContent = `Compra · ${l.prezzo} 🪙`;
-        btn.setAttribute('aria-label', `Compra ${l.nome} per ${l.prezzo} monete`);
-        btn.disabled = gold < l.prezzo;
-        if (btn.disabled) btn.title = `Servono ${l.prezzo} 🪙 — ne hai ${gold}`;
-        btn.addEventListener('click', () => this.h.onCompraLivrea(id));
+    // tre sezioni, una per GENERE: ogni genere veste il suo slot e basta
+    // (mai collassare l'uno nell'altro: era la trappola livree/vele). Un
+    // genere che questo client non conosce non si mostra: non si può
+    // indossare quel che non si sa dove va.
+    const SEZIONI = [
+      ['livrea', '🎨 Livree', 'l\'abito completo: scafo, finiture e tela'],
+      ['vele', '⛵ Vele', 'solo la tela, sopra qualunque livrea'],
+      ['scia', '🌊 Scie', 'la strada che lasci sul mare'],
+    ];
+    for (const [genere, titolo, sotto] of SEZIONI) {
+      const voci = Object.entries(negozio.catalogo || {}).filter(([, l]) => l.genere === genere);
+      if (!voci.length) continue;
+      const sHead = document.createElement('div');
+      sHead.className = 'wgroupHead';
+      sHead.innerHTML = `<b>${titolo}</b><span>${sotto}</span>`;
+      block.appendChild(sHead);
+      for (const [id, l] of voci) {
+        const row = document.createElement('div');
+        row.className = 'shopRow';
+        // lo swatch: per le vele la TINTA della tela, per il resto la scia
+        const colore = '#' + ((genere === 'vele' && l.tinta != null ? l.tinta : l.scia) | 0).toString(16).padStart(6, '0');
+        row.innerHTML = `<div class="shopInfo"><b><span class="swatch" style="background:${colore}" aria-hidden="true"></span> ${esc(l.nome)}</b>
+          <span>${esc(l.motto || '')}</span></div>`;
+        const btn = document.createElement('button');
+        btn.dataset.fk = `livrea-${id}`;
+        const indossata = negozio[genere] === id;
+        if (indossata) {
+          btn.textContent = 'Riponi';
+          btn.setAttribute('aria-label', `Riponi ${l.nome}`);
+          btn.addEventListener('click', () => this.h.onIndossaLivrea(null, genere));
+          row.classList.add('indossata');
+        } else if (possedute.has(id)) {
+          btn.textContent = 'Indossa';
+          btn.setAttribute('aria-label', `Indossa ${l.nome}`);
+          btn.addEventListener('click', () => this.h.onIndossaLivrea(id, genere));
+        } else if (l.prezzo === null) {
+          btn.textContent = 'Si guadagna';
+          btn.disabled = true;
+          btn.title = 'Compi la campagna del Mastro di Rotte per guadagnarla';
+        } else {
+          btn.textContent = `Compra · ${l.prezzo} 🪙`;
+          btn.setAttribute('aria-label', `Compra ${l.nome} per ${l.prezzo} monete`);
+          btn.disabled = gold < l.prezzo;
+          if (btn.disabled) btn.title = `Servono ${l.prezzo} 🪙 — ne hai ${gold}`;
+          btn.addEventListener('click', () => this.h.onCompraLivrea(id));
+        }
+        row.appendChild(btn);
+        block.appendChild(row);
       }
-      row.appendChild(btn);
-      block.appendChild(row);
     }
     // il vessillo personale: identità gratuita, come il nome. Sventola in
     // targhetta per chi NON ha una Fratellanza (la bandiera di gilda vince).
@@ -802,7 +819,7 @@ export class UI {
     sez(`🎨 Il guardaroba (${(d.livree || []).length}/${tot})`, tot
       ? Object.entries(cat).map(([id, l]) => {
         const ha = (d.livree || []).includes(id);
-        const addosso = d.livrea === id || d.scia === id;
+        const addosso = d.livrea === id || d.vele === id || d.scia === id;
         return `${ha ? '✅' : '◻️'} ${esc(l.nome)}${addosso ? ' <b>(addosso)</b>' : ''}${!ha && l.impresa ? ' — si guadagna con la campagna' : ''}`;
       })
       : ['Il Negozio delle Livree apre al Porto Franco']);
