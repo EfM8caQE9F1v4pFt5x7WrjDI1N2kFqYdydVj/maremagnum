@@ -51,6 +51,15 @@ const vecchio = campagna.assicura(fresco.dungeon, 'settimanale', wk + 1, isole);
 assert(vecchio.daPubblicare && vecchio.dungeon.periodo === wk + 1, 'periodo nuovo → rigenerato');
 ok(`bersaglio reale + assicura(): «${fin.desc}»`);
 
+// — 1ter-bis) il paniere dei bersagli: mai vuoto, isole della gente in testa —
+const paniere = campagna.bersagli(['cumino.com', 'wikipedia.org']);
+assert(paniere.length >= campagna.BERSAGLI_NOTI.length, 'il paniere contiene sempre i bersagli noti');
+assert(paniere[0] === 'cumino.com', 'le isole reali passate vengono prima');
+assert(paniere.filter(d => d === 'wikipedia.org').length === 1, 'niente doppioni col paniere noto');
+assert(campagna.bersagli().length === campagna.BERSAGLI_NOTI.length && campagna.bersagli().every(d => d.includes('.')),
+  'senza isole reali restano i bersagli noti (community piccola)');
+ok(`paniere bersagli sempre degno: ${campagna.bersagli().length} noti + isole della gente`);
+
 // — 1quater) ECONOMIA BLINDATA: l'AI riveste, il codice valida (#38) —
 const base = campagna.genera('settimanale', 3000, isole);
 // l'AI dichiara 'tosto' e prova a iniettare un premio gonfio + difese assurde: ignorati

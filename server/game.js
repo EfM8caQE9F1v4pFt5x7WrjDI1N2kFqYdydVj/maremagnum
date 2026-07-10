@@ -202,6 +202,7 @@ class Game {
   stabile(island) {
     if (!island) return false;
     if (island.kind !== 'site') return true;
+    if (island.dungeon) return true; // un dungeon del Mastro (#38) è un bersaglio visibile a tutti
     if (ISOLE_T0.includes(island.domain)) return true;
     return atlante.approdiDi(island.domain) >= atlante.SOGLIA_ISOLA;
   }

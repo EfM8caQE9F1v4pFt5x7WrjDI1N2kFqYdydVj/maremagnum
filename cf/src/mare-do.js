@@ -101,7 +101,7 @@ export class MareDO {
       const correnti = res.ok ? await res.json() : {};
       for (const tipo of ['giornaliero', 'settimanale']) {
         const { dungeon, daPubblicare } = campagna.assicura(
-          correnti[tipo], tipo, campagna.periodoDi(tipo), atlante.sopraSoglia());
+          correnti[tipo], tipo, campagna.periodoDi(tipo), campagna.bersagli(atlante.sopraSoglia()));
         campagna.setDungeon(tipo, dungeon);
         if (daPubblicare) {
           await reg.fetch('https://campagne/pubblica', {

@@ -78,6 +78,20 @@ function tappaFinale(bersaglio) {
     : { tipo: 'espugnazione', n: 1, desc: 'Espugna una Fortezza Proibita', bersaglio: null };
 }
 
+// Bersagli NOTI: siti reali, famosi e sicuri, SEMPRE nel paniere dei candidati
+// accanto alle isole popolari dell'Atlante. Garantiscono un bersaglio degno anche
+// con una community piccola (poche o zero isole sopra soglia); man mano che il
+// Maremagnum cresce, le isole vere della gente si aggiungono al paniere. Come i
+// target dell'Assedio (server/missions.js), ma qui condivisi e puri.
+const BERSAGLI_NOTI = ['wikipedia.org', 'archive.org', 'openstreetmap.org',
+  'gutenberg.org', 'wiktionary.org', 'nasa.gov', 'openlibrary.org', 'wikimedia.org'];
+
+// Il paniere dei candidati bersaglio: le isole reali passate (sopra soglia
+// dell'Atlante) PIÙ i bersagli noti, senza doppioni. Sempre non vuoto.
+function bersagli(isoleReali = []) {
+  return [...new Set([...(Array.isArray(isoleReali) ? isoleReali : []), ...BERSAGLI_NOTI])];
+}
+
 // il vestito procedurale: se l'LLM non c'è, il dungeon parla comunque
 const TEMI = ['La Flotta Fantasma', 'Il Convoglio Maledetto', 'Le Rotte Perdute',
   'La Marea dei Corsari', "L'Assedio delle Nebbie", 'Il Tesoro degli Abissi',
@@ -200,7 +214,7 @@ function getCampagna() { return correnti.settimanale; }
 function setCampagna(c) { setDungeon('settimanale', c); }
 
 module.exports = {
-  genera, assicura, applicaVestito, valida,
+  genera, assicura, applicaVestito, valida, bersagli, BERSAGLI_NOTI,
   settimanaDi, giornoDi, periodoDi, scadenzaDi,
   DIFFICOLTA, LISTINO, PREMIO, difficoltaValida, premioPer, difeseValide,
   setDungeon, getDungeon, getDungeoni, getCampagna, setCampagna,

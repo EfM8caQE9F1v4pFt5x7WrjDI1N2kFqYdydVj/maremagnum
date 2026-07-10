@@ -25,12 +25,14 @@ async function generaDungeon(env, tipo = 'settimanale') {
   const periodo = campagna.periodoDi(tipo);
   // i bersagli sono isole reali sopra soglia dell'Atlante; se il registro è muto
   // o ancora vuoto si ripiega sulla generica Fortezza Proibita
-  let candidati = [];
+  let isoleAtlante = [];
   try {
     const atl = env.ATLANTE.get(env.ATLANTE.idFromName('atlante'));
     const r = await atl.fetch('https://atlante/tutte');
-    if (r.ok) candidati = atlante.sopraSogliaDa((await r.json()).isole);
-  } catch { /* Atlante muto: la Fortezza Proibita fa da bersaglio */ }
+    if (r.ok) isoleAtlante = atlante.sopraSogliaDa((await r.json()).isole);
+  } catch { /* Atlante muto: restano i bersagli noti */ }
+  // paniere: le isole popolari della gente PIÙ i bersagli noti (sempre non vuoto)
+  const candidati = campagna.bersagli(isoleAtlante);
   let c = campagna.genera(tipo, periodo, candidati);
   let esitoAI = 'saltata (binding assente)';
   try {
