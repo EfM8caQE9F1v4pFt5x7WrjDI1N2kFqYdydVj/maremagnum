@@ -78,6 +78,10 @@ async function risolviRedirect(dominio) {
 
 const GROUP_DIR = { left: -Math.PI / 2, right: Math.PI / 2, bow: 0, stern: Math.PI };
 
+// La rastrellata (issue #41, fetta 2): il colpo diretto che entra dal settore
+// di poppa (±30°) morde di più — la manovra paga, e il sopravvento serve.
+const RASTRELLATA = { settore: Math.PI / 6, mult: 1.5 };
+
 // Le isole di partenza (issue #26bis): esistono dal T0, sempre visibili,
 // anche a zero approdi — la mappa non nasce vuota. Elenco curato (il
 // capitano lo rifinisce). I domini vanno in forma registrabile (eTLD+1).
@@ -232,6 +236,9 @@ class Game {
       docked: null, sunkUntil: 0, lastHitBy: null, lastDamageAt: 0,
       blockedUntil: 0, blockedBy: null, bloccoSalvo: 0, immuneUntil: 0,
       abilityAt: 0, ramUntil: 0, doubleUntil: 0, ventoUntil: 0,
+      // le munizioni (issue #41, fetta 2): scelta di sessione, mai persistita;
+      // i debuff sono temporanei e si rinfrescano, non si sommano
+      munizione: 'palle', veleTagliateUntil: 0, falcidiaUntil: 0,
       visited: new Set(), conquered: new Set(), preferiti: new Set(),
       livree: new Set(), livrea: null, vele: null, scia: null, bandiera: null,
       mission: null, wp: null, fleeUntil: 0,
@@ -651,6 +658,13 @@ class Game {
         for (const k of ['up', 'down', 'left', 'right']) ship.input[k] = !!msg[k];
         break;
       case 'fire': this.fire(ship, msg.group); break;
+      // le munizioni (issue #41, fetta 2): switch libero, l'ack fa fede
+      case 'munizione':
+        if (W.MUNIZIONI[msg.tipo] && !ship.npc) {
+          ship.munizione = msg.tipo;
+          this.sendTo(ship, { t: 'munizione', tipo: msg.tipo });
+        }
+        break;
       case 'course': this.setCourse(ship, msg.q).catch(() => { /* la rotta si può ritracciare */ }); break;
       case 'dock': this.dock(ship); break;
       case 'preferisci': this.preferisci(ship, msg); break;
@@ -731,12 +745,17 @@ class Game {
     if (!mounts.length) return;
     const reloadMul = shipStats(ship).reloadMul;
     const raddoppio = ship.doubleUntil > this.now ? 2 : 1; // Bordata Doppia
+    // ciurma falcidiata dalla mitraglia (issue #41, fetta 2): si ricarica piano
+    const falcidia = ship.falcidiaUntil > this.now ? W.MUNIZIONI.mitraglia.falcidia.malus : 1;
     const out = [];
     for (let i = 0; i < mounts.length; i++) {
       if (this.now < ship.ready[group][i]) continue;
       const w = mounts[i];
       const st = W.weaponStats(w);
-      ship.ready[group][i] = this.now + st.reload * reloadMul;
+      // la munizione scelta veste il colpo; il mortaio (arc) spara sempre
+      // palle: una bombarda non si incatena. Gli NPC restano a palle.
+      const mun = (st.arc || ship.npc) ? 'palle' : (W.MUNIZIONI[ship.munizione] ? ship.munizione : 'palle');
+      ship.ready[group][i] = this.now + st.reload * reloadMul * falcidia;
       const dir = ship.rot + GROUP_DIR[group];
       // posizione della bocca da fuoco lungo lo scafo
       let along = 0, side = 0;
@@ -750,21 +769,30 @@ class Game {
       const balle = st.burst * raddoppio;
       for (let b = 0; b < balle; b++) {
         const jitter = (Math.random() - 0.5) * (balle > 1 ? 0.16 : 0.09);
-        out.push(this.spawnShot(ship.id, px, py, dir + jitter, st));
+        out.push(this.spawnShot(ship.id, px, py, dir + jitter, st, mun));
       }
     }
     if (out.length) this.broadcast({ t: 'shots', from: ship.id, shots: out });
   }
 
-  spawnShot(owner, x, y, dir, st) {
+  spawnShot(owner, x, y, dir, st, mun = 'palle') {
     const id = this.nextShotId++;
+    // la munizione scala le stat dell'arma (issue #41, fetta 2): le catene
+    // volano corte e lente, la mitraglia cortissima — il danno è nel debuff
+    const m = W.MUNIZIONI[mun] || W.MUNIZIONI.palle;
+    const speed = st.speed * m.speed;
     const shot = {
       id, owner, x, y,
-      vx: Math.cos(dir) * st.speed, vy: Math.sin(dir) * st.speed,
-      ttl: st.range / st.speed, damage: st.dmg, aoe: st.aoe || 0, arc: !!st.arc,
+      vx: Math.cos(dir) * speed, vy: Math.sin(dir) * speed,
+      ttl: (st.range * m.range) / speed, damage: st.dmg * m.dmg,
+      aoe: st.aoe || 0, arc: !!st.arc, mun,
     };
     this.shots.set(id, shot);
-    return { id, x: r1(x), y: r1(y), vx: r1(shot.vx), vy: r1(shot.vy), ttl: r2(shot.ttl), arc: shot.arc ? 1 : 0, aoe: shot.aoe };
+    return {
+      id, x: r1(x), y: r1(y), vx: r1(shot.vx), vy: r1(shot.vy), ttl: r2(shot.ttl), arc: shot.arc ? 1 : 0, aoe: shot.aoe,
+      // campo additivo: il tipo di proiettile, solo se non è una palla
+      ...(mun !== 'palle' ? { mn: mun } : {}),
+    };
   }
 
   // --- attracco / porto ---
@@ -1130,9 +1158,11 @@ class Game {
     const st = shipStats(ship);
     // il vento (issue #41) spinge o frena OGNI scafo, NPC compresi (le loro
     // velocità fisse bypassano shipStats): una regola sola, anche per le
-    // cariche di Speronamento e Colpo di Vento che moltiplicano questa speed
+    // cariche di Speronamento e Colpo di Vento che moltiplicano questa speed.
+    // Le vele tagliate dalle catene (fetta 2) frenano allo stesso modo.
     const fv = vento.fattore(this.vento, ship.rot);
-    const speed = (ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed)) * fv;
+    const taglio = ship.veleTagliateUntil > this.now ? W.MUNIZIONI.catene.taglia.malus : 1;
+    const speed = (ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed)) * fv * taglio;
     const turn = (ship.input.left ? -1 : 0) + (ship.input.right ? 1 : 0);
     ship.rot += turn * st.turnRate * dt;
     // durante lo speronamento (o il Colpo di Vento) la nave carica, vele o non vele
@@ -1230,7 +1260,19 @@ class Game {
         for (const ship of this.ships.values()) {
           if (ship.id === shot.owner || ship.docked || this.isSunk(ship)) continue;
           if (Math.hypot(ship.x - shot.x, ship.y - shot.y) < 24) {
-            this.damageShip(ship, shot.damage, shot.owner);
+            // la rastrellata: solo colpi diretti fra navi (le torri non
+            // manovrano, il mortaio vola sopra e non c'entra: è AoE)
+            let dmg = shot.damage;
+            if (!String(shot.owner).startsWith('fort:')) {
+              let d = Math.atan2(shot.y - ship.y, shot.x - ship.x) - (ship.rot + Math.PI);
+              while (d > Math.PI) d -= 2 * Math.PI;
+              while (d < -Math.PI) d += 2 * Math.PI;
+              if (Math.abs(d) < RASTRELLATA.settore) {
+                dmg *= RASTRELLATA.mult;
+                this.fxQueue.push({ k: 'rast', x: r1(shot.x), y: r1(shot.y) });
+              }
+            }
+            this.damageShip(ship, dmg, shot.owner, shot);
             this.fxQueue.push({ k: 'hit', x: r1(shot.x), y: r1(shot.y) });
             gone = true; break;
           }
@@ -1420,13 +1462,17 @@ class Game {
     }
   }
 
-  damageShip(ship, dmg, byId) {
+  damageShip(ship, dmg, byId, shot) {
     if (ship.graceUntil > this.now) return; // tregua: il colpo scivola in mare
     if (ship.immuneUntil > this.now) return; // appena svincolato: intoccabile
     if (ship.blockedUntil > this.now) return; // già vinta: si abborda, non si bombarda
     ship.hp -= dmg;
     ship.lastHitBy = byId;
     ship.lastDamageAt = this.now;
+    // i debuff delle munizioni (issue #41, fetta 2): temporanei e si
+    // RINFRESCANO senza sommarsi — mai oltre il malus dichiarato nel catalogo
+    if (shot && shot.mun === 'catene') ship.veleTagliateUntil = this.now + W.MUNIZIONI.catene.taglia.durata;
+    if (shot && shot.mun === 'mitraglia') ship.falcidiaUntil = this.now + W.MUNIZIONI.mitraglia.falcidia.durata;
     if (ship.hp <= 0) {
       // fra capitani il colpo di grazia BLOCCA (issue #15); NPC e fortezze
       // affondano come sempre
@@ -1604,6 +1650,9 @@ class Game {
         ...(s.blockedUntil > this.now
           ? { bk: Math.ceil(s.blockedUntil - this.now), bb: s.blockedBy } : {}),
         ...(s.immuneUntil > this.now ? { im: 1 } : {}),
+        // i debuff delle munizioni (#41, fetta 2): secondi restanti, additivi
+        ...(s.veleTagliateUntil > this.now ? { vt: r2(s.veleTagliateUntil - this.now) } : {}),
+        ...(s.falcidiaUntil > this.now ? { cf: r2(s.falcidiaUntil - this.now) } : {}),
         ...(s.gilda ? { gt: s.gilda.tag } : {}), // la bandierina della gilda
         // il guardaroba in mare (issue #25), campi ADDITIVI: lv = livrea,
         // ve = vele tinte, sc = colore scia, bf = bandiera personale (la gilda vince)

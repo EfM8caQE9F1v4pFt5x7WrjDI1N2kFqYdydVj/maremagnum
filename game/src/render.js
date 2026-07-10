@@ -1152,6 +1152,25 @@ export class Renderer {
       // il fondino della targhetta si infittisce col buio (issue #40): i nomi
       // compensano la notte come già fanno lanterne e faro
       if (c.fondino) c.fondino.alpha = 0.42 + 0.26 * night;
+      // i debuff delle munizioni (#41 fetta 2): glifi sopra il nome —
+      // ⛓ vele tagliate, ☠ ciurma falcidiata; si vede CHI è menomato
+      const glifi = (s.vt ? '⛓' : '') + (s.cf ? (s.vt ? ' ' : '') + '☠' : '');
+      if ((c.debuffGlifi || '') !== glifi && c.tag) {
+        c.debuffGlifi = glifi;
+        if (!c.debuffText) {
+          c.debuffText = new Text({
+            text: '',
+            style: {
+              fontFamily: 'Atkinson Hyperlegible Next, sans-serif', fontSize: 14,
+              fill: 0xffd27f, stroke: { color: 0x1a1208, width: 3 },
+            },
+          });
+          c.debuffText.anchor.set(0.5);
+          c.debuffText.position.set(0, -20); // sopra il nome, dentro il tag anti-zoom
+          c.tag.addChild(c.debuffText);
+        }
+        c.debuffText.text = glifi;
+      }
       const scale = s.sunk ? Math.max(0.5, c.body.scale.x - dt * 0.5) : 1;
       c.body.scale.set(scale);
       // vele che respirano col vento e con l'andatura
@@ -1330,6 +1349,10 @@ export class Renderer {
       // il telegrafo dello Speronamento: schiuma e anello alla partenza
       burst(12, { v: 75, life: 0.5, size: 3, color: 0xd9edf7 });
       this.rings.push({ x, y, r: 6, maxR: 42, life: 0.4, max: 0.4 });
+    } else if (kind === 'rast') {
+      // la rastrellata (#41 fetta 2): morso dorato sul settore di poppa
+      burst(10, { v: 85, life: 0.5, size: 3, color: 0xffd98a });
+      this.rings.push({ x, y, r: 5, maxR: 36, life: 0.4, max: 0.4 });
     }
   }
 
@@ -1437,6 +1460,18 @@ export class Renderer {
         this.shotGfx.ellipse(s.x, s.y + 6, 5 * (1 - alt / 60), 2.5).fill({ color: 0x000000, alpha: 0.3 });
         this.shotGfx.circle(s.x, s.y - alt, 4.5).fill(ballArcCol);
         this.shotGfx.circle(s.x - 1.5, s.y - alt - 1.5, 1.5).fill({ color: 0xffffff, alpha: 0.5 + light.night * 0.4 });
+      } else if (s.mn === 'catene') {
+        // palle incatenate (#41 fetta 2): due palle che ruotano legate
+        const giro = Math.atan2(s.vy, s.vx) + (s.ttl0 - s.ttl) * 14;
+        const ox = Math.cos(giro) * 4, oy = Math.sin(giro) * 4;
+        this.shotGfx.moveTo(s.x - ox, s.y - oy).lineTo(s.x + ox, s.y + oy).stroke({ width: 1.5, color: ballCol });
+        this.shotGfx.circle(s.x - ox, s.y - oy, 2.4).fill(ballCol);
+        this.shotGfx.circle(s.x + ox, s.y + oy, 2.4).fill(ballCol);
+      } else if (s.mn === 'mitraglia') {
+        // mitraglia (#41 fetta 2): una rosa di pallini
+        for (const [ox, oy] of [[0, -3], [-3, 2], [3, 2]]) {
+          this.shotGfx.circle(s.x + ox, s.y + oy, 1.6).fill(ballCol);
+        }
       } else {
         this.shotGfx.circle(s.x + 2, s.y + 3, 3).fill({ color: 0x000000, alpha: 0.25 });
         this.shotGfx.circle(s.x, s.y, 3).fill(ballCol);

@@ -182,13 +182,35 @@ function fleetValue(mounts) {
   return v;
 }
 
+// Le munizioni (issue #41, fetta 2): tre proiettili per ogni bocca da fuoco,
+// si scelgono al timone (tasto ciclico), switch libero e gratuito — alla
+// Sid Meier's Pirates!. I moltiplicatori scalano le stat dell'arma; i debuff
+// sono TEMPORANEI e non si sommano (si rinfrescano): il tetto #11 resta legge.
+// Il mortaio (arc) spara SEMPRE palle: una bombarda non si incatena.
+const MUNIZIONI = {
+  palle: { name: 'Palle piene', emoji: '⚫', dmg: 1, range: 1, speed: 1 },
+  catene: {
+    name: 'Palle incatenate', emoji: '⛓', dmg: 0.35, range: 0.55, speed: 0.9,
+    taglia: { durata: 5, malus: 0.75 }, // vele tagliate: −25% velocità
+  },
+  mitraglia: {
+    name: 'Mitraglia', emoji: '☠', dmg: 0.25, range: 0.35, speed: 1,
+    falcidia: { durata: 6, malus: 1.4 }, // ciurma falcidiata: ricarica +40%
+  },
+};
+const MUNIZIONI_ORDINE = ['palle', 'catene', 'mitraglia'];
+
 // Catalogo pubblico per il client (welcome).
 function publicConfig() {
-  return { types: TYPES, tierOrder: TIER_ORDER, maxLvl: MAX_WEAPON_LVL, groups: GROUPS };
+  return {
+    types: TYPES, tierOrder: TIER_ORDER, maxLvl: MAX_WEAPON_LVL, groups: GROUPS,
+    munizioni: MUNIZIONI, munizioniOrdine: MUNIZIONI_ORDINE,
+  };
 }
 
 module.exports = {
   TYPES, TIER_ORDER, EXCLUSIVES, MAX_WEAPON_LVL, GROUPS, VIETATE, GRUPPI_TIPO, MAX_ASSOLUTO,
+  MUNIZIONI, MUNIZIONI_ORDINE,
   weaponStats, upgradeCost, nextTier, slotCost, defaultMounts, sanitizeMounts, sanitizeConRiscatto, groupsPer,
   weaponValue, fleetValue, publicConfig,
 };
