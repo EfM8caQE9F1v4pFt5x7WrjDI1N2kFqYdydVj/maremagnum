@@ -28,6 +28,7 @@ const AZIONI = [
   ['bordataSin', 'Bordata sinistra', 'KeyQ'],
   ['bordataDes', 'Bordata destra', 'KeyE'],
   ['pruaPoppa', 'Prua e poppa', 'Space'],
+  ['munizione', 'Cambia munizione', 'KeyX'],
   ['abilita', 'Abilità del tipo', 'KeyR'],
   ['attracca', 'Attracca / salpa', 'KeyF'],
   ['zoom', 'Cannocchiale', 'KeyZ'],
@@ -764,7 +765,19 @@ function wireNet() {
     for (const i of m.islands) { state.islands.set(i.id, i); renderer.addIsland(i); }
     applyYou(m.you);
     for (const id of m.you.conquered || []) renderer.markConquered(id);
+    // le munizioni (#41 fetta 2): si riparte sempre a palle; l'ack fa fede.
+    // ?munizione=catene|mitraglia (sviluppo): carica subito quella per le foto
+    state.munizione = 'palle';
+    ui.setMunizione('palle', state.arsenal && state.arsenal.munizioni);
+    const munForzata = devParams.get('munizione');
+    if (munForzata) net.send({ t: 'munizione', tipo: munForzata });
     ui.toast('⚓ Attracca al Porto Franco (tasto F) per il Cantiere e la Bacheca degli Assedi', 6000);
+  });
+
+  // l'ack della munizione: lo stato vero è quello del mare
+  net.on('munizione', (m) => {
+    state.munizione = m.tipo;
+    ui.setMunizione(m.tipo, state.arsenal && state.arsenal.munizioni);
   });
 
   net.on('island', (m) => {
@@ -803,6 +816,12 @@ function wireNet() {
         }
       }
       state._hpPrima = io.sunk ? null : io.hp;
+      // il colpo che menoma si annuncia (#41 fetta 2): toast al debuff
+      // fresco, poi il glifo sopra il nome fa da promemoria
+      if (io.vt && !state._vtPrima) ui.toast('⛓ Vele tagliate: la nave arranca!', 3500);
+      if (io.cf && !state._cfPrima) ui.toast('☠ Ciurma falcidiata: si ricarica piano!', 3500);
+      state._vtPrima = !!io.vt;
+      state._cfPrima = !!io.cf;
     }
   });
 
@@ -1030,6 +1049,17 @@ function pushInput() {
   if (j !== lastInputJson) { lastInputJson = j; net.send({ t: 'input', ...inp }); }
 }
 
+// il tasto della munizione (#41 fetta 2) cicla palle → catene → mitraglia;
+// l'HUD si aggiorna subito per reattività, ma l'ack del server fa fede
+function cicloMunizione() {
+  if (state.docked) return;
+  const ordine = (state.arsenal && state.arsenal.munizioniOrdine) || ['palle', 'catene', 'mitraglia'];
+  const tipo = ordine[(ordine.indexOf(state.munizione || 'palle') + 1) % ordine.length];
+  state.munizione = tipo;
+  ui.setMunizione(tipo, state.arsenal && state.arsenal.munizioni);
+  net.send({ t: 'munizione', tipo });
+}
+
 function fireGroup(group) {
   if (state.docked) return;
   const now = performance.now();
@@ -1065,6 +1095,7 @@ function wireInput() {
         if (!state.docked && state.profile.tipo) net.send({ t: 'abilita' });
         return;
       case 'zoom': e.preventDefault(); cycleZoom(); return;
+      case 'munizione': e.preventDefault(); cicloMunizione(); return;
       case 'classifica': e.preventDefault(); ui.showBoard(true); return;
     }
     if (e.code === 'Enter') { document.getElementById('courseInput').focus(); e.preventDefault(); return; }
@@ -1318,6 +1349,12 @@ function interpolatedShips() {
       vel: lerp(sa.vel, sb.vel, t),
     });
   }
+  // ?forcedebuff=1 (sviluppo): la propria nave posa da colpita — glifi ⛓☠
+  // e barre rallentate in foto, senza aspettare una vera bordata
+  if (devParams.get('forcedebuff')) {
+    const me = out.find(s => s.id === state.meId);
+    if (me) { me.vt = 3; me.cf = 4; }
+  }
   return out;
 }
 
@@ -1339,10 +1376,14 @@ function frame(now) {
   const rawMe = latestMe();
   if (rawMe) {
     ui.setHp(rawMe.hp, rawMe.maxHp);
+    // la ciurma falcidiata (#41 fetta 2) ricarica piano: la barra dice il vero
+    const falcidia = rawMe.cf
+      ? ((state.arsenal && state.arsenal.munizioni && state.arsenal.munizioni.mitraglia.falcidia.malus) || 1.4)
+      : 1;
     ui.setReloads({
-      left: Math.min(1, (now - state.lastFire.left) / state.groupReload.left),
-      right: Math.min(1, (now - state.lastFire.right) / state.groupReload.right),
-      axial: Math.min(1, (now - Math.max(state.lastFire.bow, state.lastFire.stern)) / Math.min(state.groupReload.bow, state.groupReload.stern)),
+      left: Math.min(1, (now - state.lastFire.left) / (state.groupReload.left * falcidia)),
+      right: Math.min(1, (now - state.lastFire.right) / (state.groupReload.right * falcidia)),
+      axial: Math.min(1, (now - Math.max(state.lastFire.bow, state.lastFire.stern)) / (Math.min(state.groupReload.bow, state.groupReload.stern) * falcidia)),
       ability: state.ability.at > now ? 1 - (state.ability.at - now) / (state.ability.cd * 1000) : 1,
     });
     updateDockHint(rawMe);

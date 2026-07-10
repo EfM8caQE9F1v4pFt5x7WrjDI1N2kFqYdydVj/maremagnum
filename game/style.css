@@ -127,6 +127,9 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 .rl span { font-size: var(--t-2xs); color: var(--gold); min-width: 34px; text-shadow: 0 1px 2px #000; }
 .rlWrap { flex: 1; height: 6px; border: 1px solid var(--line-strong); border-radius: var(--r-xs); background: var(--bar-bg); overflow: hidden; }
 .rlBar { height: 100%; width: 100%; background: var(--gold); }
+/* la munizione caricata (issue #41, fetta 2): sotto le barre di ricarica */
+#munizioneRow { margin-top: var(--s-1); display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-sm); }
+#munizioneRow #munizioneKey { font-size: var(--t-2xs); color: var(--gold); min-width: 34px; text-shadow: 0 1px 2px #000; }
 #dockHint { margin-top: var(--s-2); font-size: var(--t-base); font-style: italic; color: var(--warm); text-shadow: 0 2px 4px #000; min-height: 18px; }
 
 #hint {

@@ -10,7 +10,7 @@
     "server": "node server/index.js",
     "dev": "npm run build && npm run server",
     "start": "npm run build && npm run server",
-    "test": "node scripts/test-tokens.js && node scripts/test-dominio.js && node scripts/test-og.js && node scripts/test-flotta.js && node scripts/test-livree.js && node scripts/test-blocco.js && node scripts/test-campagna.js && node scripts/test-dungeon.js && node scripts/test-missioni.js && node scripts/test-alleanze.js && node scripts/test-vento.js && node scripts/test-gilde.js && node scripts/test-atlante.js && node scripts/test-protocol.js",
+    "test": "node scripts/test-tokens.js && node scripts/test-dominio.js && node scripts/test-og.js && node scripts/test-flotta.js && node scripts/test-livree.js && node scripts/test-blocco.js && node scripts/test-campagna.js && node scripts/test-dungeon.js && node scripts/test-missioni.js && node scripts/test-alleanze.js && node scripts/test-vento.js && node scripts/test-munizioni.js && node scripts/test-gilde.js && node scripts/test-atlante.js && node scripts/test-protocol.js",
     "test:guardia": "node scripts/test-guard.js",
     "test:a11y": "node scripts/test-a11y.js"
   },

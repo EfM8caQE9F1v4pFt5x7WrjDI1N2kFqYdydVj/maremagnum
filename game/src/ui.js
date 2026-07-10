@@ -282,6 +282,12 @@ export class UI {
     $('guardInfo').classList.toggle('spento', !guard);
   }
 
+  // la munizione caricata (#41 fetta 2): emoji + nome dal catalogo del welcome
+  setMunizione(tipo, catalogo) {
+    const m = (catalogo && catalogo[tipo]) || { emoji: '⚫', name: 'Palle piene' };
+    $('munizioneVal').textContent = `${m.emoji} ${m.name}`;
+  }
+
   // --- timoneria: tasti rimappabili (WCAG 2.1.4) ---
 
   setKeymap(l) {
@@ -290,10 +296,11 @@ export class UI {
     $('rlKeyRight').textContent = `${l.bordataDes} ▶`;
     $('rlKeyAxial').textContent = `${l.pruaPoppa === 'SPAZIO' ? '␣' : l.pruaPoppa} ⇅`;
     if (this._abilityEmoji) $('abilityKey').textContent = `${l.abilita} ${this._abilityEmoji}`;
+    $('munizioneKey').textContent = l.munizione;
     $('hint').innerHTML =
       `Vela <b>${esc(l.su)} ${esc(l.sinistra)} ${esc(l.giu)} ${esc(l.destra)}</b> · ` +
       `Bordata sin. <b>${esc(l.bordataSin)}</b> / des. <b>${esc(l.bordataDes)}</b> · ` +
-      `Prua/Poppa <b>${esc(l.pruaPoppa)}</b> · Abilità <b>${esc(l.abilita)}</b> · ` +
+      `Prua/Poppa <b>${esc(l.pruaPoppa)}</b> · Munizioni <b>${esc(l.munizione)}</b> · Abilità <b>${esc(l.abilita)}</b> · ` +
       `Attracca <b>${esc(l.attracca)}</b> · Zoom <b>${esc(l.zoom)}</b> · Classifica <b>${esc(l.classifica)}</b>`;
   }
 
