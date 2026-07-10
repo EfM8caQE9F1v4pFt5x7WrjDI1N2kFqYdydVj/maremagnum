@@ -97,19 +97,22 @@ async function main() {
     ok(A.welcome.you.crewLvl === 4, 'punti nave dal profilo (Ciurma 4)');
     ok(B.welcome.you.helmLvl === 4 && B.welcome.you.holdLvl === 2 && B.welcome.you.gold === 1000,
       'Stiva di Olonese dal profilo, timone tosato al tetto (99 → 4)');
-    ok(!!await A.wait(m => m.t === 'bacheca' && m.disponibili && m.disponibili.length, 4000), 'la Bacheca del Diario arriva al join con delle offerte (issue #39)');
+    const bDiA = await A.wait(m => m.t === 'bacheca' && Array.isArray(m.giornaliere) && m.giornaliere.length === 3, 4000);
+    ok(!!bDiA, 'le tre del giorno arrivano al join, auto-attive (niente offerte da accettare)');
 
-    console.log('— La Bacheca del Diario (issue #39): accetta / rifiuta —');
+    console.log('— Le tre del giorno: uguali per tutti, accetta è un no-op —');
     const N = new Player('Novellino', {});
     await N.join();
     const b0 = await N.wait(m => m.t === 'bacheca', 4000);
-    ok(b0 && b0.disponibili.length >= 1 && b0.attive.length === 0, 'anche il profilo vergine ha subito una bacheca con offerte, 0 in corso');
-    N.send({ t: 'accetta', id: b0.disponibili[0].id });
-    const b1 = await N.wait(m => m.t === 'bacheca' && m.attive.length === 1, 4000);
-    ok(!!b1 && b1.disponibili.length === b0.disponibili.length, 'accetta un\'offerta → passa in corso e la bacheca si rifornisce');
-    N.send({ t: 'rifiuta', id: b1.disponibili[0].id });
-    const b2 = await N.wait(m => m.t === 'bacheca' && !m.disponibili.find(o => o.id === b1.disponibili[0].id), 4000);
-    ok(!!b2 && b2.disponibili.length === b1.disponibili.length, 'rifiuta un\'offerta → sparisce e ne arriva un\'altra');
+    ok(b0 && b0.giornaliere.length === 3 && b0.giornaliere.every(m => !m.fatta && m.progress === 0),
+      'anche il profilo vergine ha subito le sue tre, tutte da compiere');
+    ok(b0.tris && !b0.tris.fatto && b0.strike && b0.settimana && b0.scadenza > Date.now(),
+      'il conto del giorno viaggia con la bacheca: tris, strike, settimana, scadenza');
+    ok(!!bDiA && JSON.stringify(bDiA.giornaliere.map(m => m.id + m.desc)) === JSON.stringify(b0.giornaliere.map(m => m.id + m.desc)),
+      'le tre del giorno sono le STESSE per ogni capitano (seme = giorno)');
+    N.send({ t: 'accetta', id: b0.giornaliere[0].id });
+    ok(!!await N.wait(m => m.t === 'toast' && /si accettano da sole/.test(m.msg), 4000),
+      'accetta è un no-op gentile: niente rifornimento infinito di missioni');
 
     console.log('— Tipi di nave: grandfathering e frontiera di fiducia —');
     // profilo sporco: tipo inventato, Organo comprato ai vecchi tempi,

@@ -351,6 +351,10 @@ body.conPannello #hint { opacity: 0; }
 .impresaBarra > i { display: block; height: 100%; background: var(--gold); }
 .impresaAzioni { display: flex; gap: var(--s-2); margin-top: var(--s-2); flex-wrap: wrap; }
 .impresaAzioni button { font-size: var(--t-sm); padding: var(--s-1) var(--s-3); }
+/* le tre del giorno: la compiuta si spegne, il conto del giorno veste l'oro */
+.impresaCard.fatta { opacity: .65; border-left-color: var(--green-done); }
+.impresaCard.fatta h4 { color: var(--green-txt); }
+.impresaCard.giorno { border-left-color: var(--brass); background: var(--gold-10); }
 .diarioFiltro { display: flex; gap: var(--s-2); margin-bottom: var(--s-3); }
 .diarioFiltro button {
   background: none; border: 1px solid var(--wood-1); border-radius: var(--r-pill, 999px);

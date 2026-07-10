@@ -1019,7 +1019,8 @@ export class UI {
   }
 
   // Apre il Diario e lo popola. `state` = { campagna, dungeon,
-  // bacheca:{disponibili,attive}, gazzetta:[voci del mare], cronache:[eventi miei], lettaFino }
+  // giornaliere:{giornaliere,tris,strike,settimana,scadenza},
+  // gazzetta:[voci del mare], cronache:[eventi miei], lettaFino }
   showDiario(state) {
     this._diario = state || {};
     this._montaSchede();
@@ -1056,7 +1057,7 @@ export class UI {
   _sez(t) { const h = document.createElement('div'); h.className = 'diarioSez'; h.textContent = t; return h; }
   _vuoto(t) { const p = document.createElement('p'); p.className = 'diarioVuoto'; p.textContent = t; return p; }
 
-  // scheda ① Imprese: in corso (campagna, dungeon, missioni accettate) + bacheca
+  // scheda ① Imprese: in corso (campagna, dungeon) + le tre del giorno
   renderImprese() {
     const box = $('diarioImprese');
     box.innerHTML = '';
@@ -1065,41 +1066,58 @@ export class UI {
     let qualcosa = false;
     if (s.campagna) { box.appendChild(this._cardCampagna(s.campagna)); qualcosa = true; }
     if (s.dungeon && !s.dungeon.fatto) { box.appendChild(this._cardDungeon(s.dungeon)); qualcosa = true; }
-    const attive = (s.bacheca && s.bacheca.attive) || [];
-    for (const m of attive) { box.appendChild(this._cardMissione(m, 'attiva')); qualcosa = true; }
-    if (!qualcosa) box.appendChild(this._vuoto('Nessuna rotta in corso. Accetta un incarico dalla bacheca qui sotto.'));
-    box.appendChild(this._sez('Bacheca'));
-    const off = (s.bacheca && s.bacheca.disponibili) || [];
-    if (!off.length) box.appendChild(this._vuoto('La bacheca è vuota per ora.'));
-    for (const m of off) box.appendChild(this._cardMissione(m, 'offerta'));
+    if (!qualcosa) box.appendChild(this._vuoto('Nessuna impresa del Mastro in corso.'));
+    box.appendChild(this._sez('Le tre del giorno'));
+    const g = s.giornaliere;
+    if (!g || !(g.giornaliere || []).length) {
+      box.appendChild(this._vuoto('Le rotte del giorno arrivano col mare: salpa e torna a leggere.'));
+      return;
+    }
+    for (const m of g.giornaliere) box.appendChild(this._cardMissione(m));
+    box.appendChild(this._cardGiorno(g));
   }
 
-  _cardMissione(m, modo) {
+  // una giornaliera: niente da accettare, si compie e basta (una volta al giorno)
+  _cardMissione(m) {
     const c = document.createElement('div');
-    c.className = 'impresaCard';
-    const h = document.createElement('h4'); h.textContent = m.desc;
-    const r = document.createElement('span'); r.className = 'reward'; r.textContent = `+${m.reward} 🪙`;
+    c.className = 'impresaCard' + (m.fatta ? ' fatta' : '');
+    const h = document.createElement('h4'); h.textContent = (m.fatta ? '✓ ' : '') + m.desc;
+    const r = document.createElement('span'); r.className = 'reward';
+    r.textContent = m.fatta ? `+${m.reward} 🪙 incassati` : `+${m.reward} 🪙`;
     c.append(h, r);
-    if (modo === 'attiva') {
+    if (!m.fatta) {
       const barra = document.createElement('div'); barra.className = 'impresaBarra';
       const i = document.createElement('i'); i.style.width = Math.round(100 * (m.progress || 0) / m.n) + '%';
       barra.appendChild(i);
       const sub = document.createElement('p'); sub.className = 'sub'; sub.textContent = `${m.progress || 0}/${m.n}`;
       c.append(barra, sub);
     }
-    const az = document.createElement('div'); az.className = 'impresaAzioni';
-    if (modo === 'offerta') {
-      const acc = document.createElement('button'); acc.textContent = 'Accetta';
-      acc.addEventListener('click', () => this.h.onAccetta && this.h.onAccetta(m.id));
-      const rif = document.createElement('button'); rif.className = 'secondary'; rif.textContent = 'Rifiuta';
-      rif.addEventListener('click', () => this.h.onRifiuta && this.h.onRifiuta(m.id));
-      az.append(acc, rif);
-    } else {
-      const abb = document.createElement('button'); abb.className = 'secondary'; abb.textContent = 'Abbandona';
-      abb.addEventListener('click', () => this.h.onAbbandona && this.h.onAbbandona(m.id));
-      az.append(abb);
+    return c;
+  }
+
+  // il conto del giorno: tris, strike, settimana — il motivo per tornare domani
+  _cardGiorno(g) {
+    const c = document.createElement('div');
+    c.className = 'impresaCard giorno';
+    const tris = g.tris || { fatto: false, premio: 0 };
+    const strike = g.strike || { n: 0, bonus: 0, cap: 7 };
+    const sett = g.settimana || { pieni: 0, premio: 0 };
+    // il tris di oggi vale premio + strike (la catena di oggi, cappata)
+    const catena = tris.fatto ? strike.n : strike.n + 1;
+    const valeOggi = tris.premio + strike.bonus * Math.min(catena, strike.cap);
+    const riga = (testo) => { const p = document.createElement('p'); p.className = 'sub'; p.textContent = testo; return p; };
+    const h = document.createElement('h4');
+    h.textContent = tris.fatto ? '✓ Tris del giorno incassato' : 'Il tris del giorno';
+    c.appendChild(h);
+    c.appendChild(riga(tris.fatto
+      ? `🌟 Tutte e tre compiute: +${valeOggi} 🪙 (strike di ${strike.n} ${strike.n === 1 ? 'giorno' : 'giorni'})`
+      : `🌟 Compi tutte e tre e incassi +${valeOggi} 🪙 (tris ${tris.premio} + strike ×${Math.min(catena, strike.cap)})`));
+    c.appendChild(riga(`📅 Settimana piena: ${sett.pieni}/7 giorni col tris — a 7/7 valgono +${sett.premio} 🪙`));
+    if (g.scadenza) {
+      const ms = Math.max(0, g.scadenza - Date.now());
+      const ore = Math.floor(ms / 36e5), minuti = Math.floor((ms % 36e5) / 6e4);
+      c.appendChild(riga(`⏳ Le rotte si rinnovano tra ${ore}h ${minuti}m`));
     }
-    c.appendChild(az);
     return c;
   }
 

@@ -381,9 +381,9 @@ class Game {
     if (statoCampagna) this.sendTo(ship, { t: 'campagna', stato: statoCampagna });
     const statoDungeon = this.dungeonGiornoPer(ship);
     if (statoDungeon) this.sendTo(ship, { t: 'dungeon', stato: statoDungeon });
-    // le rotte del Diario (issue #39): le missioni ACCETTATE tornano dal profilo,
-    // la bacheca delle offerte si rigenera fresca a ogni ingresso
-    this.missions.ripristina(ship, p.missioni);
+    // le tre del giorno: le missioni sono quelle del seme del giorno, dal
+    // profilo tornano solo progressi, strike e conto della settimana
+    this.missions.ripristina(ship, p);
     this.missions.broadcastState();
     this.broadcast({ t: 'feed', msg: `⚓ ${name} è salpato nel Mare dell'Internet` });
     return ship;
@@ -400,7 +400,13 @@ class Game {
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
       dungeonGiorno: ship.dungeonGiorno || 0,
-      missioni: (ship.missioni || []).map(m => ({ key: m.key, tld: m.tld, desc: m.desc, n: m.n, reward: m.reward, progress: m.progress })),
+      giornaliere: {
+        giorno: ship.missioniGiorno | 0,
+        progressi: (ship.giornaliere || []).map(m => m.progress | 0),
+        fatte: (ship.giornaliere || []).map(m => !!m.fatta),
+      },
+      strike: ship.strike || { giorno: 0, n: 0 },
+      settimana: ship.settimana || { periodo: 0, pieni: 0 },
       sfide: ship.sfide || {},
       kills: ship.kills, deaths: ship.deaths,
     };
@@ -657,10 +663,10 @@ class Game {
       case 'upgradeWeapon': this.upgradeWeapon(ship, msg.group, msg.slot); break;
       case 'replaceWeapon': this.replaceWeapon(ship, msg.group, msg.slot); break;
       case 'assedio': this.missions.assedioJoin(ship, msg.role); break;
-      // la Bacheca del Diario (issue #39): accetta/rifiuta un'offerta, abbandona una attiva
-      case 'accetta': this.missions.accetta(ship, msg.id); break;
-      case 'rifiuta': this.missions.rifiuta(ship, msg.id); break;
-      case 'abbandona': this.missions.abbandona(ship, msg.id); break;
+      // compat coi client vecchi (#39): le tre del giorno si accettano da sole
+      case 'accetta': this.missions.accetta(ship); break;
+      case 'rifiuta': this.missions.rifiuta(ship); break;
+      case 'abbandona': this.missions.abbandona(ship); break;
     }
   }
 

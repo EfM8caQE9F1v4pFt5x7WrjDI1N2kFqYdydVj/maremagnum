@@ -223,4 +223,5 @@ module.exports = {
   settimanaDi, giornoDi, periodoDi, scadenzaDi,
   DIFFICOLTA, LISTINO, PREMIO, difficoltaValida, premioPer, difeseValide,
   setDungeon, getDungeon, getDungeoni, getCampagna, setCampagna,
+  hashStr, mulberry32, // il seme del calendario, riusato dalle giornaliere
 };
