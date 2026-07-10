@@ -826,7 +826,14 @@ function wireNet() {
   });
 
   net.on('abilita', (m) => {
-    state.ability = { at: performance.now() + m.cd * 1000, cd: m.cd };
+    state.ability = {
+      at: performance.now() + m.cd * 1000, cd: m.cd,
+      // la finestra dell'effetto (#41 fetta 2-bis): la barra arde e si
+      // SCARICA finché dura, poi riparte col cooldown
+      effettoAl: performance.now() + (m.durata || 0) * 1000,
+      durata: m.durata || 0,
+    };
+    ui.toast(`✦ ${m.nome}!`, 1800);
     engage(6000);
   });
 
@@ -1092,7 +1099,13 @@ function wireInput() {
         return;
       case 'abilita':
         e.preventDefault();
-        if (!state.docked && state.profile.tipo) net.send({ t: 'abilita' });
+        if (state.docked) return;
+        // R senza varo non è più muto (#41 fetta 2-bis): spiega la strada
+        if (!state.profile.tipo) {
+          ui.toast('✦ L\'abilità arriva col varo: Cantiere del Porto Franco (tasto F)', 3500);
+          return;
+        }
+        net.send({ t: 'abilita' });
         return;
       case 'zoom': e.preventDefault(); cycleZoom(); return;
       case 'munizione': e.preventDefault(); cicloMunizione(); return;
@@ -1182,10 +1195,12 @@ if (devParams.get('forceshop')) {
     gold: 2400,
     ship: { hullLvl: 2, sailsLvl: 1, helmLvl: 1, crewLvl: 2, holdLvl: 1, hullCost: 900, sailsCost: 1200, helmCost: 600, crewCost: 1500, holdCost: 800 },
     varo: { tipo: 'guerra', cost: 90, tipi: {
-      guerra: { nome: 'Brigantino da Guerra', motto: 'La matrice di sempre', hpMul: 1, speedMul: 1, turnMul: 1, sconto: 'hullLvl', abilita: 'Fumogeno', esclusiva: 'Organo' },
-      goletta: { nome: 'Goletta', motto: 'Chi fugge vive per combattere domani', hpMul: 0.8, speedMul: 1.3, turnMul: 1.2, sconto: 'sailsLvl', abilita: 'Scatto', esclusiva: 'Colubrina Lunga' },
-      sciabecco: { nome: 'Sciabecco', motto: 'Punge di prua e di poppa', hpMul: 0.9, speedMul: 1.15, turnMul: 1.1, sconto: 'helmLvl', abilita: 'Bordata Doppia', esclusiva: 'Falconetto a Ripetizione' },
-      galeone: { nome: 'Galeone', motto: 'La fortezza che naviga', hpMul: 1.4, speedMul: 0.8, turnMul: 0.85, sconto: 'crewLvl', abilita: 'Corazza', esclusiva: 'Organo Multiplo' },
+      // il mock rispecchia TIPI_PUB del server (#41 fetta 2-bis): stessi
+      // numeri e stesse abilità del Cantiere vero, o la foto mente
+      goletta: { nome: 'Goletta', motto: 'Chi fugge vive per combattere domani', hpMul: 0.85, speedMul: 1.12, turnMul: 1, sconto: 'helmLvl', abilita: 'Speronamento', esclusiva: 'Colubrina Lunga' },
+      guerra: { nome: 'Brigantino da Guerra', motto: 'La matrice di sempre', hpMul: 1, speedMul: 1, turnMul: 1, sconto: 'crewLvl', abilita: 'Fumogeno', esclusiva: 'Carronata Pesante' },
+      galeone: { nome: 'Galeone', motto: 'La fortezza che naviga', hpMul: 1.2, speedMul: 1, turnMul: 0.88, sconto: 'hullLvl', abilita: 'Bordata Doppia', esclusiva: 'Organo di Da Vinci' },
+      sciabecco: { nome: 'Sciabecco', motto: 'Punge di prua e di poppa', hpMul: 0.9, speedMul: 1, turnMul: 1.15, sconto: 'holdLvl', abilita: 'Colpo di Vento', esclusiva: 'Falconetto a Ripetizione' },
     } },
     negozio: {
       catalogo: {
@@ -1384,8 +1399,12 @@ function frame(now) {
       left: Math.min(1, (now - state.lastFire.left) / (state.groupReload.left * falcidia)),
       right: Math.min(1, (now - state.lastFire.right) / (state.groupReload.right * falcidia)),
       axial: Math.min(1, (now - Math.max(state.lastFire.bow, state.lastFire.stern)) / (Math.min(state.groupReload.bow, state.groupReload.stern) * falcidia)),
-      ability: state.ability.at > now ? 1 - (state.ability.at - now) / (state.ability.cd * 1000) : 1,
+      ability: (state.ability.effettoAl || 0) > now
+        // effetto in corso: la barra calda si scarica coi secondi che restano
+        ? Math.max(0.06, (state.ability.effettoAl - now) / (state.ability.durata * 1000))
+        : state.ability.at > now ? 1 - (state.ability.at - now) / (state.ability.cd * 1000) : 1,
     });
+    ui.setAbilityAttiva((state.ability.effettoAl || 0) > now);
     updateDockHint(rawMe);
     aggiornaCartellone(rawMe);
   }

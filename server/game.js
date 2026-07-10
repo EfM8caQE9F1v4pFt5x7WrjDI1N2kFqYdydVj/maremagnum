@@ -1091,9 +1091,12 @@ class Game {
       for (const g of Object.keys(W.GROUPS)) ship.ready[g] = ship.ready[g].map(() => 0); // canne fresche
     } else if (ship.tipo === 'sciabecco') {
       ship.ventoUntil = this.now + a.durata;
-      this.fxQueue.push({ k: 'ram', x: r1(ship.x), y: r1(ship.y) }); // la raffica si vede partire
+      // la raffica ha il SUO telegrafo (#41 fetta 2-bis), non l'anello dello
+      // sperone: chi guarda deve capire cosa sta partendo
+      this.fxQueue.push({ k: 'vento', x: r1(ship.x), y: r1(ship.y) });
     }
-    this.sendTo(ship, { t: 'abilita', nome: a.nome, cd: a.cd });
+    // la durata viaggia nell'ack: il client mostra quanto resta dell'effetto
+    this.sendTo(ship, { t: 'abilita', nome: a.nome, cd: a.cd, durata: a.durata });
   }
 
   inSmoke(ship) {
@@ -1633,6 +1636,9 @@ class Game {
     const ships = [];
     for (const s of this.ships.values()) {
       const scia = livree.sciaDi(s);
+      // l'abilità in corso (#41 fetta 2-bis): la minaccia si legge — il tipo
+      // (tp) dice QUALE abilità, ab dice per quanti secondi ancora
+      const abUntil = Math.max(s.ramUntil || 0, s.doubleUntil || 0, s.ventoUntil || 0);
       ships.push({
         id: s.id, name: s.name, x: r1(s.x), y: r1(s.y), rot: r2(s.rot),
         vel: r1(s.vel), hp: Math.ceil(s.hp),
@@ -1653,6 +1659,7 @@ class Game {
         // i debuff delle munizioni (#41, fetta 2): secondi restanti, additivi
         ...(s.veleTagliateUntil > this.now ? { vt: r2(s.veleTagliateUntil - this.now) } : {}),
         ...(s.falcidiaUntil > this.now ? { cf: r2(s.falcidiaUntil - this.now) } : {}),
+        ...(abUntil > this.now ? { ab: r2(abUntil - this.now) } : {}),
         ...(s.gilda ? { gt: s.gilda.tag } : {}), // la bandierina della gilda
         // il guardaroba in mare (issue #25), campi ADDITIVI: lv = livrea,
         // ve = vele tinte, sc = colore scia, bf = bandiera personale (la gilda vince)
