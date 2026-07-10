@@ -118,7 +118,7 @@ async function main() {
     // profilo sporco: tipo inventato, Organo comprato ai vecchi tempi,
     // e un'esclusiva di un ALTRO tipo infilata di contrabbando
     const C = new Player('Mastro Organista', {
-      gold: 5000, tipo: 'sgorbio',
+      gold: 13000, tipo: 'sgorbio',
       mounts: { left: [{ type: 'organo', lvl: 2 }], right: [{ type: 'lunga', lvl: 1 }] },
     });
     await C.join();
@@ -159,7 +159,7 @@ async function main() {
     ok(!!await C.wait(m => m.t === 'gold' && m.delta === 14550, 3000), 'l\'Organo L2 è riscattato al prezzo pieno pagato (14550 🪙)');
     cshop = await C.wait(m => m.t === 'shop', 3000);
     ok(cshop && cshop.varo.tipo === 'goletta' && cshop.varo.cost === 180, 'ora è Goletta; il prossimo varo costa il doppio (180)');
-    ok(cshop && cshop.gold === 5000 - 90 + 14550, `i conti tornano: ${cshop && cshop.gold} 🪙 (5000 − 90 + 14550)`);
+    ok(cshop && cshop.gold === 13000 - 90 + 14550, `i conti tornano: ${cshop && cshop.gold} 🪙 (13000 − 90 + 14550)`);
     ok(cshop && cshop.mounts.left[0].type === 'colubrina' && cshop.mounts.left[0].lvl === 1, 'lo slot dell\'Organo riparte con la colubrina');
     ok(cshop && cshop.ship.helmCost === 45, 'lo sconto segue il tipo: ora è il Timone a metà prezzo (45)');
     ok(cshop && cshop.groups.bow.max === 3 && cshop.groups.left.max === 4,
@@ -172,7 +172,7 @@ async function main() {
     let cneg = await C.wait(m => m.t === 'shop' && m.negozio && m.negozio.possedute.includes('scarlatta'), 3000);
     ok(!!cneg, 'livrea comprata: è nel guardaroba');
     ok(cneg && cneg.negozio.livrea === 'scarlatta', 'appena comprata, addosso');
-    ok(cneg && cneg.gold === 19460 - 15000, `il conto torna: ${cneg && cneg.gold} 🪙 (19460 − 15000)`);
+    ok(cneg && cneg.gold === 27460 - 15000, `il conto torna: ${cneg && cneg.gold} 🪙 (27460 − 15000)`);
     C.send({ t: 'compraLivrea', id: 'ombre' });
     ok(!!await C.wait(m => m.t === 'toast' && /si guadagna/.test(m.msg), 3000),
       'l\'edizione-impresa non si compra: si guadagna');
@@ -187,6 +187,32 @@ async function main() {
     cneg = await C.wait(m => m.t === 'shop' && m.negozio
       && m.negozio.livrea === null && m.negozio.possedute.includes('scarlatta'), 3000);
     ok(!!cneg, 'riposta nel guardaroba: si torna al legno nudo');
+
+    console.log('— Le vele separate dalle livree —');
+    ok(cneg && cneg.negozio.catalogo.velenere && cneg.negozio.catalogo.velenere.genere === 'vele'
+      && typeof cneg.negozio.catalogo.velenere.tinta === 'number',
+      'il catalogo espone le vele col loro genere e la tinta della tela');
+    C.send({ t: 'compraLivrea', id: 'velenere' });
+    cneg = await C.wait(m => m.t === 'shop' && m.negozio && m.negozio.possedute.includes('velenere'), 3000);
+    ok(cneg && cneg.negozio.vele === 'velenere' && cneg.negozio.livrea === null,
+      'le vele comprate vestono il LORO slot: la livrea non si muove');
+    // la trappola disinnescata: un id posseduto non si indossa nel genere sbagliato
+    C.send({ t: 'indossaLivrea', id: 'scarlatta', genere: 'scia' });
+    C.send({ t: 'indossaLivrea', id: 'velenere', genere: 'livrea' });
+    await sleep(600);
+    C.send({ t: 'indossaLivrea', id: null, genere: 'vele' });
+    // il predicato include possedute: i messaggi shop di PRIMA dell'acquisto
+    // hanno anche loro vele=null e ingannerebbero la wait (che scava nel buffer)
+    cneg = await C.wait(m => m.t === 'shop' && m.negozio && m.negozio.vele === null
+      && m.negozio.possedute.includes('velenere'), 3000);
+    ok(cneg && cneg.negozio.scia === null && cneg.negozio.livrea === null,
+      'i generi non si scambiano gli slot (la trappola livree/vele è chiusa)');
+    C.send({ t: 'indossaLivrea', id: 'velenere', genere: 'vele' });
+    await C.wait(m => m.t === 'shop' && m.negozio && m.negozio.vele === 'velenere', 3000);
+    await sleep(600);
+    const cTela = C.me();
+    ok(cTela && cTela.ve === 'velenere', 'le vele viaggiano nello snapshot (ve)');
+    ok(cTela && !cTela.lv, 'senza livrea lo snapshot non porta lv: la tela basta a sé');
 
     console.log('— Il Cartellone dell\'isola (issue #27) —');
     // lo spawn all'approdo mette la nave a r+100 dal centro: già accostata

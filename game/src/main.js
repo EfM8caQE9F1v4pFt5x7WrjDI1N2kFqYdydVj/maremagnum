@@ -1075,6 +1075,8 @@ if (devParams.get('forceshop')) {
   const open = () => {
     if (typeof ui === 'undefined' || !ui || !ui.showShop) { setTimeout(open, 200); return; }
     try {
+      document.body.classList.remove('benvenuto');
+      ui.hide('nameOverlay'); // la foto headless vuole il Cantiere, non il benvenuto
       ui.showShop(mock);
       const b = document.getElementById({ nave: 'tabNave', armi: 'tabArmi', varo: 'tabVaro', livree: 'tabLivree' }[scheda] || 'tabArmi');
       if (b) b.click();
