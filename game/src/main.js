@@ -623,15 +623,28 @@ function setVento(dir, forza) {
   const hud = document.getElementById('ventoHud');
   if (!hud) return;
   hud.classList.remove('hidden');
-  document.getElementById('ventoFreccia').style.transform = `rotate(${dir}rad)`;
-  const punta = Math.round((((dir % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) / (Math.PI / 4)) % 8;
+  // la freccia gira sempre per la via corta: l'angolo mostrato è CONTINUO,
+  // non normalizzato — quando la direzione scavalca lo zero la CSS
+  // transition non deve fare il giro completo all'indietro
+  if (state._ventoAngolo == null) state._ventoAngolo = dir;
+  else {
+    let delta = (dir - state._ventoAngolo) % (2 * Math.PI);
+    if (delta > Math.PI) delta -= 2 * Math.PI;
+    if (delta < -Math.PI) delta += 2 * Math.PI;
+    state._ventoAngolo += delta;
+  }
+  document.getElementById('ventoFreccia').style.transform = `rotate(${state._ventoAngolo}rad)`;
+  // il vento si nomina da dove TIRA (uso marinaro): la dicitura dice da
+  // dove arriva, la freccia indica dove spinge
+  const da = (dir + Math.PI) % (2 * Math.PI);
+  const punta = Math.round(da / (Math.PI / 4)) % 8;
   const forzaNome = forza < 0.65 ? 'brezza' : forza < 0.85 ? 'vento teso' : 'burrasca';
   const chiave = punta + '|' + forzaNome;
   if (state._ventoChiave !== chiave) { // il testo cambia di rado, il DOM pure
     state._ventoChiave = chiave;
-    document.getElementById('ventoNome').textContent = `${PUNTE[punta]} · ${forzaNome}`;
-    hud.setAttribute('aria-label', `Vento verso ${PUNTE_ARIA[punta]}, ${forzaNome}`);
-    hud.title = `Il vento soffia verso ${PUNTE_ARIA[punta]} (${forzaNome}): in poppa spinge, di bolina frena`;
+    document.getElementById('ventoNome').textContent = `da ${PUNTE[punta]} · ${forzaNome}`;
+    hud.setAttribute('aria-label', `Vento da ${PUNTE_ARIA[punta]}, ${forzaNome}`);
+    hud.title = `Il vento tira da ${PUNTE_ARIA[punta]} (${forzaNome}); la freccia indica dove spinge: in poppa corri, di bolina freni`;
   }
 }
 

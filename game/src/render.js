@@ -67,6 +67,11 @@ export class Renderer {
     this.world = new Container();
     this.app.stage.addChild(this.world);
 
+    // le onde che seguono il vento (issue #41): crestine sotto tutto il
+    // resto del mondo — isole e navi le coprono, il mare le racconta
+    this.ondeVento = new Container();
+    this.onde = [];
+
     this.shallowLayer = new Container();
     this.routeGfx = new Graphics();
     this.wakeGfx = new Graphics();
@@ -80,7 +85,7 @@ export class Renderer {
     this.labelLayer = new Container();
     this.smokeGfx = new Graphics(); // i fumogeni: sopra TUTTO il mondo, nomi compresi
     this.smokes = new Map();
-    this.world.addChild(this.shallowLayer, this.routeGfx, this.wakeGfx, this.islandLayer,
+    this.world.addChild(this.ondeVento, this.shallowLayer, this.routeGfx, this.wakeGfx, this.islandLayer,
       this.fortLayer, this.shotGfx, this.shipLayer, this.fxGfx, this.beamGfx, this.labelLayer,
       this.smokeGfx);
 
@@ -605,6 +610,43 @@ export class Renderer {
   // il vento del mare (issue #41): il render lo riceve dallo snapshot e lo
   // passa all'acqua — la deriva della corrente segue il vento vero
   setVento(dir, forza) { this.vento = { dir, forza }; }
+
+  // Le onde che seguono il vento (issue #41, richiesta del capitano): poche
+  // crestine discrete che scorrono nella direzione VERA del vento, identiche
+  // su GPU e canvas — il mare racconta il meteo anche senza guardare l'HUD.
+  // Mare calmo le spegne: sono movimento di contorno (WCAG 2.3.3).
+  updateOndeVento(dt, cx, cy, hw, hh) {
+    const attive = !!this.vento && !this.calmo;
+    this.ondeVento.visible = attive;
+    if (!attive) return;
+    const { dir, forza } = this.vento;
+    if (!this.onde.length) {
+      for (let i = 0; i < 34; i++) {
+        const g = new Graphics();
+        // una crestina vista dall'alto: due archetti chiari, gobba in avanti
+        g.arc(-7, 0, 7, -Math.PI * 0.85, -Math.PI * 0.15).stroke({ width: 2, color: 0xdfe9ee });
+        g.arc(9, 2, 5, -Math.PI * 0.8, -Math.PI * 0.2).stroke({ width: 1.5, color: 0xdfe9ee, alpha: 0.75 });
+        g.alpha = 0;
+        this.ondeVento.addChild(g);
+        this.onde.push({ g, x: 0, y: 0, eta: 1, vita: 0 });
+      }
+    }
+    const passo = 22 + 55 * forza; // px/s: brezza pigra, burrasca svelta
+    for (const o of this.onde) {
+      if (o.eta >= o.vita) {
+        o.vita = 2.5 + Math.random() * 2.5;
+        o.eta = Math.random() * 0.5; // non nascono tutte insieme
+        o.x = cx + (Math.random() * 2 - 1) * (hw + 60);
+        o.y = cy + (Math.random() * 2 - 1) * (hh + 60);
+      }
+      o.eta += dt;
+      o.x += Math.cos(dir) * passo * dt;
+      o.y += Math.sin(dir) * passo * dt;
+      o.g.position.set(o.x, o.y);
+      o.g.rotation = dir + Math.PI / 2; // la cresta è di traverso alla corsa
+      o.g.alpha = Math.sin(Math.PI * Math.min(1, o.eta / o.vita)) * 0.16;
+    }
+  }
 
   setWorld(world) {
     this.W = world.W; this.H = world.H;
@@ -1351,6 +1393,8 @@ export class Renderer {
       this.cloudShadows.tilePosition.set((-cx * 0.92 + this.t * 10) * z, (-cy * 0.92 + this.t * 4.5) * z);
       this.cloudShadows.alpha = 0.22 * light.cloud;
     }
+
+    this.updateOndeVento(dt, cx, cy, hw, hh);
 
     // nebbia e lanterna seguono la nave (in coordinate schermo)
     const meX = me ? w / 2 + (me.x - cx) * z + shx : w / 2;
