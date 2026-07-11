@@ -24,7 +24,14 @@ const PVE_BOUNTY = { merc: 25, ghost: 60 }; // taglie magre e fisse per tipologi
 // sotto la soglia ammainano — chi li TOCCA li saccheggia (bottino FISSO dal
 // listino, una volta per resa), chi preferisce la missione li affonda lo
 // stesso. Il cooldown è la diga anti-farming; il mare non è un bancomat.
-const RESA = { soglia: 0.3, durata: 25, bottino: 150, cooldown: 180, hpRitorno: 0.5 };
+const RESA = { soglia: 0.3, durata: 25, bottino: 150, cooldown: 180, hpRitorno: 0.5, bonusNotte: 1.5 };
+// La notte del SERVER (issue #41, fetta 5): stesso orologio di muro e stesso
+// giro di 8 minuti di game/src/daycycle.js — la finestra buia è quella delle
+// chiavi client post-#40 (night ≥ ~0.5 fra t 0.655 e 0.895). Di notte il
+// bottino delle rese rende di più e i fantasmi cacciano più larghi: la notte
+// è rischio E ricompensa (lezione DREDGE/Sunless Sea), mai solo penalità.
+const CICLO_GIORNO_S = 480;
+const NOTTE = { da: 0.655, a: 0.895, cacciaFantasmi: 650 };
 // Le carovane scortate (issue #41, fette 3 e 4): un capo panciuto coi
 // fantasmi di scorta, in rotta annunciata tra due isole vere. Attacchi uno,
 // rispondono tutti — l'ecologia delle prede di Pirates!. Il convoglio è il
@@ -234,6 +241,7 @@ class Game {
     this.nextShotId = 1;
     this.now = Date.now() / 1000;
     this.vento = vento.FISSO || vento.ventoAl(this.now * 1000); // il vento del mare (issue #41)
+    this.burrasche = vento.BURRASCA_FISSA || vento.burrascheAl(this.now * 1000); // e le sue tempeste (fetta 5)
     // le carovane scortate (issue #41, fette 3-4): una per tipo, a calendario
     this.carovane = { convoglio: null, tesoro: null };
     this.prossimaCarovana = {
@@ -814,6 +822,8 @@ class Game {
     const raddoppio = ship.doubleUntil > this.now ? 2 : 1; // Bordata Doppia
     // ciurma falcidiata dalla mitraglia (issue #41, fetta 2): si ricarica piano
     const falcidia = ship.falcidiaUntil > this.now ? W.MUNIZIONI.mitraglia.falcidia.malus : 1;
+    // nella burrasca (fetta 5) le palle volano corte: pioggia e mare grosso
+    const gittata = vento.inBurrasca(this.burrasche, ship.x, ship.y) ? vento.BURRASCHE.gittata : 1;
     const out = [];
     for (let i = 0; i < mounts.length; i++) {
       if (this.now < ship.ready[group][i]) continue;
@@ -836,22 +846,23 @@ class Game {
       const balle = st.burst * raddoppio;
       for (let b = 0; b < balle; b++) {
         const jitter = (Math.random() - 0.5) * (balle > 1 ? 0.16 : 0.09);
-        out.push(this.spawnShot(ship.id, px, py, dir + jitter, st, mun));
+        out.push(this.spawnShot(ship.id, px, py, dir + jitter, st, mun, gittata));
       }
     }
     if (out.length) this.broadcast({ t: 'shots', from: ship.id, shots: out });
   }
 
-  spawnShot(owner, x, y, dir, st, mun = 'palle') {
+  spawnShot(owner, x, y, dir, st, mun = 'palle', gittata = 1) {
     const id = this.nextShotId++;
     // la munizione scala le stat dell'arma (issue #41, fetta 2): le catene
-    // volano corte e lente, la mitraglia cortissima — il danno è nel debuff
+    // volano corte e lente, la mitraglia cortissima — il danno è nel debuff.
+    // La burrasca (fetta 5) accorcia tutto: gittata < 1 quando piove forte
     const m = W.MUNIZIONI[mun] || W.MUNIZIONI.palle;
     const speed = st.speed * m.speed;
     const shot = {
       id, owner, x, y,
       vx: Math.cos(dir) * speed, vy: Math.sin(dir) * speed,
-      ttl: (st.range * m.range) / speed, damage: st.dmg * m.dmg,
+      ttl: (st.range * m.range * gittata) / speed, damage: st.dmg * m.dmg,
       aoe: st.aoe || 0, arc: !!st.arc, mun,
     };
     this.shots.set(id, shot);
@@ -1202,8 +1213,10 @@ class Game {
 
   tick() {
     this.now = Date.now() / 1000;
-    // il vento ruota piano, semato sull'orologio (VENTO_FISSO nei collaudi)
+    // il vento ruota piano e le burrasche vagano, semati sull'orologio
+    // (VENTO_FISSO e BURRASCA_FISSA nei collaudi)
     this.vento = vento.FISSO || vento.ventoAl(this.now * 1000);
+    this.burrasche = vento.BURRASCA_FISSA || vento.burrascheAl(this.now * 1000);
     const dt = TICK;
     if (this.smokes.length) this.smokes = this.smokes.filter(s => s.until > this.now);
     for (const ship of this.ships.values()) {
@@ -1246,7 +1259,9 @@ class Game {
     // velocità fisse bypassano shipStats): una regola sola, anche per le
     // cariche di Speronamento e Colpo di Vento che moltiplicano questa speed.
     // Le vele tagliate dalle catene (fetta 2) frenano allo stesso modo.
-    const fv = vento.fattore(this.vento, ship.rot);
+    // Dentro una burrasca (fetta 5) il vento morde a forza PIENA.
+    const inTempesta = vento.inBurrasca(this.burrasche, ship.x, ship.y);
+    const fv = vento.fattore(inTempesta ? { dir: this.vento.dir, forza: 1 } : this.vento, ship.rot);
     const taglio = ship.veleTagliateUntil > this.now ? W.MUNIZIONI.catene.taglia.malus : 1;
     const speed = (ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed)) * fv * taglio;
     const turn = (ship.input.left ? -1 : 0) + (ship.input.right ? 1 : 0);
@@ -1336,6 +1351,12 @@ class Game {
   }
 
   normAngle(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
+
+  // la notte del server (fetta 5): stesso ciclo di 8 minuti del client
+  eNotte() {
+    const t = (this.now % CICLO_GIORNO_S) / CICLO_GIORNO_S;
+    return t > NOTTE.da && t < NOTTE.a;
+  }
 
   // una carovana salpa: capo panciuto + scorte, rotta vera annunciata in
   // Gazzetta. I capolinea EVITANO fortezze e isole con difese attive (i
@@ -1474,7 +1495,9 @@ class Game {
       for (const p of this.ships.values()) {
         if (p.npc || p.docked || this.isSunk(p)) continue;
         if (Math.hypot(p.x - ship.x, p.y - ship.y) >= BLOCCO.tocco) continue;
-        const bottino = ship.convoglio ? CAROVANE[ship.convoglio.tipo].bottino : RESA.bottino;
+        // il bottino notturno rende di più (fetta 5): la notte paga il rischio
+        const base = ship.convoglio ? CAROVANE[ship.convoglio.tipo].bottino : RESA.bottino;
+        const bottino = Math.round(base * (this.eNotte() ? RESA.bonusNotte : 1));
         ship.saccheggiato = true;
         ship.resaUntil = this.now + 3; // issa la bandiera e riprende il largo
         ship.resaCooldownUntil = this.now + RESA.cooldown;
@@ -1496,7 +1519,8 @@ class Game {
   }
 
   steerGhost(ship) {
-    let target = null, bestD = 520; // caccia più miope di un tempo
+    // di notte (fetta 5) i fantasmi cacciano più larghi: il buio è dei mostri
+    let target = null, bestD = this.eNotte() ? NOTTE.cacciaFantasmi : 520;
     for (const s of this.ships.values()) {
       if (s.npc || s.docked || this.isSunk(s)) continue;
       if (s.graceUntil > this.now) continue;          // tregua
@@ -1992,6 +2016,8 @@ class Game {
     const snap = { t: 'snap', ts: Date.now(), ships, forts };
     // campo additivo: il vento del mare (issue #41) — [verso in cui soffia, forza]
     snap.vn = [r2(this.vento.dir), r2(this.vento.forza)];
+    // campo additivo: le burrasche vaganti (fetta 5) — [x, y, raggio]
+    snap.br = this.burrasche.map(b => [r1(b.x), r1(b.y), b.r]);
     // campo additivo: i fumogeni attivi (x, y, raggio, secondi restanti)
     if (this.smokes.length) snap.sm = this.smokes.map(s => [r1(s.x), r1(s.y), s.r, r2(s.until - this.now)]);
     this.broadcast(snap);

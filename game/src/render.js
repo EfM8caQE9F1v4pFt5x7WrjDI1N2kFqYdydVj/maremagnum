@@ -82,12 +82,15 @@ export class Renderer {
     this.shipLayer = new Container();
     this.fxGfx = new Graphics();
     this.beamGfx = new Graphics();
+    // le burrasche (fetta 5): la pioggia batte SOPRA gli scafi ma SOTTO le
+    // targhette — l'atmosfera non costa mai la leggibilità dei nomi (#40)
+    this.burrascaGfx = new Graphics();
     this.labelLayer = new Container();
     this.smokeGfx = new Graphics(); // i fumogeni: sopra TUTTO il mondo, nomi compresi
     this.smokes = new Map();
     this.world.addChild(this.ondeVento, this.shallowLayer, this.routeGfx, this.wakeGfx, this.islandLayer,
-      this.fortLayer, this.shotGfx, this.shipLayer, this.fxGfx, this.beamGfx, this.labelLayer,
-      this.smokeGfx);
+      this.fortLayer, this.shotGfx, this.shipLayer, this.fxGfx, this.beamGfx, this.burrascaGfx,
+      this.labelLayer, this.smokeGfx);
 
     // strato meteo e luce, sopra il mondo: ombre di nuvole, nebbia notturna
     // centrata sul giocatore (alla DREDGE), lanterna di bordo, vignetta.
@@ -611,6 +614,34 @@ export class Renderer {
   // passa all'acqua — la deriva della corrente segue il vento vero
   setVento(dir, forza) { this.vento = { dir, forza }; }
 
+  // le burrasche vaganti (fetta 5): zone di tempesta dallo snapshot
+  setBurrasche(list) { this.burrasche = list || []; }
+
+  // pioggia e mare cupo dentro le burrasche: un velo LEGGERO (mai cecità,
+  // #40) e striature che corrono col vento; Mare calmo ferma la pioggia
+  updateBurrasche() {
+    const g = this.burrascaGfx;
+    g.clear();
+    if (!this.burrasche || !this.burrasche.length) return;
+    const dir = this.vento ? this.vento.dir : 0.6;
+    const vx = Math.cos(dir), vy = Math.sin(dir);
+    for (const b of this.burrasche) {
+      g.circle(b.x, b.y, b.r).fill({ color: 0x0a1622, alpha: 0.12 });
+      g.circle(b.x, b.y, b.r).stroke({ width: 3, color: 0x9fb4c0, alpha: 0.1 });
+      if (this.calmo) continue; // movimento di contorno: il Mare calmo lo spegne
+      for (let i = 0; i < 46; i++) {
+        const rng = mulberry32(i * 7919 + 17);
+        const ang = rng() * Math.PI * 2, rad = Math.sqrt(rng()) * (b.r - 24);
+        const fase = ((this.t * (200 + rng() * 120) + rng() * 1000) % (b.r * 2)) - b.r;
+        const px = b.x + Math.cos(ang) * rad + vx * fase;
+        const py = b.y + Math.sin(ang) * rad + vy * fase;
+        if (Math.hypot(px - b.x, py - b.y) > b.r - 12) continue;
+        g.moveTo(px, py).lineTo(px + vx * 13, py + vy * 13)
+          .stroke({ width: 1.5, color: 0xbfd4e2, alpha: 0.28 });
+      }
+    }
+  }
+
   // Le onde che seguono il vento (issue #41, richiesta del capitano): poche
   // crestine discrete che scorrono nella direzione VERA del vento, identiche
   // su GPU e canvas — il mare racconta il meteo anche senza guardare l'HUD.
@@ -1067,6 +1098,7 @@ export class Renderer {
 
   updateShips(list, selfId, dt) {
     const seen = new Set();
+    const me = list.find(x => x.id === selfId) || null; // per la notte tattica
     for (const s of list) {
       seen.add(s.id);
       const c = this.ensureShip(s, selfId);
@@ -1152,6 +1184,15 @@ export class Renderer {
       // il fondino della targhetta si infittisce col buio (issue #40): i nomi
       // compensano la notte come già fanno lanterne e faro
       if (c.fondino) c.fondino.alpha = 0.42 + 0.26 * night;
+      // la notte tattica (fetta 5): i nomi LONTANI si perdono nel buio — le
+      // sagome e le lanterne restano (ti tradiscono), gli alleati e chi è
+      // vicino restano leggibili: informazione in meno, MAI leggibilità (#40)
+      if (c.tag) {
+        const alleatoVicino = this.alleati && this.alleati.has(s.id);
+        const celato = night > 0.6 && me && s.id !== selfId && !alleatoVicino &&
+          Math.hypot(s.x - me.x, s.y - me.y) > 600;
+        c.tag.alpha += ((celato ? 0 : 1) - c.tag.alpha) * Math.min(1, dt * 3);
+      }
       // i glifi di stato sopra il nome (#41 fette 2 e 3): ⛓ vele tagliate,
       // ☠ ciurma falcidiata, 🏳 resa — si vede chi è menomato o ammainato
       const glifi = [s.vt && '⛓', s.cf && '☠', s.rs && '🏳'].filter(Boolean).join(' ');
@@ -1458,6 +1499,7 @@ export class Renderer {
     }
 
     this.updateOndeVento(dt, cx, cy, hw, hh);
+    this.updateBurrasche();
 
     // nebbia e lanterna seguono la nave (in coordinate schermo)
     const meX = me ? w / 2 + (me.x - cx) * z + shx : w / 2;

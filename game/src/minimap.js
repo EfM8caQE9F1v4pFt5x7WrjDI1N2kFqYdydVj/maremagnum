@@ -25,7 +25,7 @@ export class Minimap {
     g.fillStyle = 'rgba(122,166,196,0.35)'; g.fillRect(10, 10, W - 20, H - 20);
   }
 
-  update({ world, islands, ships, selfId, dest }) {
+  update({ world, islands, ships, selfId, dest, notte, burrasche }) {
     if (!world) return;
     const g = this.g, W = this.canvas.width, H = this.canvas.height;
     g.clearRect(0, 0, W, H);
@@ -33,6 +33,14 @@ export class Minimap {
     const pad = 12;
     const s = Math.min((W - pad * 2) / world.W, (H - pad * 2) / world.H);
     const px = (x) => pad + x * s, py = (y) => pad + y * s;
+
+    // le burrasche vaganti (fetta 5): il cielo si vede anche da lontano
+    for (const b of burrasche || []) {
+      g.beginPath();
+      g.arc(px(b.x), py(b.y), Math.max(4, b.r * s), 0, Math.PI * 2);
+      g.fillStyle = 'rgba(70,90,110,0.35)';
+      g.fill();
+    }
 
     for (const i of islands.values()) {
       g.beginPath();
@@ -47,8 +55,12 @@ export class Minimap {
       g.beginPath(); g.moveTo(x - 5, y - 5); g.lineTo(x + 5, y + 5);
       g.moveTo(x + 5, y - 5); g.lineTo(x - 5, y + 5); g.stroke();
     }
+    const me = ships.find(sh => sh.id === selfId);
     for (const ship of ships) {
       if (ship.sunk || ship.docked) continue;
+      // la notte tattica (fetta 5): di notte la minimappa vede solo vicino —
+      // le vele altrui oltre le 900 leghe si perdono nel buio
+      if (notte && me && ship.id !== selfId && Math.hypot(ship.x - me.x, ship.y - me.y) > 900) continue;
       const x = px(ship.x), y = py(ship.y);
       if (ship.id === selfId) {
         g.save(); g.translate(x, y); g.rotate(ship.rot);

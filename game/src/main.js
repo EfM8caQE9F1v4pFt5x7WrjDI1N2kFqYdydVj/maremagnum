@@ -640,12 +640,21 @@ function setVento(dir, forza) {
   const da = (dir + Math.PI) % (2 * Math.PI);
   const punta = Math.round(da / (Math.PI / 4)) % 8;
   const forzaNome = forza < 0.65 ? 'brezza' : forza < 0.85 ? 'vento teso' : 'burrasca';
-  const chiave = punta + '|' + forzaNome;
+  // dentro una burrasca vagante (fetta 5) la rosa lo urla: vento pieno,
+  // palle corte — l'informazione tattica sta dove già guardi il meteo
+  const me = latestMe();
+  const tempesta = !!(me && (state.burrasche || []).some(b => Math.hypot(me.x - b.x, me.y - b.y) < b.r));
+  const chiave = punta + '|' + forzaNome + (tempesta ? '|⛈' : '');
   if (state._ventoChiave !== chiave) { // il testo cambia di rado, il DOM pure
     state._ventoChiave = chiave;
-    document.getElementById('ventoNome').textContent = `da ${PUNTE[punta]} · ${forzaNome}`;
-    hud.setAttribute('aria-label', `Vento da ${PUNTE_ARIA[punta]}, ${forzaNome}`);
-    hud.title = `Il vento tira da ${PUNTE_ARIA[punta]} (${forzaNome}); la freccia indica dove spinge: in poppa corri, di bolina freni`;
+    document.getElementById('ventoNome').textContent = tempesta
+      ? `⛈ burrasca! · da ${PUNTE[punta]}` : `da ${PUNTE[punta]} · ${forzaNome}`;
+    hud.setAttribute('aria-label', tempesta
+      ? `Sei in una burrasca: vento pieno da ${PUNTE_ARIA[punta]}, gittata ridotta`
+      : `Vento da ${PUNTE_ARIA[punta]}, ${forzaNome}`);
+    hud.title = tempesta
+      ? `Burrasca! Il vento morde a forza piena e le palle volano corte: esci dalla pioggia o approfittane`
+      : `Il vento tira da ${PUNTE_ARIA[punta]} (${forzaNome}); la freccia indica dove spinge: in poppa corri, di bolina freni`;
   }
 }
 
@@ -800,6 +809,11 @@ function wireNet() {
     if (state.snaps.length > 10) state.snaps.shift();
     for (const f of m.forts) renderer.updateFort(f.i, f.d);
     renderer.updateSmokes(m.sm);
+    // le burrasche PRIMA del vento: la rosa dei venti segnala la tempesta
+    if (m.br) {
+      state.burrasche = m.br.map(([x, y, r]) => ({ x, y, r }));
+      renderer.setBurrasche(state.burrasche);
+    }
     if (m.vn) setVento(m.vn[0], m.vn[1]); // il vento del mare (issue #41)
     // il colpo si SENTE: scossone e lampo rosso quando lo scafo incassa;
     // Mare calmo li spegne (issue #19, rilievo F9 dell'audit)
@@ -1436,7 +1450,14 @@ function frame(now) {
   }
 
   if (now > minimapAt) {
-    minimap.update({ world: state.world, islands: state.islands, ships, selfId: state.meId, dest: state.dest && state.dest.island });
+    minimap.update({
+      world: state.world, islands: state.islands, ships, selfId: state.meId,
+      dest: state.dest && state.dest.island,
+      // la notte tattica e il meteo (fetta 5): di notte la minimappa vede
+      // solo vicino; le burrasche si vedono sempre (sono cielo, non navi)
+      notte: !!(renderer.lightNow && renderer.lightNow.night > 0.6),
+      burrasche: state.burrasche || [],
+    });
     minimapAt = now + 120;
   }
   music.setMood(now < battleUntil ? 'battaglia' : 'calma');

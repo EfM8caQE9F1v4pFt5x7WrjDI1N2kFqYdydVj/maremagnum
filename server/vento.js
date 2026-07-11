@@ -53,9 +53,39 @@ function fattore(vento, rot) {
   return 1 + MORSO * vento.forza * Math.cos(rot - vento.dir);
 }
 
-// VENTO_FISSO="dir,forza" (solo sviluppo/test, via env del server Node — il
-// Worker non ha process.env e naviga sempre col vento vero): inchioda il
-// vento per collaudi riproducibili, p.es. la bolina piena nei budget dei test.
+// --- le burrasche vaganti (issue #41, fetta 5) ---
+//
+// Due tempeste che girano il mare, deterministiche dall'orologio come il
+// vento: ogni PERIODO ogni burrasca ha un approdo semato ('burrasca-k-n') e
+// ci deriva con lo smoothstep — stesso conto su ogni macchina, sonno del DO
+// compreso. Dentro una burrasca il vento morde a forza PIENA e le palle
+// volano corte: chi ci si infila sceglie il rischio.
+const BURRASCHE = { n: 2, raggio: 550, periodoS: 240, gittata: 0.7 };
+
+function approdoBurrasca(k, n) {
+  const rng = campagna.mulberry32(campagna.hashStr(`burrasca-${k}-${n}`));
+  return { x: 600 + rng() * 4800, y: 600 + rng() * 4800 };
+}
+
+function burrascheAl(tMs) {
+  const out = [];
+  for (let k = 0; k < BURRASCHE.n; k++) {
+    // fase sfalsata per burrasca: non si muovono all'unisono
+    const p = tMs / (BURRASCHE.periodoS * 1000) + k * 0.37;
+    const n = Math.floor(p);
+    const a = approdoBurrasca(k, n), b = approdoBurrasca(k, n + 1);
+    const s = smooth(p - n);
+    out.push({ x: a.x + (b.x - a.x) * s, y: a.y + (b.y - a.y) * s, r: BURRASCHE.raggio });
+  }
+  return out;
+}
+
+const inBurrasca = (burrasche, x, y) =>
+  burrasche.some(b => Math.hypot(x - b.x, y - b.y) < b.r);
+
+// VENTO_FISSO="dir,forza" e BURRASCA_FISSA="x,y,r" (solo sviluppo/test, via
+// env del server Node — il Worker non ha process.env e naviga sempre col
+// meteo vero): inchiodano il meteo per collaudi riproducibili.
 const FISSO = (() => {
   try {
     const v = typeof process !== 'undefined' && process.env && process.env.VENTO_FISSO;
@@ -64,5 +94,16 @@ const FISSO = (() => {
     return { dir: dir || 0, forza: Number.isFinite(forza) ? forza : 1 };
   } catch { return null; }
 })();
+const BURRASCA_FISSA = (() => {
+  try {
+    const v = typeof process !== 'undefined' && process.env && process.env.BURRASCA_FISSA;
+    if (!v) return null;
+    const [x, y, r] = String(v).split(',').map(Number);
+    return [{ x: x || 3000, y: y || 3000, r: r || BURRASCHE.raggio }];
+  } catch { return null; }
+})();
 
-module.exports = { PERIODO_S, MORSO, FORZA_MIN, FISSO, bersaglio, ventoAl, fattore };
+module.exports = {
+  PERIODO_S, MORSO, FORZA_MIN, FISSO, bersaglio, ventoAl, fattore,
+  BURRASCHE, BURRASCA_FISSA, burrascheAl, inBurrasca,
+};
