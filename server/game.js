@@ -1685,6 +1685,9 @@ class Game {
               dir + off, { speed: 300, range: cfg.gittata + 40, dmg: cfg.morso }, 'fuoco'));
           }
           this.broadcast({ t: 'shots', from: ship.id, shots });
+          // il corpo RECITA (audit 4-bis): il fx è FIRMATO — il client fa
+          // scattare il collo della bestia `da` verso il punto colpito
+          this.fxQueue.push({ k: 'soffio', x: r1(preda.x), y: r1(preda.y), da: ship.id });
         }
       } else if (ship.mostro === 'kraken') {
         // la morsa: al contatto danno, vele avviluppate e PRESA che inchioda
@@ -1697,16 +1700,16 @@ class Game {
           if (preda.presaImmuneUntil <= this.now) {
             preda.presaUntil = this.now + cfg.stretta;
             preda.presaImmuneUntil = this.now + cfg.tregua;
-            this.fxQueue.push({ k: 'presa', x: r1(preda.x), y: r1(preda.y) });
+            this.fxQueue.push({ k: 'presa', x: r1(preda.x), y: r1(preda.y), da: ship.id });
           }
-          this.fxQueue.push({ k: 'morso', x: r1(preda.x), y: r1(preda.y) });
+          this.fxQueue.push({ k: 'morso', x: r1(preda.x), y: r1(preda.y), da: ship.id });
         }
       } else {
         // il Serpente: morde e sparisce — si riposiziona alle spalle
         this.steerToward(ship, preda.x, preda.y);
         if (d < cfg.presa && this.now >= ship.morsoAt) {
           this.damageShip(preda, cfg.morso, ship.id);
-          this.fxQueue.push({ k: 'morso', x: r1(preda.x), y: r1(preda.y) });
+          this.fxQueue.push({ k: 'morso', x: r1(preda.x), y: r1(preda.y), da: ship.id });
           ship.sommerso = true;
           ship.riposizionaFino = this.now + 6; // poi riemerge comunque
           this.fxQueue.push({ k: 'tuffo', x: r1(ship.x), y: r1(ship.y) });
