@@ -466,7 +466,13 @@ body.conPannello #hint { opacity: 0; }
 .wname .pips { color: var(--edge); letter-spacing: 2px; font-size: var(--t-xs); text-align: right; }
 /* la scheda dell'arma coi numeri (audit Cantiere): seconda riga sotto il nome */
 .wname .wstat { grid-column: 1 / span 3; font-size: var(--t-2xs); color: var(--ink-mute); }
-.wslot > button, .wslot > .maxed { justify-self: end; grid-column: 4; grid-row: 1 / span 2; }
+/* la colonna delle azioni (audit 2): potenzia/sostituisci e il ⇄ delle
+   esclusive impilati, col respiro del token */
+.wazioni {
+  grid-column: 4; grid-row: 1 / span 2; justify-self: stretch;
+  display: flex; flex-direction: column; gap: var(--s-1); justify-content: center;
+}
+.wazioni .maxed { text-align: right; }
 .wslot button { padding: var(--s-1) var(--s-3); font-size: var(--t-sm); width: 100%; }
 /* il potenziamento è una spesa d'oro, non un accento alieno (issue #32,
    disciplina dei 3 accenti): oro ACCESO come la scheda attiva del Cantiere.
@@ -477,8 +483,24 @@ body.conPannello #hint { opacity: 0; }
    legno secondario, quieto e in-palette (non più il salvia alieno). */
 .addSlot { margin-top: var(--s-2); width: 100%; font-size: var(--t-sm); background: linear-gradient(var(--wood-1), var(--wood-2)); color: var(--cream); }
 
-/* ---- cantiere (righe nave) ---- */
-#shopRows { display: flex; flex-direction: column; gap: var(--s-2); margin-bottom: 0; text-align: left; }
+/* ---- cantiere: il RITMO delle schede è dei token (audit 2) ----
+   La vecchia regola puntava a #shopRows, un id FANTASMA morto in un
+   refactor: il gap c'era sulla carta e non nel DOM — per questo le righe
+   erano appiccicate. I contenitori VERI delle quattro schede prendono
+   tutti lo stesso respiro, e i margini locali dei figli si azzerano:
+   la distanza minima la detta UNA fonte sola, il token. */
+#shopShip, #shopVaro, #shopWeapons, #shopLivree {
+  display: flex; flex-direction: column; gap: var(--s-3); margin-bottom: 0; text-align: left;
+}
+#shopShip .shipClass, #shopWeapons .wgroup { margin-bottom: 0; }
+#shopWeapons .shopNota, #shopVaro .shopNota, #shopLivree .shopNota { margin: 0; }
+/* i titoli di sezione dentro le schede: niente margini propri, il ritmo
+   lo detta il gap del contenitore; il sottotitolo torna testo quieto */
+#shopLivree .shopSection, #shopVaro .shopSection { margin: var(--s-2) 0 0; }
+.shopSection .sezioneSotto {
+  font-variant: normal; letter-spacing: 0; font-weight: normal;
+  font-size: var(--t-xs); color: var(--ink-mute); font-style: italic;
+}
 .shopRow {
   display: flex; align-items: center; justify-content: space-between; gap: var(--s-4);
   background: var(--paper-60); border: 1px solid var(--edge); border-radius: var(--r-sm); padding: var(--s-2) var(--s-3);

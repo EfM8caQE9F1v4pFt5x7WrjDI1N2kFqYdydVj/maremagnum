@@ -274,6 +274,7 @@ export class MareDO {
       tipo: ship.tipo,
       vari: ship.vari,
       mounts: ship.mounts,
+      esclusive: { ...(ship.esclusive || {}) }, // l'arsenale (audit Cantiere 2)
       conquered: [...(ship.conquered || [])],
       preferiti: [...(ship.preferiti || [])],
       livree: [...(ship.livree || [])],

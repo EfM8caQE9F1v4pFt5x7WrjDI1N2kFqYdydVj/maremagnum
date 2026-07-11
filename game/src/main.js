@@ -152,6 +152,8 @@ async function boot() {
     onBuySlot: (group) => net.send({ t: 'buySlot', group }),
     onUpgradeWeapon: (group, slot) => net.send({ t: 'upgradeWeapon', group, slot }),
     onReplaceWeapon: (group, slot) => net.send({ t: 'replaceWeapon', group, slot }),
+    // il ripensamento delle esclusive (audit Cantiere 2): ⇄ Mortaio gratis
+    onTornaMortaio: (group, slot) => net.send({ t: 'tornaMortaio', group, slot }),
     onAssedioJoin: (role) => net.send({ t: 'assedio', role }),
     onHelp: () => {
       let dominio = '';
@@ -1253,10 +1255,13 @@ if (devParams.get('forceshop')) {
       // deve mostrare la scheda coi numeri veri (audit Cantiere)
       left: { max: 3, nextSlotCost: 200, slots: [
         { slot: 0, type: 'colubrina', lvl: 2, name: 'Colubrina', tier: 1, upCost: 1200, replace: null, stats: { dmg: 11, range: 295, reload: 1.85 } },
-        { slot: 1, type: 'carronata', lvl: 1, name: 'Carronata', tier: 2, upCost: 600, stats: { dmg: 34, range: 230, reload: 2.6 }, replace: { type: 'mortaio', name: 'Mortaio ad Area', cost: 3000, stats: { dmg: 34, range: 500, reload: 4.2 } } },
+        // mortaio al massimo con l'esclusiva GIÀ in arsenale: rimonta gratis
+        { slot: 1, type: 'mortaio', lvl: 3, name: 'Mortaio ad Area', tier: 4, upCost: null, stats: { dmg: 50, range: 590, reload: 3.6 }, replace: { type: 'pesante', name: 'Carronata Pesante', cost: 0, posseduta: true, stats: { dmg: 44, range: 210, reload: 3.2 } } },
       ] },
       right: { max: 3, nextSlotCost: 200, slots: [
         { slot: 0, type: 'colubrina', lvl: 3, name: 'Colubrina', tier: 1, upCost: null, stats: { dmg: 14, range: 320, reload: 1.7 }, replace: { type: 'cannone', name: 'Cannone', cost: 900, stats: { dmg: 16, range: 330, reload: 2.3 } } },
+        // l'esclusiva montata: si potenzia E si può tornare al Mortaio (⇄)
+        { slot: 1, type: 'pesante', lvl: 2, name: 'Carronata Pesante', tier: 5, upCost: 4850, stats: { dmg: 53, range: 225, reload: 3.0 }, replace: null, indietro: { name: 'Mortaio ad Area' } },
       ] },
       bow: { max: 2, nextSlotCost: 300, slots: [
         { slot: 0, type: 'cannone', lvl: 1, name: 'Cannone', tier: 2, upCost: 800, replace: null, stats: { dmg: 16, range: 330, reload: 2.3 } },
@@ -1399,6 +1404,18 @@ function interpolatedShips() {
       rot: anglerp(sa.rot, sb.rot, t),
       vel: lerp(sa.vel, sb.vel, t),
     });
+  }
+  // ?forcemostro=1 (sviluppo): le tre bestie posano accanto alla nave — due
+  // emerse e una sommersa — per fotografare il design senza aspettare gli abissi
+  if (devParams.get('forcemostro')) {
+    const me = out.find(s => s.id === state.meId);
+    if (me) {
+      out.push(
+        { id: 'mock-drago', name: 'Drago di Mare', x: me.x + 230, y: me.y - 120, rot: 2.6, vel: 0, hp: 380, maxHp: 380, k: 'x', mo: 'drago', docked: null, sunk: false, gp: [], gw: [] },
+        { id: 'mock-kraken', name: 'Kraken', x: me.x - 240, y: me.y + 70, rot: 0.4, vel: 0, hp: 520, maxHp: 700, k: 'x', mo: 'kraken', docked: null, sunk: false, gp: [], gw: [] },
+        { id: 'mock-serpente', name: 'Serpente Abissale', x: me.x + 60, y: me.y + 220, rot: -0.7, vel: 0, hp: 300, maxHp: 300, k: 'x', mo: 'serpente', so: 1, docked: null, sunk: false, gp: [], gw: [] },
+      );
+    }
   }
   // ?forcedebuff=1|rs (sviluppo): la propria nave posa da colpita (glifi ⛓☠)
   // o da arresa (🏳) in foto, senza aspettare una vera bordata

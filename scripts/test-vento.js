@@ -51,17 +51,17 @@ for (let n = 0; n < 12; n++) {
 assert(ruota > 0.5, 'in dodici periodi il vento non ha mai girato: che mare piatto');
 ok('vivacità: da un periodo all\'altro si cambia andatura');
 
-// — 5) il morso: poppa +15%, bolina −15%, traverso neutro (tetto #11) —
+// — 5) il morso ASIMMETRICO (ordine del capitano, 2026-07-11): poppa +15%,
+// bolina −25% (deroga esplicita al vecchio tetto #11), traverso neutro —
 const pieno = { dir: 0, forza: 1 };
-assert(Math.abs(vento.fattore(pieno, 0) - (1 + vento.MORSO)) < 1e-9, 'poppa piena');
-assert(Math.abs(vento.fattore(pieno, Math.PI) - (1 - vento.MORSO)) < 1e-9, 'bolina piena');
+assert(Math.abs(vento.fattore(pieno, 0) - (1 + vento.MORSO.poppa)) < 1e-9, 'poppa piena');
+assert(Math.abs(vento.fattore(pieno, Math.PI) - (1 - vento.MORSO.bolina)) < 1e-9, 'bolina piena');
 assert(Math.abs(vento.fattore(pieno, Math.PI / 2) - 1) < 1e-9, 'traverso neutro');
 for (let i = 0; i < 100; i++) {
   const f = vento.fattore(vento.ventoAl(t0 + i * 31337 * 1000), i * 0.7);
-  assert(f >= 1 - vento.MORSO - 1e-9 && f <= 1 + vento.MORSO + 1e-9, `morso oltre il ±15%: ${f}`);
+  assert(f >= 1 - vento.MORSO.bolina - 1e-9 && f <= 1 + vento.MORSO.poppa + 1e-9, `morso fuori scala: ${f}`);
 }
-assert(vento.MORSO <= 0.20 + 1e-9, 'il tetto di #11 (±20%) è legge');
-ok(`morso: ±${vento.MORSO * 100}% a piena forza, dentro il tetto #11`);
+ok(`morso asimmetrico: +${vento.MORSO.poppa * 100}% in poppa, −${vento.MORSO.bolina * 100}% di bolina`);
 
 // — 6) in mare: la stessa nave corre di più in poppa che di bolina —
 const etere = []; // il broadcast del mare finisce qui
@@ -93,8 +93,8 @@ const diBolina = velAsintotica(A, Math.PI);
 assert(inPoppa > diBolina * 1.2, `in poppa (${inPoppa.toFixed(1)}) non stacca la bolina (${diBolina.toFixed(1)})`);
 const base = 135 + A.sailsLvl * 20; // goletta non varata: speedMul 1
 assert(Math.abs(inPoppa - base * 1.15) < 3, `poppa attesa ~${base * 1.15}, misurata ${inPoppa.toFixed(1)}`);
-assert(Math.abs(diBolina - base * 0.85) < 3, `bolina attesa ~${base * 0.85}, misurata ${diBolina.toFixed(1)}`);
-ok(`in mare: poppa ${inPoppa.toFixed(0)} px/s vs bolina ${diBolina.toFixed(0)} px/s (±15%)`);
+assert(Math.abs(diBolina - base * 0.75) < 3, `bolina attesa ~${base * 0.75}, misurata ${diBolina.toFixed(1)}`);
+ok(`in mare: poppa ${inPoppa.toFixed(0)} px/s vs bolina ${diBolina.toFixed(0)} px/s (+15/−25)`);
 
 // — 7) anche gli NPC sono velieri: il vento non li dimentica —
 const merc = [...game.ships.values()].find(s => s.npc === 'merc');
@@ -102,7 +102,7 @@ assert(merc, 'un mercantile in mare c\'è sempre');
 const mPoppa = velAsintotica(merc, 0);
 const mBolina = velAsintotica(merc, Math.PI);
 assert(Math.abs(mPoppa - 75 * 1.15) < 3, `mercantile in poppa: atteso ~${75 * 1.15}, misurato ${mPoppa.toFixed(1)}`);
-assert(Math.abs(mBolina - 75 * 0.85) < 3, `mercantile di bolina: atteso ~${75 * 0.85}, misurato ${mBolina.toFixed(1)}`);
+assert(Math.abs(mBolina - 75 * 0.75) < 3, `mercantile di bolina: atteso ~${75 * 0.75}, misurato ${mBolina.toFixed(1)}`);
 ok('NPC: le velocità fisse dei mercantili sentono il vento come tutti');
 
 // — 8) lo snapshot porta il vento: campo additivo vn = [dir, forza] —

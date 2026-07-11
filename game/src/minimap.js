@@ -59,14 +59,37 @@ export class Minimap {
     for (const ship of ships) {
       if (ship.sunk || ship.docked) continue;
       // la notte tattica (fetta 5): di notte la minimappa vede solo vicino —
-      // le vele altrui oltre le 900 leghe si perdono nel buio
-      if (notte && me && ship.id !== selfId && Math.hypot(ship.x - me.x, ship.y - me.y) > 900) continue;
+      // le vele altrui oltre le 900 leghe si perdono nel buio. Le carovane
+      // (cv) però sono EVENTI annunciati: si segnano sempre (audit 2)
+      if (notte && me && ship.id !== selfId && !ship.cv && Math.hypot(ship.x - me.x, ship.y - me.y) > 900) continue;
       const x = px(ship.x), y = py(ship.y);
       if (ship.id === selfId) {
         g.save(); g.translate(x, y); g.rotate(ship.rot);
         g.fillStyle = '#1c4d18';
         g.beginPath(); g.moveTo(6, 0); g.lineTo(-4, -4); g.lineTo(-4, 4); g.closePath(); g.fill();
         g.restore();
+      } else if (ship.cv) {
+        // il capo carovana: rombo ambrato per il convoglio, doppio anello
+        // d'oro per il Galeone del Tesoro — la preda si va a cercare
+        if (ship.cv === 2) {
+          g.fillStyle = '#e8c268';
+          g.beginPath(); g.arc(x, y, 3.6, 0, Math.PI * 2); g.fill();
+          g.strokeStyle = '#8a5a17'; g.lineWidth = 1.5;
+          g.beginPath(); g.arc(x, y, 5.4, 0, Math.PI * 2); g.stroke();
+        } else {
+          g.fillStyle = '#c8963c';
+          g.save(); g.translate(x, y); g.rotate(Math.PI / 4);
+          g.fillRect(-3, -3, 6, 6); g.restore();
+          g.strokeStyle = '#5a3d1c'; g.lineWidth = 1;
+          g.save(); g.translate(x, y); g.rotate(Math.PI / 4); g.strokeRect(-3, -3, 6, 6); g.restore();
+        }
+      } else if (ship.mo) {
+        // i mostri (audit 2): sommersi non si segnano (il mistero è metà
+        // del mostro); emersi = pallino viola, la caccia è aperta
+        if (ship.so) continue;
+        g.fillStyle = '#6a3a8a';
+        g.beginPath(); g.arc(x, y, 3, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#2a1040'; g.lineWidth = 1; g.stroke();
       } else {
         g.fillStyle = ship.npc ? 'rgba(70,80,90,0.8)' : '#9e1f12';
         g.beginPath(); g.arc(x, y, 2.4, 0, Math.PI * 2); g.fill();

@@ -16,6 +16,8 @@ const etere = [];
 const game = new Game((m) => etere.push(m));
 game.pausa();
 game.vento = { dir: 0, forza: 0 };
+// mezzogiorno inchiodato: il bottino notturno (×1.5, fetta 5) ha i suoi test
+game.now = Math.floor(game.now / 480) * 480 + 0.25 * 480;
 
 const inP = [], inQ = [];
 const P = game.join(conn(inP), { t: 'join', name: 'Predone', profile: { gold: 0 } });

@@ -49,11 +49,12 @@ const velA = (dentro) => {
   return P.vel;
 };
 const fuori = velA(false); // poppa a mezza forza: 135 × 1.075
-const dentro = velA(true); // poppa a forza piena: 135 × 1.15
+const dentro = velA(true); // poppa a forza piena MA mare grosso: 135 × 1.15 × 0.85
 assert(Math.abs(fuori - 135 * 1.075) < 2, `fuori: ${fuori.toFixed(1)} (atteso ~145)`);
-assert(Math.abs(dentro - 135 * 1.15) < 2, `dentro: ${dentro.toFixed(1)} (atteso ~155)`);
+assert(Math.abs(dentro - 135 * 1.15 * vento.BURRASCHE.lentezza) < 2, `dentro: ${dentro.toFixed(1)} (atteso ~132)`);
+assert(dentro < fuori, 'nella tempesta si naviga PEGGIO, anche col vento in poppa');
 P.input = { up: false, down: false, left: false, right: false };
-ok(`vento in tempesta: ${fuori.toFixed(0)} px/s fuori, ${dentro.toFixed(0)} dentro (forza piena)`);
+ok(`mare grosso: ${fuori.toFixed(0)} px/s fuori, ${dentro.toFixed(0)} dentro (vento pieno × lentezza)`);
 
 // — 3) nella pioggia le palle volano corte: gittata ×0.7 —
 P.x = px; P.y = py;
