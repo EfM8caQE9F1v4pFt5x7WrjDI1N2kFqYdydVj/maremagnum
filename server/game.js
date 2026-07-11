@@ -84,10 +84,29 @@ const CACCIA = { ogniKill: 3, bounty: 120, ttl: 240, max: 2, stazza: 1.5 };
 // spalle). L'emersione è TELEGRAFATA: l'ombra si gonfia per `emersione`
 // secondi prima del primo assalto (`agguatoRapido` per le riemersioni del
 // Serpente) — chi guarda il mare ha il tempo di virare.
+// Audit 5 (rilievo degli utenti): niente più baricentro-tuttofare. `muso`
+// è il punto d'ATTACCO, avanti lungo la prua — il Serpente morde con la
+// TESTA, il Drago sputa dalla gola; il Kraken agguanta da tutto il
+// ventaglio (muso 0, ma presa lunga quanto i tentacoli e cadenza più
+// larga a compensare). `sagoma` è il BERSAGLIO: cerchi lungo l'asse del
+// corpo — il piombo colpisce dove il corpo È (testa, pancia, coda), non
+// un cerchio astratto nel centro. `raggio` resta per le isole.
 const MOSTRI = {
-  drago: { nome: 'Drago di Mare', hp: 1500, vel: 95, taglia: 900, morso: 14, raffica: 3, ventaglio: 0.35, gittata: 380, distanza: 260, cadenza: 2.5, raggio: 80 },
-  kraken: { nome: 'Kraken', hp: 2800, vel: 55, taglia: 1600, morso: 30, presa: 130, stretta: 2, tregua: 8, cadenza: 1.4, raggio: 110 },
-  serpente: { nome: 'Serpente Abissale', hp: 1200, vel: 130, taglia: 650, morso: 22, presa: 90, cadenza: 1.0, raggio: 70 },
+  drago: {
+    nome: 'Drago di Mare', hp: 1500, vel: 95, taglia: 900, morso: 14, raffica: 3,
+    ventaglio: 0.35, gittata: 380, distanza: 260, cadenza: 2.5, raggio: 80, muso: 150,
+    sagoma: [{ dx: 150, r: 52 }, { dx: 30, r: 58 }, { dx: -100, r: 48 }, { dx: -200, r: 36 }],
+  },
+  kraken: {
+    nome: 'Kraken', hp: 2800, vel: 55, taglia: 1600, morso: 30, presa: 230,
+    stretta: 2, tregua: 8, cadenza: 1.6, raggio: 110, muso: 0,
+    sagoma: [{ dx: 110, r: 75 }, { dx: 0, r: 85 }, { dx: -130, r: 95 }],
+  },
+  serpente: {
+    nome: 'Serpente Abissale', hp: 1200, vel: 130, taglia: 650, morso: 22, presa: 90,
+    cadenza: 1.0, raggio: 70, muso: 150,
+    sagoma: [{ dx: 150, r: 45 }, { dx: 0, r: 52 }, { dx: -150, r: 40 }],
+  },
 };
 const MOSTRO = {
   aggro: 320, pAgguato: 0.0015, fuga: 1100, riposo: 120, vagabondo: 40,
@@ -1651,6 +1670,24 @@ class Game {
 
   // --- i mostri marini (audit 2) ---
 
+  // la BOCCA del mostro (audit 5): il punto d'attacco, avanti lungo la prua
+  bocca(ship) {
+    const muso = MOSTRI[ship.mostro].muso || 0;
+    return { x: ship.x + Math.cos(ship.rot) * muso, y: ship.y + Math.sin(ship.rot) * muso };
+  }
+
+  // la distanza di (x,y) dalla SAGOMA del mostro: minimo sui cerchi lungo
+  // l'asse del corpo, negativa = dentro. Il piombo colpisce dove il corpo È.
+  distanzaMostro(ship, x, y) {
+    let min = Infinity;
+    for (const c of MOSTRI[ship.mostro].sagoma) {
+      const cx = ship.x + Math.cos(ship.rot) * c.dx;
+      const cy = ship.y + Math.sin(ship.rot) * c.dx;
+      min = Math.min(min, Math.hypot(x - cx, y - cy) - c.r);
+    }
+    return min;
+  }
+
   // sommerso: vaga lento e, se una nave viva gli passa sopra, PUÒ decidere
   // l'agguato (a caso) — ma l'emersione è TELEGRAFATA: l'ombra si gonfia per
   // qualche secondo prima che la bestia buchi il pelo dell'acqua. Emerso:
@@ -1671,17 +1708,21 @@ class Game {
         this.broadcast({ t: 'feed', msg: `🌊 ${ship.name} si rituffa negli abissi.` });
         return;
       }
-      const d = Math.hypot(preda.x - ship.x, preda.y - ship.y);
+      // le distanze d'attacco si misurano dalla BOCCA (audit 5): il serpente
+      // morde quando la TESTA arriva allo scafo, non quando ci arriva la
+      // pancia — niente più bestie che azzannano col baricentro
+      const bocca = this.bocca(ship);
+      const d = Math.hypot(preda.x - bocca.x, preda.y - bocca.y);
       if (ship.mostro === 'drago') {
         // artiglieria volante: tiene la distanza e RAFFICA a ventaglio
         this.steerToward(ship, preda.x, preda.y, d > cfg.distanza);
         if (d < cfg.gittata && this.now >= ship.morsoAt) {
           ship.morsoAt = this.now + cfg.cadenza;
-          const dir = Math.atan2(preda.y - ship.y, preda.x - ship.x);
+          const dir = Math.atan2(preda.y - bocca.y, preda.x - bocca.x);
           const shots = [];
           for (let i = 0; i < cfg.raffica; i++) {
             const off = (i - (cfg.raffica - 1) / 2) * (cfg.ventaglio / (cfg.raffica - 1) * 2);
-            shots.push(this.spawnShot(ship.id, ship.x + Math.cos(dir + off) * 60, ship.y + Math.sin(dir + off) * 60,
+            shots.push(this.spawnShot(ship.id, bocca.x + Math.cos(dir + off) * 30, bocca.y + Math.sin(dir + off) * 30,
               dir + off, { speed: 300, range: cfg.gittata + 40, dmg: cfg.morso }, 'fuoco'));
           }
           this.broadcast({ t: 'shots', from: ship.id, shots });
@@ -1859,8 +1900,10 @@ class Game {
         for (const ship of this.ships.values()) {
           if (ship.id === shot.owner || ship.docked || this.isSunk(ship)) continue;
           if (ship.npc === 'mostro' && ship.sommerso) continue; // le palle passano sopra la sagoma
-          // i mostri emersi sono BERSAGLI GROSSI: il loro raggio, non i 24 di una chiglia
-          if (Math.hypot(ship.x - shot.x, ship.y - shot.y) < (ship.npc === 'mostro' ? MOSTRI[ship.mostro].raggio : 24)) {
+          // i mostri emersi si colpiscono sulla SAGOMA (audit 5): testa,
+          // pancia e coda contano — non un cerchio astratto nel baricentro
+          if (ship.npc === 'mostro' ? this.distanzaMostro(ship, shot.x, shot.y) <= 0
+            : Math.hypot(ship.x - shot.x, ship.y - shot.y) < 24) {
             // la rastrellata: solo colpi diretti fra navi (le torri non
             // manovrano, il mortaio vola sopra e non c'entra: è AoE)
             let dmg = shot.damage;
@@ -1912,7 +1955,8 @@ class Game {
     for (const ship of this.ships.values()) {
       if (ship.id === shot.owner || ship.docked || this.isSunk(ship)) continue;
       if (ship.npc === 'mostro' && ship.sommerso) continue; // nemmeno il mortaio pesca sott'acqua
-      if (Math.hypot(ship.x - shot.x, ship.y - shot.y) < shot.aoe + (ship.npc === 'mostro' ? MOSTRI[ship.mostro].raggio : 14)) {
+      if (ship.npc === 'mostro' ? this.distanzaMostro(ship, shot.x, shot.y) < shot.aoe
+        : Math.hypot(ship.x - shot.x, ship.y - shot.y) < shot.aoe + 14) {
         this.damageShip(ship, shot.damage, shot.owner);
       }
     }

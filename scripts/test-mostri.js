@@ -92,12 +92,21 @@ const presaPrima = P.presaUntil;
 kraken.morsoAt = 0;
 game.steerMostro(kraken);
 assert.strictEqual(P.presaUntil, presaPrima, 'nella tregua la presa non si rinnova');
+// la morsa arriva dove arrivano i TENTACOLI (audit 5): 200 leghe sì, 320 no
+kraken.morsoAt = 0; P.hp = 200;
+P.x = kraken.x + 200; P.y = kraken.y;
+game.steerMostro(kraken);
+assert.strictEqual(200 - P.hp, 30, 'agguantato a 200 (punta dei tentacoli)');
+kraken.morsoAt = 0; P.hp = 200;
+P.x = kraken.x + 320;
+game.steerMostro(kraken);
+assert.strictEqual(P.hp, 200, 'a 320 i tentacoli non arrivano');
 P.presaUntil = 0; P.presaImmuneUntil = 0; P.hp = 200; // ripulito per dopo
-ok('Kraken: morso 30, vele avviluppate, presa ~2s con tregua di 8');
+ok('Kraken: morso 30, vele avviluppate, presa ~2s con tregua, tentacoli lunghi 230');
 
-// — 5) la raffica del Drago: TRE fiammate a ventaglio (mn=fuoco) —
+// — 5) la raffica del Drago: TRE fiammate a ventaglio (mn=fuoco), dalla GOLA —
 drago.sommerso = false; drago.predaId = P.id; drago.morsoAt = 0;
-drago.x = px + 600; drago.y = py + 600;
+drago.x = px + 600; drago.y = py + 600; drago.rot = 0; // gola a +150
 P.x = drago.x + 250; P.y = drago.y;
 game.steerMostro(drago);
 const soffio = [...etere].reverse().find(m => m.t === 'shots' && m.from === drago.id);
@@ -116,12 +125,18 @@ assert(drago.agguatoDorme > game.now, 'e digerisce la delusione');
 assert(etere.some(m => m.t === 'feed' && /si rituffa negli abissi/.test(m.msg || '')), 'il tuffo è pubblico');
 ok('fuga: oltre le 1100 leghe il mostro molla e si rituffa');
 
-// — 7) il Serpente: morde e FUGGE, poi riemerge alle spalle —
+// — 7) il Serpente morde con la TESTA, mai col baricentro (audit 5) —
 serpente.sommerso = false; serpente.predaId = P.id; serpente.morsoAt = 0;
-serpente.x = px; serpente.y = py;
-P.x = px + 50; P.y = py; P.rot = 0; P.hp = 200;
+serpente.x = px; serpente.y = py; serpente.rot = 0; // testa a +150
+// la preda sulla PANCIA del serpente: niente morso (era il baco segnalato)
+P.x = px + 20; P.y = py; P.rot = 0; P.hp = 200;
 game.steerMostro(serpente);
-assert.strictEqual(200 - P.hp, 22, 'morso da 22');
+assert.strictEqual(P.hp, 200, 'dal mezzo non si morde: la bocca è a prua');
+assert(!serpente.sommerso, 'e infatti resta fuori, a inseguire');
+// la preda davanti alla TESTA: adesso sì
+P.x = px + 180;
+game.steerMostro(serpente);
+assert.strictEqual(200 - P.hp, 22, 'morso da 22, dalla testa');
 assert(serpente.sommerso, 'e GIÙ: mordi-e-fuggi');
 assert.strictEqual(serpente.predaId, P.id, 'ma la preda resta agganciata');
 assert(serpente.riposizionaFino > game.now, 'il riposizionamento ha una scadenza');
@@ -141,6 +156,16 @@ assert(!serpente.sommerso, 'riemerso dietro la poppa');
 const feedDopo = etere.filter(m => m.t === 'feed' && /EMERGE/.test(m.msg || '')).length;
 assert.strictEqual(feedDopo, feedPrima, 'le riemersioni del Serpente non intasano il feed');
 ok('Serpente: mordi-e-fuggi, caccia subacquea a 160, riemersione rapida alle spalle');
+
+// — 7-bis) la sagoma: il piombo colpisce testa, pancia e coda — non un
+// cerchio astratto nel baricentro (audit 5, rilievo degli utenti)
+serpente.sommerso = false; serpente.rot = 0; serpente.x = px; serpente.y = py;
+assert(game.distanzaMostro(serpente, px + 150, py) <= 0, 'la TESTA si colpisce');
+assert(game.distanzaMostro(serpente, px - 150, py) <= 0, 'la CODA si colpisce');
+assert(game.distanzaMostro(serpente, px, py) <= 0, 'la pancia pure');
+assert(game.distanzaMostro(serpente, px + 340, py) > 0, 'oltre la testa è acqua');
+assert(game.distanzaMostro(serpente, px, py + 140) > 0, 'di fianco è acqua');
+ok('sagoma: il corpo si colpisce dove si vede, testa e coda comprese');
 
 // — 8) abbatterlo paga la taglia FISSA, va in Gazzetta, niente Cacciatori —
 serpente.x = px; serpente.y = py; P.x = px + 50; P.y = py;
