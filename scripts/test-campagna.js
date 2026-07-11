@@ -72,8 +72,10 @@ const base = campagna.genera('settimanale', 3000, isole);
 // l'AI dichiara 'tosto' e prova a iniettare un premio gonfio + difese assurde: ignorati
 const vestita = campagna.applicaVestito(base, {
   nome: 'Le Fauci del Kraken', lore: 'Tre convogli inghiottiti dal nulla.',
+  nome_en: 'The Kraken\'s Maw', lore_en: 'Three convoys swallowed by nothing.',
   difficolta: 'tosto', premio: 999999, bersaglio: 'archive.org',
   tappe: ['Il mare ribolle.', 'Ombre sotto la chiglia.', 'La resa dei conti.'],
+  tappe_en: ['The sea seethes.', 'Shadows beneath the keel.', 'The reckoning.'],
   difese: { torri: 999, bombarde: 99, specchio: true },
 }, isole);
 assert.strictEqual(vestita.premio, campagna.LISTINO.tosto, 'premio dal LISTINO, MAI dall\'AI (no pay-to-win)');
@@ -81,6 +83,11 @@ assert.strictEqual(vestita.bersaglio, 'archive.org', 'bersaglio reale accettato'
 assert(vestita.tappe[2].desc.includes('archive.org'), 'la tappa finale si riallinea al bersaglio scelto');
 assert(vestita.difese.torri <= 10 && vestita.difese.bombarde <= 3, 'difese clampate a range giocabili');
 assert(vestita.nome === 'Le Fauci del Kraken' && vestita.tappe[0].lore === 'Il mare ribolle.', 'nome e narrazione AI adottati');
+// i18n fetta 3: il Mastro parla anche inglese — stessa chiamata, stessa blindatura
+assert(vestita.nome_en === "The Kraken's Maw" && vestita.lore_en === 'Three convoys swallowed by nothing.', 'nome e lore inglesi adottati');
+assert(vestita.tappe[0].lore_en === 'The sea seethes.', 'la narrazione en per tappa viaggia');
+assert(vestita.tappe[0].tk && vestita.tappe[0].tp && vestita.tappe[0].tp.n, 'le tappe meccaniche portano chiave e parametri (tk/tp)');
+assert.strictEqual(vestita.tappe[2].tk, 'tappa.espugnazione', 'la tappa finale ha la chiave d\'espugnazione');
 // bersaglio FINTO → rifiutato, resta un'isola reale (quella procedurale)
 const finto = campagna.applicaVestito(base, { bersaglio: 'malware-inventato.xyz', difficolta: 'facile' }, isole);
 assert(isole.includes(finto.bersaglio), 'bersaglio inventato rifiutato, resta reale');

@@ -1,7 +1,7 @@
 // Tutta la UI DOM sopra il canvas: barra della rotta, HUD, plance e pergamene.
 
 import { drawTreasureMap } from './mapgen.js';
-import { t as tr } from './i18n.js';
+import { t as tr, getLang } from './i18n.js';
 import { tMsg, nomeIsola } from './dict-mare.js';
 import { disegnaBandiera, TINTE, TAGLI, EMBLEMI } from './bandiera.js';
 
@@ -1393,19 +1393,25 @@ export class UI {
   }
 
   _cardCampagna(campagna) {
+    // il Mastro parla due lingue (i18n fetta 3): si serve quella corrente,
+    // con l'italiano come fallback (le campagne d'annata restano com'erano)
+    const en = getLang() === 'en';
     const cb = document.createElement('div'); cb.className = 'impresaCard mastro';
-    const h = document.createElement('h4'); h.textContent = tr('diario.campagna', { nome: campagna.nome });
+    const h = document.createElement('h4'); h.textContent = tr('diario.campagna', { nome: (en && campagna.nome_en) || campagna.nome });
     cb.appendChild(h);
-    if (campagna.lore) { const l = document.createElement('p'); l.className = 'campagnaLore'; l.textContent = campagna.lore; cb.appendChild(l); }
+    const loreTesto = (en && campagna.lore_en) || campagna.lore;
+    if (loreTesto) { const l = document.createElement('p'); l.className = 'campagnaLore'; l.textContent = loreTesto; cb.appendChild(l); }
     const lista = document.createElement('ol'); lista.className = 'campagnaTappe';
     (campagna.tappe || []).forEach((t, i) => {
       const li = document.createElement('li');
       const fatta = campagna.completata || i < campagna.tappa;
       const corrente = !campagna.completata && i === campagna.tappa;
       li.className = fatta ? 'fatta' : corrente ? 'corrente' : 'futura';
-      li.textContent = (fatta ? '✓ ' : corrente ? '➤ ' : '· ') + t.desc +
+      const descTappa = t.tk ? tMsg(t.tk, t.tp) : t.desc;
+      li.textContent = (fatta ? '✓ ' : corrente ? '➤ ' : '· ') + descTappa +
         (corrente && campagna.fatto > 0 ? ` (${campagna.fatto}/${t.n})` : '');
-      if (t.lore && (corrente || fatta)) li.title = t.lore;
+      const loreTappa = (en && t.lore_en) || t.lore;
+      if (loreTappa && (corrente || fatta)) li.title = loreTappa;
       lista.appendChild(li);
     });
     cb.appendChild(lista);
@@ -1416,8 +1422,9 @@ export class UI {
   }
 
   _cardDungeon(d) {
+    const en = getLang() === 'en';
     const c = document.createElement('div'); c.className = 'impresaCard dungeon';
-    const h = document.createElement('h4'); h.textContent = tr('diario.dungeon', { nome: d.nome });
+    const h = document.createElement('h4'); h.textContent = tr('diario.dungeon', { nome: (en && d.nome_en) || d.nome });
     c.appendChild(h);
     const sub = document.createElement('p'); sub.className = 'sub';
     sub.textContent = d.bersaglio ? tr('diario.assalta', { b: d.bersaglio }) : tr('diario.espugna');

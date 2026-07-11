@@ -143,6 +143,13 @@ const IT = {
   'feed.settimana': '👑 {nome} ha compiuto la settimana piena (+{oro} 🪙)',
   'feed.assedio': '⚔️ {nome} ha bandito un Assedio! Presentarsi alla Bacheca del Porto.',
 
+  // — le tappe delle campagne del Mastro (meccanica code-owned) —
+  'tappa.mercantili': 'Affonda {n} Mercantili',
+  'tappa.scoperte': 'Scopri {n} isole mai visitate',
+  'tappa.fantasmi': 'Affonda {n} Corsari Fantasma',
+  'tappa.espugnazione': 'Espugna le difese di {b}',
+  'tappa.espugnazioneFortezza': 'Espugna una Fortezza Proibita',
+
   // — le missioni del giorno (composte dal client per chiave) —
   'missione.tld': "Attracca a un'isola .{tld}",
   'missione.discover': 'Scopri {n} isole mai visitate',
