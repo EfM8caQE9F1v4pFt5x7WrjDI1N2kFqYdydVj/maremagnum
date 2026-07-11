@@ -24,14 +24,37 @@ const PVE_BOUNTY = { merc: 25, ghost: 60 }; // taglie magre e fisse per tipologi
 // sotto la soglia ammainano — chi li TOCCA li saccheggia (bottino FISSO dal
 // listino, una volta per resa), chi preferisce la missione li affonda lo
 // stesso. Il cooldown è la diga anti-farming; il mare non è un bancomat.
-const RESA = { soglia: 0.3, durata: 25, bottino: 150, bottinoConvoglio: 400, cooldown: 180, hpRitorno: 0.5 };
-// Il convoglio scortato (issue #41, fetta 3): un mercantile panciuto con due
+const RESA = { soglia: 0.3, durata: 25, bottino: 150, cooldown: 180, hpRitorno: 0.5 };
+// Le carovane scortate (issue #41, fette 3 e 4): un capo panciuto coi
 // fantasmi di scorta, in rotta annunciata tra due isole vere. Attacchi uno,
-// rispondono tutti — l'ecologia delle prede di Pirates!.
-const CONVOGLIO = { ogni: 300, scorte: 2, minacciaTtl: 30, stazza: 2 };
-// CONVOGLIO_SUBITO=1 (env, solo Node dev/test): il primo convoglio salpa al
-// primo tick invece che dopo 5 minuti — per collaudi riproducibili
+// rispondono tutti — l'ecologia delle prede di Pirates!. Il convoglio è il
+// pane; il GALEONE DEL TESORO è la festa: raro, corazzato, guardia serrata —
+// e il suo oro si prende col TOCCO: chi lo affonda lo manda negli abissi.
+const CAROVANE = {
+  convoglio: {
+    nome: 'Mercantile di Convoglio', scortaNome: 'Scorta del Convoglio',
+    scorte: 2, stazza: 2, bottino: 400, ogni: 300, lvlScorta: 2,
+    annuncio: (da, a) => `🚢 Un convoglio scortato è salpato: da ${da} verso ${a}, stive piene!`,
+    arrivo: (a) => `⚓ Il convoglio è giunto sano e salvo a ${a}.`,
+    perduto: '🌊 Il mercantile di convoglio è perduto: la scorta, orfana, dà la caccia ai colpevoli.',
+  },
+  tesoro: {
+    nome: 'Galeone del Tesoro', scortaNome: 'Guardia del Tesoro',
+    scorte: 3, stazza: 3, bottino: 1000, ogni: 1800, lvlScorta: 3,
+    annuncio: (da, a) => `👑 IL GALEONE DEL TESORO è salpato: da ${da} verso ${a} — scorta serrata, stive d'oro!`,
+    arrivo: (a) => `👑 Il Galeone del Tesoro è giunto al sicuro a ${a}: l'oro è sbarcato.`,
+    perduto: '🌊 Il Galeone del Tesoro è negli abissi col suo oro: la Guardia, orfana, cerca vendetta.',
+  },
+};
+const MINACCIA_TTL = 30; // il mutuo soccorso ricorda l'aggressore per 30s
+// CONVOGLIO_SUBITO=1 (env, solo Node dev/test): le carovane salpano al primo
+// tick invece che a calendario — per collaudi riproducibili
 const CONVOGLIO_SUBITO = !!(typeof process !== 'undefined' && process.env && process.env.CONVOGLIO_SUBITO);
+// I cacciatori di taglie (issue #41, fetta 4, alla Pirates!): l'infamia
+// chiama — ogni 3 prede (blocchi o affondamenti) un Cacciatore fiuta il
+// colpevole e lo braccia per 4 minuti. Ucciderlo paga FISSO e azzera il
+// conto. Mai più di 2 cacciatori in mare: è un mare, non un tribunale.
+const CACCIA = { ogniKill: 3, bounty: 120, ttl: 240, max: 2, stazza: 1.5 };
 // L'economia del blocco (issue #15, arrembaggio v1): vita a zero per mano di
 // un capitano = nave BLOCCATA, non affondata. Il doppiofondo della Stiva è
 // SEMPRE protetto; il resto è "il forziere in gioco": 25% subito al vincitore,
@@ -211,9 +234,13 @@ class Game {
     this.nextShotId = 1;
     this.now = Date.now() / 1000;
     this.vento = vento.FISSO || vento.ventoAl(this.now * 1000); // il vento del mare (issue #41)
-    // il convoglio scortato (issue #41, fetta 3): uno alla volta, a orologio
-    this.convoglio = null;
-    this.prossimoConvoglio = this.now + (CONVOGLIO_SUBITO ? 0 : CONVOGLIO.ogni);
+    // le carovane scortate (issue #41, fette 3-4): una per tipo, a calendario
+    this.carovane = { convoglio: null, tesoro: null };
+    this.prossimaCarovana = {
+      convoglio: this.now + (CONVOGLIO_SUBITO ? 0 : CAROVANE.convoglio.ogni),
+      tesoro: this.now + (CONVOGLIO_SUBITO ? 0 : CAROVANE.tesoro.ogni),
+    };
+    this.cacciatori = 0; // quanti Cacciatori di Taglie battono il mare
     this.tickCount = 0;
     this.fxQueue = [];
     for (let i = 0; i < NPCS.merc; i++) this.spawnNpc('merc');
@@ -271,8 +298,10 @@ class Game {
       // le munizioni (issue #41, fetta 2): scelta di sessione, mai persistita;
       // i debuff sono temporanei e si rinfrescano, non si sommano
       munizione: 'palle', veleTagliateUntil: 0, falcidiaUntil: 0,
-      // la resa dei mercantili e il convoglio (issue #41, fetta 3)
+      // la resa dei mercantili e le carovane (issue #41, fette 3-4)
       resaUntil: 0, resaCooldownUntil: 0, saccheggiato: false, convoglio: null,
+      // i cacciatori di taglie (fetta 4): il conto dell'infamia e il mandato
+      tagliaCacciata: 0, caccia: null,
       visited: new Set(), conquered: new Set(), preferiti: new Set(),
       livree: new Set(), livrea: null, vele: null, scia: null, bandiera: null,
       mission: null, wp: null, fleeUntil: 0,
@@ -349,6 +378,9 @@ class Game {
     ship.gold = Math.min(1e7, ship.gold + sanificati.riscatto);
     ship.riscattoAlJoin = sanificati;
     ship.kills = Math.min(1e6, Math.max(0, p.kills | 0));
+    // l'infamia dei Cacciatori (fetta 4) conta le prede di SESSIONE: il
+    // veterano che torna non si trova un mandato vecchio sulla testa
+    ship.tagliaCacciata = ship.kills;
     ship.deaths = Math.min(1e6, Math.max(0, p.deaths | 0));
     if (Array.isArray(p.conquered)) {
       for (const d of p.conquered.slice(0, 500)) if (typeof d === 'string') ship.conquered.add(d.slice(0, 100));
@@ -1189,7 +1221,11 @@ class Game {
       if (ship.resaUntil > this.now) {
         ship.input.up = ship.input.left = ship.input.right = false;
       } else if (ship.npc === 'merc') (ship.convoglio ? this.steerCapo(ship) : this.steerMerc(ship));
-      else if (ship.npc === 'ghost') (ship.convoglio ? this.steerScorta(ship) : this.steerGhost(ship));
+      else if (ship.npc === 'ghost') {
+        if (ship.convoglio) this.steerScorta(ship);
+        else if (ship.caccia) this.steerCacciatore(ship);
+        else this.steerGhost(ship);
+      }
       this.move(ship, dt);
       if (ship.ramUntil > this.now) this.ramTick(ship);
       this.regen(ship, dt);
@@ -1197,7 +1233,7 @@ class Game {
     this.moveShots(dt);
     this.tickForts(dt);
     this.tickResa();
-    this.tickConvoglio();
+    this.tickCarovane();
     this.missions.tick(this.now);
     this.tickCount++;
     if (this.fxQueue.length) { this.broadcast({ t: 'fx', list: this.fxQueue }); this.fxQueue = []; }
@@ -1255,40 +1291,45 @@ class Game {
     this.steerToward(ship, ship.wp.x, ship.wp.y);
   }
 
-  // --- il convoglio scortato e la resa (issue #41, fetta 3) ---
+  // --- le carovane scortate, la resa e i cacciatori (issue #41, fette 3-4) ---
 
-  // il capo del convoglio tira dritto verso il porto di destinazione:
+  // il capo della carovana tira dritto verso il porto di destinazione:
   // niente giri turistici, la rotta è quella annunciata
   steerCapo(ship) {
-    const c = this.convoglio;
+    const c = ship.convoglio && this.carovane[ship.convoglio.tipo];
     if (!c) { this.steerMerc(ship); return; }
     this.steerToward(ship, c.meta.x, c.meta.y);
   }
 
-  // la scorta tiene la stazione ai lati del capo; se qualcuno tocca il
-  // convoglio, molla la formazione e gli dà la caccia (mutuo soccorso)
+  // caccia col fianco: insegui la preda, mettila al traverso e fai fuoco —
+  // il mestiere condiviso da scorte e Cacciatori di Taglie
+  attacca(ship, preda) {
+    const d = Math.hypot(preda.x - ship.x, preda.y - ship.y);
+    if (d > 240) { this.steerToward(ship, preda.x, preda.y); return; }
+    const want = Math.atan2(preda.y - ship.y, preda.x - ship.x);
+    const scelte = [want - Math.PI / 2, want + Math.PI / 2]
+      .map((rot) => ({ rot, d: Math.abs(this.normAngle(rot - ship.rot)) }))
+      .sort((a, b) => a.d - b.d);
+    const lato = scelte[0].rot === want - Math.PI / 2 ? 'right' : 'left';
+    const diff = this.normAngle(scelte[0].rot - ship.rot);
+    ship.input.left = diff < -0.08; ship.input.right = diff > 0.08; ship.input.up = d > 150;
+    if (Math.abs(diff) < 0.35) this.fire(ship, lato);
+  }
+
+  // la scorta tiene la stazione ai lati del capo; se qualcuno tocca la
+  // carovana, molla la formazione e gli dà la caccia (mutuo soccorso)
   steerScorta(ship) {
-    const c = this.convoglio;
+    const c = ship.convoglio && this.carovane[ship.convoglio.tipo];
     const capo = c && this.ships.get(c.capo);
     if (!c || !capo || this.isSunk(capo)) { this.steerGhost(ship); return; }
     const preda = c.minaccia && c.minaccia.fino > this.now ? this.ships.get(c.minaccia.id) : null;
     if (preda && !this.isSunk(preda) && !preda.docked && !this.inSmoke(preda) &&
         Math.hypot(preda.x - ship.x, preda.y - ship.y) < 900) {
-      const d = Math.hypot(preda.x - ship.x, preda.y - ship.y);
-      if (d > 240) { this.steerToward(ship, preda.x, preda.y); return; }
-      // al traverso e fuoco, come i fantasmi liberi
-      const want = Math.atan2(preda.y - ship.y, preda.x - ship.x);
-      const scelte = [want - Math.PI / 2, want + Math.PI / 2]
-        .map((rot) => ({ rot, d: Math.abs(this.normAngle(rot - ship.rot)) }))
-        .sort((a, b) => a.d - b.d);
-      const lato = scelte[0].rot === want - Math.PI / 2 ? 'right' : 'left';
-      const diff = this.normAngle(scelte[0].rot - ship.rot);
-      ship.input.left = diff < -0.08; ship.input.right = diff > 0.08; ship.input.up = d > 150;
-      if (Math.abs(diff) < 0.35) this.fire(ship, lato);
+      this.attacca(ship, preda);
       return;
     }
-    // stazione: un fianco per scorta, dietro le spalle del capo
-    const posto = ship.convoglio.posto === 0 ? -2.5 : 2.5;
+    // stazione: i posti si aprono a ventaglio dietro le spalle del capo
+    const posto = (ship.convoglio.posto - (c.scorte.length - 1) / 2) * 1.6 + Math.PI;
     const tx = capo.x + Math.cos(capo.rot + posto) * 95;
     const ty = capo.y + Math.sin(capo.rot + posto) * 95;
     this.steerToward(ship, tx, ty, Math.hypot(tx - ship.x, ty - ship.y) > 55);
@@ -1296,10 +1337,15 @@ class Game {
 
   normAngle(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
 
-  // il convoglio salpa: capo panciuto + scorte, rotta vera annunciata in Gazzetta
-  spawnConvoglio() {
-    const isole = this.archipelago.list().filter(i => !i.fortress);
-    if (isole.length < 2) return;
+  // una carovana salpa: capo panciuto + scorte, rotta vera annunciata in
+  // Gazzetta. I capolinea EVITANO fortezze e isole con difese attive (i
+  // dungeon del Mastro sparano anche ai mercantili: visto in collaudo un
+  // Galeone del Tesoro crivellato in rada prima ancora di salpare)
+  spawnCarovana(tipo) {
+    const cfg = CAROVANE[tipo];
+    const isole = this.archipelago.list()
+      .filter(i => !i.fortress && !(i.defs && i.defs.some(d => !d.dead)));
+    if (!cfg || isole.length < 2) return;
     let da = null, a = null;
     for (let tenta = 0; tenta < 12 && !a; tenta++) {
       da = isole[Math.floor(Math.random() * isole.length)];
@@ -1308,33 +1354,36 @@ class Game {
     }
     if (!a) return;
     const capo = this.spawnNpc('merc');
-    capo.name = 'Mercantile di Convoglio';
-    capo.stazza = CONVOGLIO.stazza;
+    capo.name = cfg.nome;
+    capo.stazza = cfg.stazza;
     capo.hp = this.npcMaxHp(capo);
     const ang = Math.atan2(a.y - da.y, a.x - da.x);
     capo.x = da.x + Math.cos(ang) * (da.r + 140);
     capo.y = da.y + Math.sin(ang) * (da.r + 140);
     capo.rot = ang;
-    capo.convoglio = { ruolo: 'capo' };
+    capo.convoglio = { tipo, ruolo: 'capo' };
     const scorte = [];
-    for (let i = 0; i < CONVOGLIO.scorte; i++) {
+    for (let i = 0; i < cfg.scorte; i++) {
       const s = this.spawnNpc('ghost');
-      s.name = 'Scorta del Convoglio';
-      s.x = capo.x + Math.cos(capo.rot + (i === 0 ? -2.5 : 2.5)) * 95;
-      s.y = capo.y + Math.sin(capo.rot + (i === 0 ? -2.5 : 2.5)) * 95;
+      s.name = cfg.scortaNome;
+      // la Guardia del Tesoro spara più pesante della scorta ordinaria
+      for (const g of ['left', 'right']) s.mounts[g].forEach(w => { w.lvl = cfg.lvlScorta; });
+      const posto = (i - (cfg.scorte - 1) / 2) * 1.6 + Math.PI;
+      s.x = capo.x + Math.cos(capo.rot + posto) * 95;
+      s.y = capo.y + Math.sin(capo.rot + posto) * 95;
       s.rot = ang;
-      s.convoglio = { ruolo: 'scorta', posto: i };
+      s.convoglio = { tipo, ruolo: 'scorta', posto: i };
       scorte.push(s.id);
     }
-    this.convoglio = { capo: capo.id, scorte, meta: { x: a.x, y: a.y, r: a.r, nome: a.name }, minaccia: null };
-    this.annuncia('convoglio', `🚢 Un convoglio scortato è salpato: da ${da.name} verso ${a.name}, stive piene!`);
+    this.carovane[tipo] = { capo: capo.id, scorte, meta: { x: a.x, y: a.y, r: a.r, nome: a.name }, minaccia: null };
+    this.annuncia('convoglio', cfg.annuncio(da.name, a.name));
   }
 
   // fine corsa: all'ARRIVO tutti a terra (spariscono in porto); se il capo
   // AFFONDA le scorte non svaniscono a mezz'aria — restano a caccia come
   // orfane e il mare se le riprende quando affondano (niente respawn)
-  sciogliConvoglio(motivo, arrivo) {
-    const c = this.convoglio;
+  sciogliCarovana(tipo, motivo, arrivo) {
+    const c = this.carovane[tipo];
     if (!c) return;
     for (const id of [c.capo, ...c.scorte]) {
       const s = this.ships.get(id);
@@ -1342,26 +1391,80 @@ class Game {
       if (arrivo && !this.isSunk(s)) this.ships.delete(id);
       // i relitti e le orfane conservano ship.convoglio: al "respawn" si tolgono
     }
-    this.convoglio = null;
-    this.prossimoConvoglio = this.now + CONVOGLIO.ogni;
+    this.carovane[tipo] = null;
+    this.prossimaCarovana[tipo] = this.now + CAROVANE[tipo].ogni;
     if (motivo) this.broadcast({ t: 'feed', msg: motivo });
   }
 
-  tickConvoglio() {
-    if (!this.convoglio) {
-      if (this.now >= this.prossimoConvoglio) this.spawnConvoglio();
+  tickCarovane() {
+    for (const tipo of Object.keys(CAROVANE)) {
+      const c = this.carovane[tipo];
+      if (!c) {
+        if (this.now >= this.prossimaCarovana[tipo]) this.spawnCarovana(tipo);
+        continue;
+      }
+      const capo = this.ships.get(c.capo);
+      if (!capo) { this.sciogliCarovana(tipo, null); continue; }
+      if (this.isSunk(capo)) {
+        this.sciogliCarovana(tipo, CAROVANE[tipo].perduto, false);
+        continue;
+      }
+      if (Math.hypot(capo.x - c.meta.x, capo.y - c.meta.y) < c.meta.r + 170) {
+        this.sciogliCarovana(tipo, CAROVANE[tipo].arrivo(c.meta.nome), true);
+      }
+    }
+  }
+
+  // --- i Cacciatori di Taglie (issue #41, fetta 4) ---
+
+  // l'infamia chiama: ogni CACCIA.ogniKill prede, un Cacciatore fiuta il
+  // colpevole — se non ne ha già uno addosso e c'è posto sul mare
+  valutaTaglia(pirata) {
+    if (!pirata || pirata.npc) return;
+    if (pirata.kills - pirata.tagliaCacciata < CACCIA.ogniKill) return;
+    if (this.cacciatori >= CACCIA.max) return;
+    for (const s of this.ships.values()) {
+      if (s.caccia && s.caccia.bersaglio === pirata.id) return; // già braccato
+    }
+    pirata.tagliaCacciata = pirata.kills;
+    const h = this.spawnNpc('ghost');
+    h.name = 'Cacciatore di Taglie';
+    h.stazza = CACCIA.stazza;
+    h.hp = this.npcMaxHp(h);
+    for (const g of ['left', 'right']) h.mounts[g].forEach(w => { w.lvl = 3; });
+    const ang = Math.random() * Math.PI * 2;
+    h.x = Math.max(200, Math.min(WORLD.W - 200, pirata.x + Math.cos(ang) * 900));
+    h.y = Math.max(200, Math.min(WORLD.H - 200, pirata.y + Math.sin(ang) * 900));
+    h.caccia = { bersaglio: pirata.id, fino: this.now + CACCIA.ttl };
+    this.cacciatori++;
+    this.broadcast({ t: 'feed', msg: `⚔ Una taglia pende su ${pirata.name}: un Cacciatore gli dà la caccia!` });
+  }
+
+  // il mandato scade, il bersaglio sparisce o attracca: il Cacciatore molla.
+  // Finché dura, insegue SOLO il suo uomo — le altre prede non lo riguardano
+  steerCacciatore(ship) {
+    const preda = this.ships.get(ship.caccia.bersaglio);
+    const finita = !preda || this.now > ship.caccia.fino ||
+      preda.docked || this.isSunk(preda) || this.inSmoke(preda);
+    if (finita) {
+      // il fumo o l'attracco lo seminano solo a mandato scaduto; prima aspetta
+      if (preda && this.now <= ship.caccia.fino && !this.isSunk(preda)) {
+        if (preda.docked || this.inSmoke(preda)) { ship.input.up = false; return; }
+      }
+      this.congedaCacciatore(ship, preda ? `⚔ Il Cacciatore rinuncia: ${preda.name} l'ha fatta franca.` : null);
       return;
     }
-    const c = this.convoglio;
-    const capo = this.ships.get(c.capo);
-    if (!capo) { this.sciogliConvoglio(null); return; }
-    if (this.isSunk(capo)) {
-      this.sciogliConvoglio('🌊 Il mercantile di convoglio è perduto: la scorta, orfana, dà la caccia ai colpevoli.', false);
-      return;
-    }
-    if (Math.hypot(capo.x - c.meta.x, capo.y - c.meta.y) < c.meta.r + 170) {
-      this.sciogliConvoglio(`⚓ Il convoglio è giunto sano e salvo a ${c.meta.nome}.`, true);
-    }
+    this.attacca(ship, preda);
+  }
+
+  congedaCacciatore(ship, motivo) {
+    if (!ship.caccia) return;
+    const preda = this.ships.get(ship.caccia.bersaglio);
+    if (preda) preda.tagliaCacciata = preda.kills; // il conto riparte da qui
+    ship.caccia = null;
+    this.cacciatori = Math.max(0, this.cacciatori - 1);
+    this.ships.delete(ship.id);
+    if (motivo) this.broadcast({ t: 'feed', msg: motivo });
   }
 
   // il saccheggio col tocco: primo capitano accosto al mercantile arreso
@@ -1371,7 +1474,7 @@ class Game {
       for (const p of this.ships.values()) {
         if (p.npc || p.docked || this.isSunk(p)) continue;
         if (Math.hypot(p.x - ship.x, p.y - ship.y) >= BLOCCO.tocco) continue;
-        const bottino = ship.convoglio ? RESA.bottinoConvoglio : RESA.bottino;
+        const bottino = ship.convoglio ? CAROVANE[ship.convoglio.tipo].bottino : RESA.bottino;
         ship.saccheggiato = true;
         ship.resaUntil = this.now + 3; // issa la bandiera e riprende il largo
         ship.resaCooldownUntil = this.now + RESA.cooldown;
@@ -1379,7 +1482,7 @@ class Game {
         p.gold += bottino;
         this.sendGold(p, bottino, `Hai saccheggiato ${ship.name} senza colpo ferire!`);
         this.broadcast({ t: 'feed', msg: `⚓ ${p.name} ha saccheggiato ${ship.name} (+${bottino} 🪙)` });
-        if (ship.convoglio) this.annuncia('convoglio', `💰 ${p.name} ha svuotato le stive del convoglio!`);
+        if (ship.convoglio) this.annuncia('convoglio', `💰 ${p.name} ha svuotato le stive: ${ship.name} alleggerito!`);
         break;
       }
     }
@@ -1653,10 +1756,11 @@ class Game {
     // RINFRESCANO senza sommarsi — mai oltre il malus dichiarato nel catalogo
     if (shot && shot.mun === 'catene') ship.veleTagliateUntil = this.now + W.MUNIZIONI.catene.taglia.durata;
     if (shot && shot.mun === 'mitraglia') ship.falcidiaUntil = this.now + W.MUNIZIONI.mitraglia.falcidia.durata;
-    // il convoglio fa quadrato (issue #41, fetta 3): tocchi uno, rispondono le scorte
-    if (ship.convoglio && this.convoglio && typeof byId === 'string' && !byId.startsWith('fort:')) {
+    // la carovana fa quadrato (issue #41, fette 3-4): tocchi uno, rispondono le scorte
+    const carovana = ship.convoglio && this.carovane[ship.convoglio.tipo];
+    if (carovana && typeof byId === 'string' && !byId.startsWith('fort:')) {
       const attaccante = this.ships.get(byId);
-      if (attaccante && !attaccante.npc) this.convoglio.minaccia = { id: byId, fino: this.now + CONVOGLIO.minacciaTtl };
+      if (attaccante && !attaccante.npc) carovana.minaccia = { id: byId, fino: this.now + MINACCIA_TTL };
     }
     // la resa dei mercantili (issue #41, fetta 3): sotto la soglia ammainano.
     // Si può ancora affondarli (la missione è missione): la resa è un'OFFERTA
@@ -1695,6 +1799,7 @@ class Game {
     this.sendGold(vittima, -subito, 'Bloccato! Un quarto del forziere in gioco è del vincitore');
     this.sendGold(predatore, subito, `Hai bloccato ${vittima.name}: toccala per l'arrembaggio!`);
     this.missions.onKill(predatore, vittima);
+    this.valutaTaglia(predatore); // l'infamia si conta anche ai blocchi (fetta 4)
     this.broadcast({ t: 'kill', killer: predatore.name, victim: vittima.name, bounty: subito });
     // il rito d'ingresso (issue #5): bloccare una nave di gilda conquista il
     // diritto di chiedere l'ingresso; il fuoco fra compagni finisce nel log
@@ -1772,8 +1877,9 @@ class Game {
     if (killer && !killer.npc) {
       killerName = killer.name;
       if (ship.npc) {
-        // le prede PvE pagano poco e FISSO: l'oro vero naviga sotto bandiera altrui
-        bounty = PVE_BOUNTY[ship.npc] || 0;
+        // le prede PvE pagano poco e FISSO: l'oro vero naviga sotto bandiera
+        // altrui — ma la testa di un Cacciatore di Taglie vale il suo prezzo
+        bounty = ship.caccia ? CACCIA.bounty : (PVE_BOUNTY[ship.npc] || 0);
       } else {
         // legge del mare: chi affonda un capitano si prende il forziere —
         // meno quel che la Stiva nasconde nel doppiofondo (10% a punto)
@@ -1787,8 +1893,16 @@ class Game {
       this.sendGold(killer, bounty, `Hai affondato ${ship.name}!`);
       this.missions.onKill(killer, ship);
       if (ship.npc) this.avanzaCampagna(killer, ship.npc === 'ghost' ? 'fantasmi' : 'mercantili');
+      this.valutaTaglia(killer); // l'infamia cresce a ogni preda (fetta 4)
     } else if (killer && killer.npc === 'ghost') {
       killerName = killer.name;
+    }
+    // il Cacciatore affondato chiude il mandato: il conto del braccato
+    // riparte da zero — s'è comprato la pace a cannonate (fetta 4)
+    if (ship.caccia) {
+      const preda = this.ships.get(ship.caccia.bersaglio);
+      if (preda) preda.tagliaCacciata = preda.kills;
+      this.cacciatori = Math.max(0, this.cacciatori - 1);
     }
     this.broadcast({ t: 'kill', killer: killerName, victim: ship.name, bounty });
     // per mano di NPC o fortezze il forziere resta a bordo: si racconta anche
@@ -1803,9 +1917,9 @@ class Game {
   }
 
   respawn(ship) {
-    // i membri del convoglio non rinascono (issue #41, fetta 3): il relitto
-    // ha fatto la sua scena, il mare se lo riprende
-    if (ship.npc && ship.convoglio) { this.ships.delete(ship.id); return; }
+    // membri delle carovane e Cacciatori non rinascono (issue #41, fette
+    // 3-4): il relitto ha fatto la sua scena, il mare se lo riprende
+    if (ship.npc && (ship.convoglio || ship.caccia)) { this.ships.delete(ship.id); return; }
     ship.sunkUntil = 0;
     ship.lastHitBy = null;
     ship.blockedUntil = 0; ship.blockedBy = null; ship.bloccoSalvo = 0; ship.bloccoPerso = 0; ship.immuneUntil = 0;
