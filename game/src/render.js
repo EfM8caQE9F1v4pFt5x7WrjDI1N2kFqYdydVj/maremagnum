@@ -79,6 +79,8 @@ export class Renderer {
     this.foamGfx = [];
     this.fortLayer = new Container();
     this.shotGfx = new Graphics();
+    this.bottinoGfx = new Graphics(); // i forzieri dei fuggiaschi (audit 5-bis), sotto le chiglie
+    this.bottiniData = [];
     this.shipLayer = new Container();
     this.fxGfx = new Graphics();
     this.beamGfx = new Graphics();
@@ -89,7 +91,7 @@ export class Renderer {
     this.smokeGfx = new Graphics(); // i fumogeni: sopra TUTTO il mondo, nomi compresi
     this.smokes = new Map();
     this.world.addChild(this.ondeVento, this.shallowLayer, this.routeGfx, this.wakeGfx, this.islandLayer,
-      this.fortLayer, this.shotGfx, this.shipLayer, this.fxGfx, this.beamGfx, this.burrascaGfx,
+      this.fortLayer, this.bottinoGfx, this.shotGfx, this.shipLayer, this.fxGfx, this.beamGfx, this.burrascaGfx,
       this.labelLayer, this.smokeGfx);
 
     // strato meteo e luce, sopra il mondo: ombre di nuvole, nebbia notturna
@@ -913,6 +915,25 @@ export class Renderer {
 
   // le burrasche vaganti (fetta 5): zone di tempesta dallo snapshot
   setBurrasche(list) { this.burrasche = list || []; }
+
+  // i bottini dei fuggiaschi (audit 5-bis): barilotti d'oro che galleggiano
+  setBottini(list) { this.bottiniData = list || []; }
+
+  updateBottini() {
+    const g = this.bottinoGfx;
+    g.clear();
+    for (const b of this.bottiniData) {
+      const y = b.y + Math.sin(this.t * 2 + b.x * 0.01) * 2; // beccheggia
+      // il luccichio dorato che chiama i rapaci da lontano
+      g.circle(b.x, y, 16 + 3 * Math.sin(this.t * 3)).fill({ color: 0xffd98a, alpha: 0.13 });
+      // il barilotto: doghe brune, cerchio d'oro, monete che spuntano
+      g.roundRect(b.x - 9, y - 6, 18, 12, 4).fill(0x6b4a2a).stroke({ width: 1.5, color: 0x2a1c10 });
+      g.rect(b.x - 9, y - 1.5, 18, 2.4).fill(0xc8963c);
+      g.rect(b.x - 1, y - 6, 1.6, 12).fill({ color: 0x2a1c10, alpha: 0.35 });
+      g.circle(b.x + 3, y - 6, 2.6).fill(0xf0c14e).stroke({ width: 0.8, color: 0x8a5a17 });
+      g.circle(b.x - 2.5, y - 7, 2).fill(0xffd98a);
+    }
+  }
 
   // pioggia e mare cupo dentro le burrasche: un velo LEGGERO (mai cecità,
   // #40) e striature che corrono col vento; Mare calmo ferma la pioggia
@@ -1907,6 +1928,7 @@ export class Renderer {
 
     this.updateOndeVento(dt, cx, cy, hw, hh);
     this.updateBurrasche();
+    this.updateBottini();
 
     // nebbia e lanterna seguono la nave (in coordinate schermo)
     const meX = me ? w / 2 + (me.x - cx) * z + shx : w / 2;
@@ -1966,6 +1988,16 @@ export class Renderer {
         this.shotGfx.circle(s.x - s.vx * 0.04, s.y - s.vy * 0.04, 3.2).fill({ color: 0xd8552e, alpha: 0.5 });
         this.shotGfx.circle(s.x, s.y, 5).fill({ color: 0xff8c2e, alpha: 0.92 });
         this.shotGfx.circle(s.x, s.y, 2.4).fill(0xffe9a0);
+      } else if (s.mn === 'inchiostro') {
+        // il getto NERO del Kraken (audit 5-bis): un glob d'abisso che
+        // sgocciola — grosso e lento apposta: si deve poter SCHIVARE.
+        // L'ALONE lavanda lo stacca dal mare scuro (nero su blu notte
+        // sparirebbe: visto in collaudo)
+        this.shotGfx.circle(s.x, s.y, 11).fill({ color: 0x8a74ac, alpha: 0.3 });
+        this.shotGfx.circle(s.x - s.vx * 0.07, s.y - s.vy * 0.07, 3).fill({ color: 0x8a74ac, alpha: 0.55 });
+        this.shotGfx.circle(s.x - s.vx * 0.04, s.y - s.vy * 0.04, 4.5).fill({ color: 0x4a3862, alpha: 0.8 });
+        this.shotGfx.circle(s.x, s.y, 7).fill({ color: 0x120a24, alpha: 0.97 }).stroke({ width: 1.6, color: 0xa894cc, alpha: 0.8 });
+        this.shotGfx.circle(s.x - 2, s.y - 2, 2.2).fill({ color: 0x8a74ac, alpha: 0.95 });
       } else {
         this.shotGfx.circle(s.x + 2, s.y + 3, 3).fill({ color: 0x000000, alpha: 0.25 });
         this.shotGfx.circle(s.x, s.y, 3).fill(ballCol);

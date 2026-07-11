@@ -73,26 +73,36 @@ assert(etere.some(m => m.t === 'feed' && /EMERGE dagli abissi sotto Ammazzadragh
 assert(game.fxQueue.some(f => f.k === 'emersione'), 'e si vede (fx)');
 ok('agguato: telegrafo di 2.5s (ombra che si gonfia), poi emersione pubblica');
 
-// — 4) la morsa del Kraken: danno, vele avviluppate e PRESA che inchioda —
-P.x = kraken.x + 30; P.y = kraken.y;
-kraken.morsoAt = 0;
-const hpPrima = P.hp;
+// — 4) il Kraken: PRIMA l'inchiostro (che inchioda), POI i tentacoli —
+// da lontano SPUTA il getto nero: lento, dichiarato, schivabile
+kraken.sputoAt = 0; kraken.rot = 0;
+P.x = kraken.x + 350; P.y = kraken.y; // fra presa (230) e gittata (480)
 game.steerMostro(kraken);
-assert.strictEqual(hpPrima - P.hp, 30, `morso da 30 (−${hpPrima - P.hp})`);
-assert(P.veleTagliateUntil > game.now, 'i tentacoli avviluppano le vele');
-assert(P.presaUntil > game.now && P.presaUntil <= game.now + 2.01, 'la PRESA inchioda (~2s)');
+const sputo = [...etere].reverse().find(m => m.t === 'shots' && m.from === kraken.id);
+assert(sputo && sputo.shots[0].mn === 'inchiostro', 'il getto nero è dichiarato (mn)');
+assert(kraken.sputoAt > game.now + 5, 'e si ricarica (7s)');
+// il getto che COLPISCE inchioda: presa ~2.5s, poi tregua
+game.damageShip(P, 6, kraken.id, { mun: 'inchiostro', owner: kraken.id });
+assert(P.presaUntil > game.now && P.presaUntil <= game.now + 2.51, 'INCHIODATO dal nero (~2.5s)');
 assert(P.presaImmuneUntil > game.now + 5, 'poi tregua: non è una tomba');
-assert(game.fxQueue.some(f => f.k === 'presa'), 'la presa si vede (fx)');
-// inchiodato: la nave non riparte finché i tentacoli stringono
+assert(game.fxQueue.some(f => f.k === 'presa'), 'l\'inchiodamento si vede (fx)');
+// inchiodato: la nave non riparte finché l'inchiostro stringe
 P.vel = 120; P.input = { up: true, down: false, left: false, right: false };
-for (let i = 0; i < 45; i++) { game.move(P, TICK); P.x = kraken.x + 30; P.y = kraken.y; }
+for (let i = 0; i < 45; i++) { game.move(P, TICK); P.x = kraken.x + 350; P.y = kraken.y; }
 assert(P.vel < 15, `vele piene ma ferma (vel ${P.vel.toFixed(0)})`);
-// secondo morso nella tregua: danno sì, ma NIENTE nuova presa
+// secondo getto nella tregua: bagna ma NON re-inchioda
 const presaPrima = P.presaUntil;
+game.damageShip(P, 6, kraken.id, { mun: 'inchiostro', owner: kraken.id });
+assert.strictEqual(P.presaUntil, presaPrima, 'nella tregua il nero non si rinnova');
+// al CONTATTO i tentacoli TORCONO: danno e vele, ma NIENTE pin (è
+// mestiere dell'inchiostro) — e arrivano fin dove sono lunghi: 200 sì, 320 no
+P.presaUntil = 0; P.presaImmuneUntil = 0; P.hp = 200;
 kraken.morsoAt = 0;
+P.x = kraken.x + 30; P.y = kraken.y;
 game.steerMostro(kraken);
-assert.strictEqual(P.presaUntil, presaPrima, 'nella tregua la presa non si rinnova');
-// la morsa arriva dove arrivano i TENTACOLI (audit 5): 200 leghe sì, 320 no
+assert.strictEqual(200 - P.hp, 30, 'la torsione morde da 30');
+assert(P.veleTagliateUntil > game.now, 'i tentacoli avviluppano le vele');
+assert.strictEqual(P.presaUntil, 0, 'i tentacoli non inchiodano: quello lo fa il nero');
 kraken.morsoAt = 0; P.hp = 200;
 P.x = kraken.x + 200; P.y = kraken.y;
 game.steerMostro(kraken);
@@ -102,7 +112,7 @@ P.x = kraken.x + 320;
 game.steerMostro(kraken);
 assert.strictEqual(P.hp, 200, 'a 320 i tentacoli non arrivano');
 P.presaUntil = 0; P.presaImmuneUntil = 0; P.hp = 200; // ripulito per dopo
-ok('Kraken: morso 30, vele avviluppate, presa ~2s con tregua, tentacoli lunghi 230');
+ok('Kraken: inchiostro che inchioda (~2.5s, tregua 9), tentacoli che torcono senza pin');
 
 // — 5) la raffica del Drago: TRE fiammate a ventaglio (mn=fuoco), dalla GOLA —
 drago.sommerso = false; drago.predaId = P.id; drago.morsoAt = 0;

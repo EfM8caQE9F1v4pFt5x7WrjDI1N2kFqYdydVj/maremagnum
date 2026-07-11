@@ -249,8 +249,11 @@ export class MareDO {
       if (!v) return;
       this.equipaggio.delete(ws);
       if (v.ship && this.game) {
-        if (v.uid) await this.salvaProfilo(v.uid, v.ship);
+        // PRIMA il congedo, POI il salvataggio (audit 5-bis): leave() applica
+        // le pene di chi stacca la spina (abbordaggio del bloccato, tassa del
+        // codardo sull'ingaggiato) — salvare prima le avrebbe cancellate
         this.game.leave(v.ship);
+        if (v.uid) await this.salvaProfilo(v.uid, v.ship);
       }
       if (this.equipaggio.size === 0 && this.game) {
         this.game.pausa(); // il mare si riaddormenta: il piano gratuito ringrazia
