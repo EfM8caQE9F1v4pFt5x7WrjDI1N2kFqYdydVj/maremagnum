@@ -567,6 +567,42 @@ export class UI {
 
     const wep = $('shopWeapons');
     wep.innerHTML = '';
+    // l'abilità R spiegata DOVE la si cerca (audit 4): chi pensa «R =
+    // potenziamento» apre Armamenti, non il Varo — quindi la risposta
+    // sta QUI, in testa: cos'è, cosa fa la TUA, dove si cambia
+    const EMOJI_AB = { goletta: '🐏', guerra: '💨', galeone: '💥', sciabecco: '🌬' };
+    const abBox = document.createElement('div');
+    abBox.className = 'shopRow';
+    const mioTipo = m.varo && m.varo.tipo && m.varo.tipi && m.varo.tipi[m.varo.tipo];
+    if (mioTipo && mioTipo.abilitaInfo) {
+      const i = mioTipo.abilitaInfo;
+      const effetto = /[.!?]$/.test(i.effetto.trim()) ? i.effetto.trim() : i.effetto.trim() + '.';
+      abBox.innerHTML = `<div class="shopInfo"><b>✦ La tua abilità — tasto R: ${EMOJI_AB[m.varo.tipo] || '✦'} ${esc(i.nome)}</b>
+        <span>Effetto MOMENTANEO: ${esc(effetto)} Poi si ricarica (${i.cd}s: la barra R sotto le fiancate).</span>
+        <span class="effetti">L'abilità viaggia col TIPO di nave (${esc(mioTipo.nome)}), non coi cannoni: per averne un'altra devi varare un altro tipo.</span></div>`;
+    } else {
+      abBox.innerHTML = `<div class="shopInfo"><b>✦ Abilità R: non ne hai ancora una</b>
+        <span>L'abilità speciale (tasto R) viene col TIPO di nave: scegline uno al Varo e la trovi a bordo.</span></div>`;
+    }
+    const vaiVaro = document.createElement('button');
+    vaiVaro.textContent = '⚓ Cambia al Varo';
+    vaiVaro.setAttribute('aria-label', 'Apri la scheda Varo: le abilità si cambiano varando un altro tipo di nave');
+    vaiVaro.addEventListener('click', () => this._shopMostra('varo'));
+    abBox.appendChild(vaiVaro);
+    wep.appendChild(abBox);
+    // le altre tre, in una riga sola: si capisce il menu senza cambiare scheda
+    if (m.varo && m.varo.tipi) {
+      const altre = Object.entries(m.varo.tipi)
+        .filter(([k]) => k !== m.varo.tipo)
+        .map(([k, t]) => `${EMOJI_AB[k] || '✦'} ${(t.abilitaInfo && t.abilitaInfo.nome) || t.abilita} (${t.nome})`)
+        .join(' · ');
+      if (altre) {
+        const notaAb = document.createElement('p');
+        notaAb.className = 'shopNota';
+        notaAb.textContent = `✦ Le altre abilità: ${altre} — ognuna viene col suo scafo, la scheda Varo le spiega tutte.`;
+        wep.appendChild(notaAb);
+      }
+    }
     // il ponte fra Cantiere e mare (audit Cantiere): le munizioni si
     // scelgono al timone, ma è QUI che uno se lo chiede
     const nota = document.createElement('p');

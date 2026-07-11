@@ -2,7 +2,7 @@
 // procedurale (niente asset): la forma di ogni isola nasce dal suo seed, che il
 // server distribuisce a tutti — così il mondo è identico per ogni giocatore.
 
-import { Application, Container, Graphics, Text, Sprite, Texture, TilingSprite, Assets, Rectangle } from 'pixi.js';
+import { Application, Container, Graphics, Text, Sprite, Texture, TilingSprite, Assets, Rectangle, MeshRope, Point } from 'pixi.js';
 import { mulberry32, clamp } from './util.js';
 import { Water } from './water.js';
 import { CanvasWater } from './water-canvas.js';
@@ -293,40 +293,58 @@ export class Renderer {
     return spr;
   }
 
+  // un nastro del bestiario: texture cotta DRITTA piegata su una spina di
+  // punti che animaMostro fa ondeggiare — il serpeggiare è vero, non un
+  // ritaglio che ruota (audit 4: «sembrano svg appiccicati»)
+  nastroMostro(nome, punti, tinta) {
+    const rope = new MeshRope({ texture: this.mostri.frames[nome], points: punti });
+    if (tinta != null) rope.tint = tinta;
+    return rope;
+  }
+
   // compone una bestia intera dalle parti; `tinta` scura = la SAGOMA che si
   // vede vagare sotto il pelo dell'acqua (l'ombra è il mostro stesso)
   composeMostro(tipo, tinta) {
     const cont = new Container();
-    const inst = { cont };
-    const P = (nome) => this.parteMostro(nome, tinta);
+    const inst = { cont, tintabili: [] };
+    const P = (nome) => {
+      const spr = this.parteMostro(nome, tinta);
+      inst.tintabili.push(spr);
+      return spr;
+    };
     if (tipo === 'drago') {
+      // la spina: 13 punti dal collo (indice 0, prua) alla coda — il nastro
+      // è cotto bordo-a-bordo, quindi lunghezza punti = lunghezza texture
+      const L = 3.2 * this.mostri.meta.px; // ≈250px di corpo
+      inst.spina = Array.from({ length: 13 }, (_, i) => new Point(L * 0.42 - (L / 12) * i, 0));
       inst.ali = [];
       for (const lato of [-1, 1]) {
         const ala = P('drago-ala');
-        ala.position.set(24, 14 * lato);
         ala.scale.y *= lato; // la sinistra è la destra allo specchio
         ala.baseRot = lato * 1.35; // quasi ad angolo retto dal corpo
+        ala.baseScalaX = ala.scale.x;
         inst.ali.push(ala);
         cont.addChild(ala);
       }
-      inst.coda = P('drago-coda');
-      inst.coda.position.set(-160, 0);
-      inst.coda.baseRot = Math.PI; // la texture punta a +x, la coda va a poppa
-      inst.corpo = P('drago-corpo');
-      cont.addChild(inst.coda, inst.corpo);
+      inst.corpo = this.nastroMostro('drago-corpo', inst.spina, tinta);
+      inst.tintabili.push(inst.corpo);
+      inst.testa = P('drago-testa');
+      cont.addChild(inst.corpo, inst.testa);
     } else if (tipo === 'kraken') {
       inst.tentacoli = [];
       for (let i = 0; i < 8; i++) {
-        const t = P('kraken-tentacolo');
         const ang = Math.PI + (i - 3.5) * 0.3;
-        t.position.set(-14 + Math.cos(ang) * 26, Math.sin(ang) * 26);
-        t.baseRot = ang;
-        t.scale.set(t.scale.x * (0.82 + (i % 3) * 0.11), t.scale.y * (0.82 + (i % 3) * 0.11));
-        inst.tentacoli.push(t);
-        cont.addChild(t);
+        const lung = (2.6 * this.mostri.meta.px) * (0.8 + (i % 3) * 0.12);
+        const bx = -14 + Math.cos(ang) * 26, by = Math.sin(ang) * 26;
+        const punti = Array.from({ length: 9 }, (_, j) => new Point(bx + Math.cos(ang) * (lung / 8) * j, by + Math.sin(ang) * (lung / 8) * j));
+        const rope = this.nastroMostro('kraken-tentacolo', punti, tinta);
+        inst.tintabili.push(rope);
+        inst.tentacoli.push({ rope, punti, ang, bx, by, lung, fase: i * 1.9 });
+        cont.addChild(rope);
       }
       inst.mantello = P('kraken-mantello');
       inst.mantello.position.set(42, 0);
+      inst.mantello.baseScala = inst.mantello.scale.x;
       cont.addChild(inst.mantello);
     } else {
       inst.coda = P('serpente-coda');
@@ -338,7 +356,8 @@ export class Renderer {
         const g = P('serpente-gobba');
         g.position.set(x, 0);
         g.baseX = x;
-        g.scale.set(g.scale.x * sc);
+        g.baseScala = g.scale.x * sc;
+        g.scale.set(g.baseScala);
         inst.gobbe.push(g);
         cont.addChild(g);
       }
@@ -349,29 +368,64 @@ export class Renderer {
     return inst;
   }
 
-  // il respiro delle bestie: ali che battono, tentacoli che si torcono,
-  // gobbe che ondeggiano — su corpo E ombra (la sagoma nuota davvero)
+  // il respiro delle bestie (audit 4, «più interattivi»): il corpo del drago
+  // SERPEGGIA con un'onda che gli viaggia lungo la spina, i tentacoli si
+  // AVVITANO punto per punto con un allungo che pulsa, le gobbe si TUFFANO
+  // (su e giù, gonfiandosi) — su corpo E ombra, e il ritmo cresce con la
+  // velocità: una bestia in caccia nuota furiosa
   animaMostro(anim, s) {
     const t = this.t, ph = (s.x + s.y) * 0.003;
+    const ritmo = 1 + Math.min(1.2, (s.vel || 0) / 110); // in caccia si scatena
     for (const inst of [anim.corpo, anim.ombra]) {
       if (!inst) continue;
       if (anim.tipo === 'drago') {
-        const flap = Math.sin(t * 2.1 + ph) * 0.24;
-        inst.ali[0].rotation = inst.ali[0].baseRot - flap;
-        inst.ali[1].rotation = inst.ali[1].baseRot + flap;
-        inst.coda.rotation = inst.coda.baseRot + Math.sin(t * 1.7 + ph) * 0.16;
-      } else if (anim.tipo === 'kraken') {
-        for (let i = 0; i < inst.tentacoli.length; i++) {
-          const tn = inst.tentacoli[i];
-          tn.rotation = tn.baseRot + Math.sin(t * 1.15 + i * 1.9 + ph) * 0.17;
+        // l'onda viaggia dal collo alla coda, ampiezza crescente
+        const n = inst.spina.length;
+        for (let i = 0; i < n; i++) {
+          inst.spina[i].y = Math.sin(t * 2.4 * ritmo - i * 0.62 + ph) * (2.5 + i * 2.1);
         }
+        // la testa cavalca il primo punto, orientata col collo
+        const p0 = inst.spina[0], p1 = inst.spina[1];
+        const dir = Math.atan2(p0.y - p1.y, p0.x - p1.x);
+        inst.testa.position.set(p0.x + Math.cos(dir) * 42, p0.y + Math.sin(dir) * 42);
+        inst.testa.rotation = dir;
+        // le ali battono agganciate alla spina (petto), non a mezz'aria
+        const flap = Math.sin(t * 2.1 * ritmo + ph) * 0.3;
+        const petto = inst.spina[2];
+        for (let a = 0; a < 2; a++) {
+          const ala = inst.ali[a];
+          ala.position.set(petto.x, petto.y + (a ? 16 : -16));
+          ala.rotation = ala.baseRot + (a ? flap : -flap);
+          // il battito allunga e ritira l'ala: apertura che respira
+          ala.scale.x = ala.baseScalaX * (1 + 0.07 * Math.sin(t * 2.1 * ritmo + ph + Math.PI / 2));
+        }
+      } else if (anim.tipo === 'kraken') {
+        // ogni tentacolo si avvita: ricciolo crescente verso la punta,
+        // allungo che pulsa (afferra e ritira)
+        for (const tn of inst.tentacoli) {
+          const allungo = 1 + 0.09 * Math.sin(t * 0.8 * ritmo + tn.fase);
+          for (let j = 0; j < tn.punti.length; j++) {
+            const d = (tn.lung / 8) * j * allungo;
+            const lat = Math.sin(t * 1.5 * ritmo + tn.fase + j * 0.55) * (j * j * 0.55);
+            tn.punti[j].x = tn.bx + Math.cos(tn.ang) * d - Math.sin(tn.ang) * lat;
+            tn.punti[j].y = tn.by + Math.sin(tn.ang) * d + Math.cos(tn.ang) * lat;
+          }
+        }
+        // il mantello respira e ciondola
+        inst.mantello.scale.set(inst.mantello.baseScala * (1 + 0.05 * Math.sin(t * 1.1 * ritmo + ph)));
+        inst.mantello.rotation = Math.sin(t * 0.7 + ph) * 0.06;
       } else {
+        // le gobbe si TUFFANO: onda viaggiante, e la gobba che affonda si
+        // stringe (sta sotto), quella che emerge si gonfia
         for (let i = 0; i < inst.gobbe.length; i++) {
           const gb = inst.gobbe[i];
-          gb.position.y = Math.sin(t * 2.0 + i * 1.35 + ph) * 7;
+          const onda = Math.sin(t * 2.4 * ritmo - i * 1.15 + ph);
+          gb.position.y = onda * 13;
+          gb.scale.set(gb.baseScala * (1 + 0.16 * Math.cos(t * 2.4 * ritmo - i * 1.15 + ph)));
         }
-        inst.testa.rotation = Math.sin(t * 1.6 + ph) * 0.09;
-        inst.coda.rotation = inst.coda.baseRot + Math.sin(t * 2.0 + 2.8 + ph) * 0.2;
+        inst.testa.position.y = Math.sin(t * 2.4 * ritmo + 1.1 + ph) * 8;
+        inst.testa.rotation = Math.sin(t * 1.9 + ph) * 0.13;
+        inst.coda.rotation = inst.coda.baseRot + Math.sin(t * 2.6 * ritmo + 2.8 + ph) * 0.3;
       }
     }
   }
@@ -1400,6 +1454,32 @@ export class Renderer {
         if (c.body.animaMostro) this.animaMostro(c.body.animaMostro, s);
         if (c.tag) { c.tag.visible = !giu; c.tag.position.y = -138; } // il nome sopra la bestia, non sulla bestia
         if (c.glow) c.glow.alpha = 0; // le bestie non portano lanterne
+        // la bestia STA nell'acqua (audit 4): schiuma al pelo attorno al
+        // corpo emerso, ribollio sull'ombra che si gonfia — e quando
+        // incassa, LAMPEGGIA (l'hp è nello snapshot: si traccia il calo)
+        if (c.mostroHp != null && s.hp < c.mostroHp) c.mostroFlash = 0.22;
+        c.mostroHp = s.hp;
+        c.mostroFlash = Math.max(0, (c.mostroFlash || 0) - dt);
+        const anim = c.body.animaMostro;
+        if (anim) {
+          const tinta = c.mostroFlash > 0 ? 0xff8f78 : 0xffffff;
+          for (const parte of anim.corpo.tintabili) parte.tint = tinta;
+        }
+        if (!giu && !s.sunk && Math.random() < dt * 7) {
+          const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 90;
+          this.wakes.push({
+            x: s.x + Math.cos(a) * r, y: s.y + Math.sin(a) * r,
+            life: 0.9, max: 0.9, size: 1.5 + Math.random() * 2.5, color: null,
+          });
+        }
+        if (giu && gonfio > 0 && Math.random() < dt * (6 + 18 * gonfio)) {
+          // il mare RIBOLLE sopra la bestia che sale: bollicine fitte
+          const a = Math.random() * Math.PI * 2, r = Math.random() * 85 * (0.62 + 0.5 * gonfio);
+          this.wakes.push({
+            x: s.x + Math.cos(a) * r, y: s.y + Math.sin(a) * r,
+            life: 0.5, max: 0.5, size: 1 + Math.random() * 2, color: null,
+          });
+        }
       }
       // il fondino della targhetta si infittisce col buio (issue #40): i nomi
       // compensano la notte come già fanno lanterne e faro
