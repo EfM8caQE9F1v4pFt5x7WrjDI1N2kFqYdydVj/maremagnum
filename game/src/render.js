@@ -329,6 +329,7 @@ export class Renderer {
       inst.corpo = this.nastroMostro('drago-corpo', inst.spina, tinta);
       inst.tintabili.push(inst.corpo);
       inst.testa = P('drago-testa');
+      inst.testa.baseScala = inst.testa.scale.x;
       cont.addChild(inst.corpo, inst.testa);
     } else if (tipo === 'kraken') {
       inst.tentacoli = [];
@@ -373,22 +374,46 @@ export class Renderer {
   // AVVITANO punto per punto con un allungo che pulsa, le gobbe si TUFFANO
   // (su e giù, gonfiandosi) — su corpo E ombra, e il ritmo cresce con la
   // velocità: una bestia in caccia nuota furiosa
-  animaMostro(anim, s) {
+  animaMostro(anim, s, c) {
     const t = this.t, ph = (s.x + s.y) * 0.003;
     const ritmo = 1 + Math.min(1.2, (s.vel || 0) / 110); // in caccia si scatena
+    // la VIRATA piega il corpo (banking): giro = velocità angolare lisciata
+    const giro = Math.max(-2.4, Math.min(2.4, (c && c.mostroGiro) || 0));
+    // l'attacco FIRMATO in corso (fx con `da`): slancio a campana 0→1→0,
+    // bersaglio riportato nelle coordinate locali del corpo (che ruota)
+    const att = c && c.attacco && c.attacco.resta > 0 ? c.attacco : null;
+    const slancio = att ? Math.sin((1 - att.resta / att.durata) * Math.PI) : 0;
+    let ax = 0, ay = 0;
+    if (att) {
+      const dx = att.x - s.x, dy = att.y - s.y;
+      ax = dx * Math.cos(-s.rot) - dy * Math.sin(-s.rot);
+      ay = dx * Math.sin(-s.rot) + dy * Math.cos(-s.rot);
+    }
     for (const inst of [anim.corpo, anim.ombra]) {
       if (!inst) continue;
       if (anim.tipo === 'drago') {
-        // l'onda viaggia dal collo alla coda, ampiezza crescente
+        // l'onda viaggia dal collo alla coda, ampiezza crescente; la virata
+        // trascina la coda dalla parte opposta (banking)
         const n = inst.spina.length;
         for (let i = 0; i < n; i++) {
-          inst.spina[i].y = Math.sin(t * 2.4 * ritmo - i * 0.62 + ph) * (2.5 + i * 2.1);
+          inst.spina[i].y = Math.sin(t * 2.4 * ritmo - i * 0.62 + ph) * (2.5 + i * 2.1)
+            - giro * (i * i) * 0.075;
         }
         // la testa cavalca il primo punto, orientata col collo
         const p0 = inst.spina[0], p1 = inst.spina[1];
         const dir = Math.atan2(p0.y - p1.y, p0.x - p1.x);
         inst.testa.position.set(p0.x + Math.cos(dir) * 42, p0.y + Math.sin(dir) * 42);
         inst.testa.rotation = dir;
+        // il SOFFIO: il collo si tende e la testa SCATTA verso la preda
+        if (att && att.k === 'soffio') {
+          const mira = Math.atan2(ay - inst.testa.position.y, ax - inst.testa.position.x);
+          inst.testa.position.x += Math.cos(mira) * 24 * slancio;
+          inst.testa.position.y += Math.sin(mira) * 24 * slancio;
+          inst.testa.rotation = dir + (mira - dir) * 0.5 * slancio;
+          inst.testa.scale.set(inst.testa.baseScala * (1 + 0.16 * slancio));
+        } else if (inst.testa.baseScala) {
+          inst.testa.scale.set(inst.testa.baseScala);
+        }
         // le ali battono agganciate alla spina (petto), non a mezz'aria
         const flap = Math.sin(t * 2.1 * ritmo + ph) * 0.3;
         const petto = inst.spina[2];
@@ -400,34 +425,76 @@ export class Renderer {
           ala.scale.x = ala.baseScalaX * (1 + 0.07 * Math.sin(t * 2.1 * ritmo + ph + Math.PI / 2));
         }
       } else if (anim.tipo === 'kraken') {
-        // ogni tentacolo si avvita: ricciolo crescente verso la punta,
-        // allungo che pulsa (afferra e ritira)
-        for (const tn of inst.tentacoli) {
+        // la FRUSTATA: si sceglie UNA volta il tentacolo col braccio più in
+        // asse con la preda; la frustata corre dalla base alla punta
+        if (att && att.tn < 0) {
+          let meglio = 0, minAng = Infinity;
+          for (let i = 0; i < inst.tentacoli.length; i++) {
+            const tn = inst.tentacoli[i];
+            let dAng = Math.atan2(ay - tn.by, ax - tn.bx) - tn.ang;
+            while (dAng > Math.PI) dAng -= 2 * Math.PI;
+            while (dAng < -Math.PI) dAng += 2 * Math.PI;
+            if (Math.abs(dAng) < minAng) { minAng = Math.abs(dAng); meglio = i; }
+          }
+          att.tn = meglio;
+        }
+        for (let i = 0; i < inst.tentacoli.length; i++) {
+          const tn = inst.tentacoli[i];
           const allungo = 1 + 0.09 * Math.sin(t * 0.8 * ritmo + tn.fase);
+          const frusta = att && att.tn === i ? slancio : 0;
+          const mira = frusta ? Math.atan2(ay - tn.by, ax - tn.bx) : 0;
+          const reach = frusta ? Math.min(Math.hypot(ax - tn.bx, ay - tn.by), tn.lung * 1.3) : 0;
           for (let j = 0; j < tn.punti.length; j++) {
             const d = (tn.lung / 8) * j * allungo;
-            const lat = Math.sin(t * 1.5 * ritmo + tn.fase + j * 0.55) * (j * j * 0.55);
-            tn.punti[j].x = tn.bx + Math.cos(tn.ang) * d - Math.sin(tn.ang) * lat;
-            tn.punti[j].y = tn.by + Math.sin(tn.ang) * d + Math.cos(tn.ang) * lat;
+            // la virata trascina i tentacoli tutti dalla stessa parte
+            const lat = Math.sin(t * 1.5 * ritmo + tn.fase + j * 0.55) * (j * j * 0.55) - giro * j * 1.4;
+            let px2 = tn.bx + Math.cos(tn.ang) * d - Math.sin(tn.ang) * lat;
+            let py2 = tn.by + Math.sin(tn.ang) * d + Math.cos(tn.ang) * lat;
+            if (frusta) {
+              // la frustata CORRE lungo il braccio: la base parte subito,
+              // la punta arriva dopo — distesa dritta verso la preda
+              const corsa = Math.max(0, Math.min(1, (1 - att.resta / att.durata) * 2.6 - j / 8)) * frusta;
+              px2 += (tn.bx + Math.cos(mira) * reach * (j / 8) - px2) * corsa;
+              py2 += (tn.by + Math.sin(mira) * reach * (j / 8) - py2) * corsa;
+            }
+            tn.punti[j].x = px2;
+            tn.punti[j].y = py2;
           }
         }
-        // il mantello respira e ciondola
-        inst.mantello.scale.set(inst.mantello.baseScala * (1 + 0.05 * Math.sin(t * 1.1 * ritmo + ph)));
-        inst.mantello.rotation = Math.sin(t * 0.7 + ph) * 0.06;
+        // il mantello respira, ciondola col moto e si SLANCIA nell'attacco
+        inst.mantello.scale.set(inst.mantello.baseScala * (1 + 0.05 * Math.sin(t * 1.1 * ritmo + ph) + 0.06 * slancio));
+        inst.mantello.rotation = Math.sin(t * 0.7 + ph) * 0.06 - giro * 0.06;
       } else {
         // le gobbe si TUFFANO: onda viaggiante, e la gobba che affonda si
-        // stringe (sta sotto), quella che emerge si gonfia
+        // stringe (sta sotto), quella che emerge si gonfia; la virata le
+        // sbanda dalla parte opposta
         for (let i = 0; i < inst.gobbe.length; i++) {
           const gb = inst.gobbe[i];
           const onda = Math.sin(t * 2.4 * ritmo - i * 1.15 + ph);
-          gb.position.y = onda * 13;
+          gb.position.y = onda * 13 - giro * (i + 1) * 3.2;
           gb.scale.set(gb.baseScala * (1 + 0.16 * Math.cos(t * 2.4 * ritmo - i * 1.15 + ph)));
         }
+        inst.testa.position.x = 88;
         inst.testa.position.y = Math.sin(t * 2.4 * ritmo + 1.1 + ph) * 8;
         inst.testa.rotation = Math.sin(t * 1.9 + ph) * 0.13;
-        inst.coda.rotation = inst.coda.baseRot + Math.sin(t * 2.6 * ritmo + 2.8 + ph) * 0.3;
+        // il MORSO: la testa SAETTA sulla preda un attimo prima del tuffo
+        if (att && att.k === 'morso') {
+          const mira = Math.atan2(ay - inst.testa.position.y, ax - inst.testa.position.x);
+          inst.testa.position.x += Math.cos(mira) * 34 * slancio;
+          inst.testa.position.y += Math.sin(mira) * 34 * slancio;
+          inst.testa.rotation += (mira - inst.testa.rotation) * 0.6 * slancio;
+        }
+        inst.coda.rotation = inst.coda.baseRot + Math.sin(t * 2.6 * ritmo + 2.8 + ph) * 0.3 + giro * 0.25;
       }
     }
+  }
+
+  // un attacco FIRMATO dal server (fx con `da`): la bestia lo recita
+  mostroAttacca(id, kind, x, y) {
+    const c = this.ships.get(id);
+    if (!c) return;
+    const durata = kind === 'soffio' ? 0.55 : 0.45;
+    c.attacco = { k: kind === 'presa' ? 'morso' : kind, x, y, durata, resta: durata, tn: -1 };
   }
 
   // La tinta della tela di una nave: la vela comprata vince, poi il colore di
@@ -1451,7 +1518,16 @@ export class Renderer {
         c.body.ombraMostro.scale.set((giu ? 0.62 + 0.5 * gonfio : 1.04) * respiro);
         c.body.ombraMostro.alpha = giu ? 0.5 + 0.32 * gonfio : 0.3;
         c.body.scale.set(c.body.mostroBase || 1);
-        if (c.body.animaMostro) this.animaMostro(c.body.animaMostro, s);
+        // il banking (audit 4-bis): la velocità di virata, lisciata, piega
+        // la spina — e l'attacco firmato si consuma qui
+        let dRot = s.rot - (c.mostroRotPrec ?? s.rot);
+        while (dRot > Math.PI) dRot -= 2 * Math.PI;
+        while (dRot < -Math.PI) dRot += 2 * Math.PI;
+        c.mostroRotPrec = s.rot;
+        const giroIst = dt > 0 ? dRot / dt : 0;
+        c.mostroGiro = (c.mostroGiro || 0) + (giroIst - c.mostroGiro) * Math.min(1, dt * 6);
+        if (c.attacco) c.attacco.resta -= dt;
+        if (c.body.animaMostro) this.animaMostro(c.body.animaMostro, s, c);
         if (c.tag) { c.tag.visible = !giu; c.tag.position.y = -138; } // il nome sopra la bestia, non sulla bestia
         if (c.glow) c.glow.alpha = 0; // le bestie non portano lanterne
         // la bestia STA nell'acqua (audit 4): schiuma al pelo attorno al
@@ -1691,6 +1767,10 @@ export class Renderer {
   }
 
   fx(kind, x, y, extra = {}) {
+    // gli attacchi FIRMATI dei mostri (audit 4-bis): il corpo recita
+    if (extra.da && (kind === 'soffio' || kind === 'morso' || kind === 'presa')) {
+      this.mostroAttacca(extra.da, kind, x, y);
+    }
     const P = this.particles;
     const burst = (n, opts) => {
       for (let i = 0; i < n; i++) {
@@ -1752,6 +1832,9 @@ export class Renderer {
       this.rings.push({ x, y, r: 8, maxR: 84, life: 0.7, max: 0.7 });
     } else if (kind === 'morso') {
       burst(10, { v: 70, life: 0.4, size: 3, color: 0xd8552e });
+    } else if (kind === 'soffio') {
+      // la vampa del Drago sul punto mirato: brace che sboccia
+      burst(9, { v: 85, life: 0.45, size: 3.5, color: 0xffb03a });
     } else if (kind === 'presa') {
       // i tentacoli del Kraken INCHIODANO (audit 3): anelli d'inchiostro
       // che si stringono e schiuma violacea

@@ -1435,6 +1435,7 @@ function interpolatedShips() {
 
 let lastFrame = performance.now();
 let minimapAt = 0;
+let attaccoT = 0; // il metronomo del ?forceattacco (sviluppo)
 
 function frame(now) {
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
@@ -1446,6 +1447,18 @@ function frame(now) {
   const cam = me ? { x: me.x, y: me.y } : (state.port || { x: 3000, y: 3000 });
 
   renderer.updateShips(ships, state.meId, dt);
+  // ?forceattacco=1 (sviluppo, con ?forcemostro): ogni ~1.8s le bestie in
+  // posa RECITANO l'attacco contro la nave — per fotografare la frustata
+  // del kraken, il soffio del drago e la saetta del serpente senza rischi
+  if (me && devParams.get('forceattacco')) {
+    attaccoT += dt;
+    if (attaccoT > 1.8) {
+      attaccoT = 0;
+      renderer.fx('soffio', me.x, me.y, { da: 'mock-drago' });
+      renderer.fx('morso', me.x, me.y, { da: 'mock-kraken' });
+      renderer.fx('morso', me.x, me.y, { da: 'mock-serpente' });
+    }
+  }
   renderer.frame(dt, cam, me);
 
   const rawMe = latestMe();
