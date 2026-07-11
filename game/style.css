@@ -522,6 +522,42 @@ body.conPannello #hint { opacity: 0; }
   border: 1.5px solid var(--brown-deep); vertical-align: -2px; margin-right: var(--s-1);
 }
 .shopRow.indossata { outline: 2px solid var(--brass-2); outline-offset: -2px; }
+
+/* ---- la Ciurma (issue #16): le carte del roster ---- */
+/* La convenzione dell'atlante (frame, righe, idle a 4 pose) è di
+   server/pirati.js: qui si presenta e basta. --pi-s = lato della carta;
+   --pi-cols/--pi-rows/--pi-riga arrivano inline dalle carte. */
+.ciurmaGriglia {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s-2); margin-top: var(--s-2);
+}
+.ciurmaCard {
+  display: flex; flex-direction: column; align-items: center; gap: var(--s-1);
+  background: var(--paper-60); border: 1px solid var(--edge); border-radius: var(--r-sm);
+  padding: var(--s-2); text-align: center;
+}
+.ciurmaCard.prescelta { outline: 2px solid var(--brass-2); outline-offset: -2px; }
+.ciurmaSprite {
+  --pi-s: 112px;
+  /* difese di default: i valori VERI arrivano inline da server/pirati.js */
+  --pi-cols: 10; --pi-rows: 15; --pi-riga: 0;
+  width: var(--pi-s); height: var(--pi-s);
+  background-image: url('assets/pirati.webp');
+  background-size: calc(var(--pi-s) * var(--pi-cols)) calc(var(--pi-s) * var(--pi-rows));
+  background-position: 0 calc(var(--pi-s) * -1 * var(--pi-riga));
+  animation: ciurmaIdle 1.9s steps(4) infinite;
+}
+@keyframes ciurmaIdle {
+  from { background-position: 0 calc(var(--pi-s) * -1 * var(--pi-riga)); }
+  to { background-position: calc(var(--pi-s) * -4) calc(var(--pi-s) * -1 * var(--pi-riga)); }
+}
+/* i non arruolati sono silhouette: si vede la sagoma, non il pirata */
+.ciurmaCard.bloccata .ciurmaSprite { filter: brightness(0.16) saturate(0.3); }
+.ciurmaCard.bloccata b { color: var(--ink-mute); }
+.ciurmaVia { font-size: var(--t-xs); color: var(--ink-mute); font-style: italic; min-height: 2.4em; }
+.ciurmaAlTimone { font-size: var(--t-sm); color: var(--brass-2); font-weight: 700; }
+.ciurmaCard button { min-width: 96px; }
+
 /* l'anteprima fedele della nave nel Negozio delle Livree (issue #34) */
 .livreaPreview {
   display: flex; align-items: center; justify-content: center; text-align: center;

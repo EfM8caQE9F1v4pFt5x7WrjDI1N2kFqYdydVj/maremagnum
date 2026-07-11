@@ -4,6 +4,9 @@ import { drawTreasureMap } from './mapgen.js';
 import { t as tr, getLang } from './i18n.js';
 import { tMsg, nomeIsola } from './dict-mare.js';
 import { disegnaBandiera, TINTE, TAGLI, EMBLEMI } from './bandiera.js';
+// la Ciurma (#16): il catalogo è fonte unica col server (roster, sblocchi,
+// convenzione dell'atlante); qui si compongono solo le carte
+import PIRATI from '../../server/pirati.js';
 
 const CATEGORIE_GILDA = ['corsari', 'mercanti', 'esploratori', 'accademici', 'guardiani'];
 
@@ -77,7 +80,7 @@ export class UI {
     $('alleanzaCerca').addEventListener('input', () => this._renderAlleanzaPresenti());
     // il Cantiere a schede (issue #24): meno muro, più bottega
     this._shopScheda = 'nave';
-    for (const [id, scheda] of [['tabNave', 'nave'], ['tabVaro', 'varo'], ['tabArmi', 'armi'], ['tabLivree', 'livree']]) {
+    for (const [id, scheda] of [['tabNave', 'nave'], ['tabVaro', 'varo'], ['tabArmi', 'armi'], ['tabLivree', 'livree'], ['tabCiurma', 'ciurma']]) {
       $(id).addEventListener('click', () => this._shopMostra(scheda));
     }
     // il Registro delle Collezioni (issue #25): vetrina, si apre ovunque
@@ -474,10 +477,84 @@ export class UI {
     $('shopVaro').classList.toggle('hidden', scheda !== 'varo');
     $('shopWeapons').classList.toggle('hidden', scheda !== 'armi');
     $('shopLivree').classList.toggle('hidden', scheda !== 'livree');
+    $('shopCiurma').classList.toggle('hidden', scheda !== 'ciurma');
     $('tabNave').setAttribute('aria-pressed', scheda === 'nave');
     $('tabVaro').setAttribute('aria-pressed', scheda === 'varo');
     $('tabArmi').setAttribute('aria-pressed', scheda === 'armi');
     $('tabLivree').setAttribute('aria-pressed', scheda === 'livree');
+    $('tabCiurma').setAttribute('aria-pressed', scheda === 'ciurma');
+  }
+
+  // --- la Ciurma (issue #16): il roster che si arruola con la nave ---
+
+  // La via d'arruolo di un pirata, detta nella lingua corrente
+  _viaPirata(sblocco) {
+    if (sblocco.via === 'scafo') return tr('pirata.via.scafo', { lvl: sblocco.lvl });
+    if (sblocco.via === 'ciurma') return tr('pirata.via.ciurma', { lvl: sblocco.lvl });
+    if (sblocco.via === 'varo') return tr('pirata.via.varo', { tipo: tr('tipo.' + sblocco.tipo) });
+    if (sblocco.via === 'campagna') return tr('pirata.via.campagna');
+    return tr('pirata.via.base');
+  }
+
+  // Le carte della ciurma: gli arruolati respirano (idle dall'atlante),
+  // i mancanti sono SILHOUETTE con la ricetta per portarli a bordo —
+  // la vetrina è metà della spinta al collezionismo
+  setCiurma(c) {
+    this._ciurma = c || this._ciurma;
+    if (!this._ciurma) return;
+    const { ids, pirata } = this._ciurma;
+    const box = $('shopCiurma');
+    box.innerHTML = '';
+    const A = PIRATI.ATLANTE;
+    const block = document.createElement('div');
+    block.className = 'wgroup';
+    const head = document.createElement('div');
+    head.className = 'wgroupHead';
+    head.innerHTML = `<b>${tr('ciurma.testata', { n: ids.length, tot: PIRATI.ROSTER.length })}</b>`;
+    block.appendChild(head);
+    const sub = document.createElement('div');
+    sub.className = 'shopNota';
+    sub.textContent = tr('ciurma.sub');
+    block.appendChild(sub);
+    const griglia = document.createElement('div');
+    griglia.className = 'ciurmaGriglia';
+    PIRATI.ROSTER.forEach((p, riga) => {
+      const ha = ids.includes(p.id);
+      const nome = tr('pirata.' + p.id);
+      const card = document.createElement('div');
+      card.className = 'ciurmaCard' + (ha ? '' : ' bloccata') + (pirata === p.id ? ' prescelta' : '');
+      const sprite = document.createElement('div');
+      sprite.className = 'ciurmaSprite';
+      sprite.style.setProperty('--pi-cols', A.cols);
+      sprite.style.setProperty('--pi-rows', PIRATI.ROSTER.length);
+      sprite.style.setProperty('--pi-riga', riga);
+      sprite.setAttribute('role', 'img');
+      sprite.setAttribute('aria-label', ha ? nome : tr('ciurma.silhouette.aria', { via: this._viaPirata(p.sblocco) }));
+      card.appendChild(sprite);
+      const chi = document.createElement('b');
+      chi.textContent = ha ? nome : '???';
+      card.appendChild(chi);
+      const via = document.createElement('span');
+      via.className = 'ciurmaVia';
+      via.textContent = ha ? this._viaPirata(p.sblocco) : tr('ciurma.comearruolare', { via: this._viaPirata(p.sblocco) });
+      card.appendChild(via);
+      if (ha && pirata === p.id) {
+        const al = document.createElement('span');
+        al.className = 'ciurmaAlTimone';
+        al.textContent = tr('ciurma.altimone');
+        card.appendChild(al);
+      } else if (ha) {
+        const btn = document.createElement('button');
+        btn.textContent = tr('ciurma.prescegli');
+        btn.dataset.fk = 'pirata-' + p.id;
+        btn.setAttribute('aria-label', tr('ciurma.prescegli.aria', { nome }));
+        btn.addEventListener('click', () => this.h.onPirata(p.id));
+        card.appendChild(btn);
+      }
+      griglia.appendChild(card);
+    });
+    block.appendChild(griglia);
+    box.appendChild(block);
   }
 
   // il mastro d'ascia consiglia: l'acquisto più grosso che ti puoi
@@ -698,6 +775,7 @@ export class UI {
       }
       wep.appendChild(block);
     }
+    if (m.ciurma) this.setCiurma(m.ciurma); // la Ciurma (#16)
     this._shopMostra(this._shopScheda);
     this.show('shopOverlay');
     if (fk) {
@@ -935,6 +1013,13 @@ export class UI {
         return `${ha ? '✅' : '◻️'} ${esc(l.nome)}${addosso ? ' <b>' + tr('reg.addosso') + '</b>' : ''}${!ha && l.impresa ? ' — ' + tr('reg.concampagna') : ''}`;
       })
       : [tr('reg.negozio.vuoto')]);
+    // la Ciurma (#16): il collezionabile dei quindici, ricetta alla mano
+    const arruolati = d.ciurma || [];
+    sez(tr('reg.ciurma', { n: arruolati.length, tot: PIRATI.ROSTER.length }), PIRATI.ROSTER.map(p => {
+      const ha = arruolati.includes(p.id);
+      const via = this._viaPirata(p.sblocco);
+      return `${ha ? '✅' : '◻️'} ${ha ? esc(tr('pirata.' + p.id)) : '???'}${d.pirata === p.id ? ' <b>' + tr('ciurma.altimone') + '</b>' : ''}${ha ? '' : ' — ' + esc(via)}`;
+    }));
     if (d.campagna && d.campagna.completata) {
       sez(tr('reg.mastro'), [tr('reg.mastro.compiuta')]);
     }
