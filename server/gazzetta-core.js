@@ -16,8 +16,10 @@ function setVoci(list) {
     .slice(0, CAP);
 }
 
-function pubblica(tipo, testo, t = Date.now()) {
-  const voce = { t, tipo: String(tipo).slice(0, 24), testo: String(testo).slice(0, 300) };
+function pubblica(tipo, testo, k, p, t = Date.now()) {
+  // i18n fetta 2: la voce porta ANCHE chiave e parametri (additivi) — il
+  // testo italiano resta il fallback e la lingua dell'albo legacy
+  const voce = { t, tipo: String(tipo).slice(0, 24), testo: String(testo).slice(0, 300), ...(k ? { k, p } : {}) };
   voci.unshift(voce);
   if (voci.length > CAP) voci.length = CAP;
   return voce;

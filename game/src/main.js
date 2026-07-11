@@ -13,6 +13,7 @@ import { setNotteChiara } from './daycycle.js';
 import QRCode from 'qrcode';
 import { initLang, applyI18n, setLang, getLang, onLang, t } from './i18n.js';
 import './dict.js'; // registra le stringhe estratte (issue #33)
+import { tMsg, nomeIsola } from './dict-mare.js'; // i messaggi del mare a chiavi (fetta 2)
 
 const INTERP_DELAY = 120; // ms nel passato: si naviga fra due snapshot certi
 const GROUPS = ['left', 'right', 'bow', 'stern'];
@@ -915,10 +916,11 @@ function wireNet() {
     state.profile.gold = m.gold;
     saveProfile();
     ui.setGold(m.gold);
-    if (m.delta > 0) { sfx.coin(); ui.toast(`+${m.delta} 🪙 — ${m.reason}`); }
-    else if (m.delta < 0) ui.toast(`${m.delta} 🪙 — ${m.reason}`);
+    const causale = m.rk ? tMsg(m.rk, m.rp) : m.reason;
+    if (m.delta > 0) { sfx.coin(); ui.toast(`+${m.delta} 🪙 — ${causale}`); }
+    else if (m.delta < 0) ui.toast(`${m.delta} 🪙 — ${causale}`);
     // gli incassi sono eventi personali: finiscono nelle mie Cronache (issue #39)
-    if (m.delta > 0 && m.reason) registraCronaca(`🪙 +${m.delta} — ${m.reason}`);
+    if (m.delta > 0 && causale) registraCronaca(`🪙 +${m.delta} — ${causale}`);
   });
 
   net.on('conquered', (m) => {
@@ -960,7 +962,7 @@ function wireNet() {
   });
 
   net.on('kill', (m) => {
-    ui.feed(`💥 ${m.killer} ha affondato ${m.victim}!${m.bounty ? ` (+${m.bounty} 🪙)` : ''}`);
+    ui.feed(tMsg('kill.riga', { killer: m.kk ? t(m.kk) : m.killer, victim: m.vk ? t(m.vk) : m.victim }) + (m.bounty ? ` (+${m.bounty} 🪙)` : ''));
     if (m.killer === state.profile.name) { state.profile.kills = (state.profile.kills || 0) + 1; saveProfile(); }
     if (m.victim === state.profile.name) { state.profile.deaths = (state.profile.deaths || 0) + 1; saveProfile(); }
   });
@@ -1016,7 +1018,7 @@ function wireNet() {
     aggiornaDiario();
   });
   net.on('toast', (m) => ui.toast(m.msg));
-  net.on('feed', (m) => ui.feed(m.msg));
+  net.on('feed', (m) => ui.feed(m.k ? tMsg(m.k, m.p) : m.msg));
 }
 
 function openSite(island, url) {
@@ -1566,19 +1568,19 @@ function updateDockHint(me) {
     if (state.dest && state.dest.island) {
       const d = state.dest.island;
       const leghe = Math.max(1, Math.round(Math.hypot(d.x - me.x, d.y - me.y) / 100));
-      ui.setDockHint(`⛵ Rotta per ${d.name}: ${leghe} leghe`);
+      ui.setDockHint(t('molo.rotta', { nome: nomeIsola(d), leghe }));
     } else ui.setDockHint('');
     return;
   }
   const conquered = (state.profile.conquered || []).includes(best.id);
   if (best.fortress && !conquered) {
-    ui.setDockHint(`🏰 ${best.name}: l'approdo è sbarrato finché le difese sono in piedi`);
+    ui.setDockHint(t('molo.sbarrato', { nome: nomeIsola(best) }));
   } else if (best.dungeon) {
-    ui.setDockHint(`⚔ ${best.name}: dungeon del Mastro — abbatti le difese per attraccare`);
+    ui.setDockHint(t('molo.dungeon', { nome: nomeIsola(best) }));
   } else if (bestD <= best.r + 90) {
-    ui.setDockHint(me.vel <= 45 ? `Premi F per attraccare a ${best.name}` : 'Ammaina le vele (S) per attraccare');
+    ui.setDockHint(me.vel <= 45 ? t('molo.premiF', { nome: nomeIsola(best) }) : t('molo.ammaina'));
   } else {
-    ui.setDockHint(`${best.name} a un tiro di sasso…`);
+    ui.setDockHint(t('molo.vicino', { nome: nomeIsola(best) }));
   }
 }
 

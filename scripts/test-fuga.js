@@ -44,6 +44,7 @@ assert(bottino && bottino.oro === Math.floor(oroPrima / 2), 'l\'altra metà gall
 assert(Math.hypot(bottino.x - 2500, bottino.y - 2500) < 2, 'dove ammainava');
 assert(etere.some(m => m.t === 'feed' && /FUGGITO dalla battaglia/.test(m.msg || '')), 'la fuga è pubblica');
 assert(etere.some(m => m.t === 'notifica' && /FUGGITO/.test((m.voce || {}).testo || '')), 'e va in Gazzetta');
+assert(etere.some(m => m.t === 'notifica' && (m.voce || {}).k === 'fuga.annuncio' && (m.voce.p || {}).oro === Math.floor(oroPrima / 2)), 'la voce porta chiave e parametri (i18n fetta 2)');
 ok('fuga ingaggiata: 50% a mare in un bottino galleggiante, gogna pubblica');
 
 // — 3) lo snapshot dichiara i bottini (bt additivo) —
