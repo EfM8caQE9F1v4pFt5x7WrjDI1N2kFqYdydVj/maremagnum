@@ -37,18 +37,26 @@ const NOTTE = { da: 0.655, a: 0.895, cacciaFantasmi: 650 };
 // rispondono tutti — l'ecologia delle prede di Pirates!. Il convoglio è il
 // pane; il GALEONE DEL TESORO è la festa: raro, corazzato, guardia serrata —
 // e il suo oro si prende col TOCCO: chi lo affonda lo manda negli abissi.
+// Audit 3: i capi carovana navigano a PASSO DA CARICO (vel dedicata, non i
+// 75 del mercantile spensierato) e fanno SCALI intermedi con una breve sosta
+// in rada — misurato in collaudo: a passo pieno su rotte corte la carovana
+// viveva 23-35 secondi, "appariva e spariva da sola".
 const CAROVANE = {
   convoglio: {
     nome: 'Mercantile di Convoglio', scortaNome: 'Scorta del Convoglio',
     scorte: 2, stazza: 2, bottino: 400, ogni: 300, primo: 90, lvlScorta: 2,
-    annuncio: (da, a) => `🚢 Un convoglio scortato è salpato: da ${da} verso ${a}, stive piene!`,
+    vel: 42, scali: 2, sosta: 45,
+    annuncio: (da, a, via) => `🚢 Un convoglio scortato è salpato: da ${da} verso ${a}${via ? ` con scalo a ${via}` : ''}, stive piene!`,
+    scalo: (qui, poi) => `⚓ Il convoglio fa scalo a ${qui}: riparte a breve verso ${poi}.`,
     arrivo: (a) => `⚓ Il convoglio è giunto sano e salvo a ${a}.`,
     perduto: '🌊 Il mercantile di convoglio è perduto: la scorta, orfana, dà la caccia ai colpevoli.',
   },
   tesoro: {
     nome: 'Galeone del Tesoro', scortaNome: 'Guardia del Tesoro',
     scorte: 3, stazza: 3, bottino: 1000, ogni: 1800, primo: 600, lvlScorta: 3,
-    annuncio: (da, a) => `👑 IL GALEONE DEL TESORO è salpato: da ${da} verso ${a} — scorta serrata, stive d'oro!`,
+    vel: 35, scali: 2, sosta: 45,
+    annuncio: (da, a, via) => `👑 IL GALEONE DEL TESORO è salpato: da ${da} verso ${a}${via ? ` con scalo a ${via}` : ''} — scorta serrata, stive d'oro!`,
+    scalo: (qui, poi) => `👑 Il Galeone del Tesoro fa scalo a ${qui}: riparte a breve verso ${poi}.`,
     arrivo: (a) => `👑 Il Galeone del Tesoro è giunto al sicuro a ${a}: l'oro è sbarcato.`,
     perduto: '🌊 Il Galeone del Tesoro è negli abissi col suo oro: la Guardia, orfana, cerca vendetta.',
   },
@@ -67,12 +75,24 @@ const CACCIA = { ogniKill: 3, bounty: 120, ttl: 240, max: 2, stazza: 1.5 };
 // stanno giù non si toccano — poi emergono A CASO su chi gli passa sopra e
 // restano fuori finché non vengono sconfitte o la preda non scappa. Le
 // taglie sono FISSE (listino). Vivono sott'acqua: il vento non li riguarda.
+// Audit 3: bestie RIFONDATE — corpi 4 volte più grandi (raggio = cerchio dei
+// colpi e del contatto), vita da leggenda, taglie da alleanza (#37), e un
+// KIT per indole: il Drago è artiglieria volante (tiene la distanza, raffica
+// di fiammate a ventaglio); il Kraken è la presa (i tentacoli INCHIODANO la
+// nave per `stretta` secondi, poi `tregua` di immunità: è una morsa, non una
+// tomba); il Serpente è il mordi-e-fuggi (morde, si rituffa, riemerge alle
+// spalle). L'emersione è TELEGRAFATA: l'ombra si gonfia per `emersione`
+// secondi prima del primo assalto (`agguatoRapido` per le riemersioni del
+// Serpente) — chi guarda il mare ha il tempo di virare.
 const MOSTRI = {
-  drago: { nome: 'Drago di Mare', hp: 380, vel: 95, taglia: 500, morso: 18, gittata: 320, cadenza: 2.5 },
-  kraken: { nome: 'Kraken', hp: 700, vel: 55, taglia: 800, morso: 30, presa: 60, cadenza: 1.4 },
-  serpente: { nome: 'Serpente Abissale', hp: 300, vel: 130, taglia: 350, morso: 22, presa: 44, cadenza: 1.0 },
+  drago: { nome: 'Drago di Mare', hp: 1500, vel: 95, taglia: 900, morso: 14, raffica: 3, ventaglio: 0.35, gittata: 380, distanza: 260, cadenza: 2.5, raggio: 80 },
+  kraken: { nome: 'Kraken', hp: 2800, vel: 55, taglia: 1600, morso: 30, presa: 130, stretta: 2, tregua: 8, cadenza: 1.4, raggio: 110 },
+  serpente: { nome: 'Serpente Abissale', hp: 1200, vel: 130, taglia: 650, morso: 22, presa: 90, cadenza: 1.0, raggio: 70 },
 };
-const MOSTRO = { aggro: 260, pAgguato: 0.0015, fuga: 1100, riposo: 120, vagabondo: 40 };
+const MOSTRO = {
+  aggro: 320, pAgguato: 0.0015, fuga: 1100, riposo: 120, vagabondo: 40,
+  emersione: 2.5, agguatoRapido: 1.2, riposiziona: 160, spalle: 240,
+};
 // L'economia del blocco (issue #15, arrembaggio v1): vita a zero per mano di
 // un capitano = nave BLOCCATA, non affondata. Il doppiofondo della Stiva è
 // SEMPRE protetto; il resto è "il forziere in gioco": 25% subito al vincitore,
@@ -321,6 +341,7 @@ class Game {
       // le munizioni (issue #41, fetta 2): scelta di sessione, mai persistita;
       // i debuff sono temporanei e si rinfrescano, non si sommano
       munizione: 'palle', veleTagliateUntil: 0, falcidiaUntil: 0,
+      presaUntil: 0, presaImmuneUntil: 0, // i tentacoli del Kraken (audit 3)
       // la resa dei mercantili e le carovane (issue #41, fette 3-4)
       resaUntil: 0, resaCooldownUntil: 0, saccheggiato: false, convoglio: null,
       // i cacciatori di taglie (fetta 4): il conto dell'infamia e il mandato
@@ -387,6 +408,9 @@ class Game {
     ship.predaId = null;
     ship.morsoAt = 0;
     ship.agguatoDorme = 0;
+    ship.emersioneA = 0;       // quando l'ombra finisce di gonfiarsi (telegrafo)
+    ship.emersioneDurata = 0;  // per dire al client A CHE PUNTO è il gonfiarsi
+    ship.riposizionaFino = 0;  // il Serpente non gira sott'acqua in eterno
     ship.mounts = { left: [], right: [], bow: [], stern: [] };
     ship.ready = { left: [], right: [], bow: [], stern: [] };
     ship.hp = MOSTRI[tipo].hp;
@@ -1353,21 +1377,31 @@ class Game {
     // I MOSTRI invece nuotano sotto: vento, tempeste e vele non li toccano.
     let speed;
     if (ship.npc === 'mostro') {
-      speed = ship.sommerso ? MOSTRO.vagabondo : MOSTRI[ship.mostro].vel;
+      // sommerso: deriva pigra — ma il Serpente a caccia (preda agganciata,
+      // niente telegrafo in corso) sfreccia sott'acqua per riposizionarsi
+      const sotto = (ship.predaId && ship.emersioneA <= this.now) ? MOSTRO.riposiziona : MOSTRO.vagabondo;
+      speed = ship.sommerso ? sotto : MOSTRI[ship.mostro].vel;
     } else {
       const inTempesta = vento.inBurrasca(this.burrasche, ship.x, ship.y);
       const fv = vento.fattore(inTempesta ? { dir: this.vento.dir, forza: 1 } : this.vento, ship.rot);
       const mareGrosso = inTempesta ? vento.BURRASCHE.lentezza : 1;
       const taglio = ship.veleTagliateUntil > this.now ? W.MUNIZIONI.catene.taglia.malus : 1;
-      speed = (ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed)) * fv * taglio * mareGrosso;
+      // il capo carovana è CARICO: passo suo (audit 3), non i 75 del merc
+      const base = ship.npc === 'merc'
+        ? (ship.convoglio ? CAROVANE[ship.convoglio.tipo].vel : 75)
+        : (ship.npc === 'ghost' ? 105 : st.speed);
+      speed = base * fv * taglio * mareGrosso;
     }
     const turn = (ship.input.left ? -1 : 0) + (ship.input.right ? 1 : 0);
     ship.rot += turn * st.turnRate * dt;
     // durante lo speronamento (o il Colpo di Vento) la nave carica, vele o non vele
-    const desired = ship.ramUntil > this.now ? speed * ABILITA.goletta.spinta
-      : ship.ventoUntil > this.now ? speed * ABILITA.sciabecco.spinta
-        : ship.input.up ? speed : 0;
+    // — ma la PRESA del Kraken (audit 3) inchioda tutto: vele piene e ferme
+    const desired = ship.presaUntil > this.now ? 0
+      : ship.ramUntil > this.now ? speed * ABILITA.goletta.spinta
+        : ship.ventoUntil > this.now ? speed * ABILITA.sciabecco.spinta
+          : ship.input.up ? speed : 0;
     ship.vel += (desired - ship.vel) * Math.min(1, dt * 1.1);
+    if (ship.presaUntil > this.now) ship.vel *= Math.max(0, 1 - 5 * dt);
     if (ship.input.down) ship.vel *= Math.max(0, 1 - 2.5 * dt);
     ship.x += Math.cos(ship.rot) * ship.vel * dt;
     ship.y += Math.sin(ship.rot) * ship.vel * dt;
@@ -1377,7 +1411,8 @@ class Game {
     if (ship.y > WORLD.H - 60) { ship.y = WORLD.H - 60; ship.vel *= 0.5; }
     for (const i of this.archipelago.list()) {
       const d = Math.hypot(ship.x - i.x, ship.y - i.y);
-      const min = i.r + 18;
+      // i mostri sono montagne di carne: la loro sagoma non sale in spiaggia
+      const min = i.r + (ship.npc === 'mostro' ? Math.round(MOSTRI[ship.mostro].raggio * 0.6) : 18);
       if (d < min && d > 0.001) {
         ship.x = i.x + ((ship.x - i.x) / d) * min;
         ship.y = i.y + ((ship.y - i.y) / d) * min;
@@ -1410,7 +1445,13 @@ class Game {
   steerCapo(ship) {
     const c = ship.convoglio && this.carovane[ship.convoglio.tipo];
     if (!c) { this.steerMerc(ship); return; }
-    this.steerToward(ship, c.meta.x, c.meta.y);
+    // in sosta di scalo: ancora giù, vele ferme (audit 3)
+    if (c.sostaFino > this.now) {
+      ship.input.up = ship.input.left = ship.input.right = false;
+      return;
+    }
+    const t = c.tappe[c.tappa] || c.meta;
+    this.steerToward(ship, t.x, t.y);
   }
 
   // caccia col fianco: insegui la preda, mettila al traverso e fai fuoco —
@@ -1464,18 +1505,27 @@ class Game {
     const isole = this.archipelago.list()
       .filter(i => !i.fortress && !(i.defs && i.defs.some(d => !d.dead)));
     if (!cfg || isole.length < 2) return;
-    let da = null, a = null;
-    for (let tenta = 0; tenta < 12 && !a; tenta++) {
+    // la rotta è una CATENA di tappe (audit 3): porto → scalo/i → meta,
+    // ogni gamba almeno 1800 leghe — la carovana deve VIVERE in mare
+    let da = null, tappe = null;
+    for (let tenta = 0; tenta < 12 && !tappe; tenta++) {
       da = isole[Math.floor(Math.random() * isole.length)];
-      const lontane = isole.filter(i => i !== da && Math.hypot(i.x - da.x, i.y - da.y) > 2200);
-      if (lontane.length) a = lontane[Math.floor(Math.random() * lontane.length)];
+      const catena = [da];
+      for (let gamba = 0; gamba <= (cfg.scali || 0); gamba++) {
+        const qui = catena[catena.length - 1];
+        const lontane = isole.filter(i => !catena.includes(i) && Math.hypot(i.x - qui.x, i.y - qui.y) > 2400);
+        if (!lontane.length) break;
+        catena.push(lontane[Math.floor(Math.random() * lontane.length)]);
+      }
+      if (catena.length >= 2) tappe = catena.slice(1); // anche senza scali: mai a secco
     }
-    if (!a) return;
+    if (!tappe) return;
+    const a = tappe[tappe.length - 1];
     const capo = this.spawnNpc('merc');
     capo.name = cfg.nome;
     capo.stazza = cfg.stazza;
     capo.hp = this.npcMaxHp(capo);
-    const ang = Math.atan2(a.y - da.y, a.x - da.x);
+    const ang = Math.atan2(tappe[0].y - da.y, tappe[0].x - da.x);
     capo.x = da.x + Math.cos(ang) * (da.r + 140);
     capo.y = da.y + Math.sin(ang) * (da.r + 140);
     capo.rot = ang;
@@ -1493,8 +1543,13 @@ class Game {
       s.convoglio = { tipo, ruolo: 'scorta', posto: i };
       scorte.push(s.id);
     }
-    this.carovane[tipo] = { capo: capo.id, scorte, meta: { x: a.x, y: a.y, r: a.r, nome: a.name }, minaccia: null };
-    this.annuncia('convoglio', cfg.annuncio(da.name, a.name));
+    this.carovane[tipo] = {
+      capo: capo.id, scorte, minaccia: null,
+      meta: { x: a.x, y: a.y, r: a.r, nome: a.name }, // la destinazione FINALE
+      tappe: tappe.map(i => ({ x: i.x, y: i.y, r: i.r, nome: i.name })),
+      tappa: 0, sostaFino: 0,
+    };
+    this.annuncia('convoglio', cfg.annuncio(da.name, a.name, tappe.length > 1 ? tappe[0].name : null));
   }
 
   // fine corsa: all'ARRIVO tutti a terra (spariscono in porto); se il capo
@@ -1527,8 +1582,17 @@ class Game {
         this.sciogliCarovana(tipo, CAROVANE[tipo].perduto, false);
         continue;
       }
-      if (Math.hypot(capo.x - c.meta.x, capo.y - c.meta.y) < c.meta.r + 170) {
-        this.sciogliCarovana(tipo, CAROVANE[tipo].arrivo(c.meta.nome), true);
+      // la tappa corrente: gli scali si toccano e si riparte, la META scioglie
+      const t = c.tappe[c.tappa] || c.meta;
+      if (Math.hypot(capo.x - t.x, capo.y - t.y) < t.r + 170) {
+        if (c.tappa >= c.tappe.length - 1) {
+          this.sciogliCarovana(tipo, CAROVANE[tipo].arrivo(c.meta.nome), true);
+        } else if (c.sostaFino <= this.now) {
+          // appena arrivato allo scalo: sosta breve, poi la prossima gamba
+          c.tappa++;
+          c.sostaFino = this.now + CAROVANE[tipo].sosta;
+          this.annuncia('convoglio', CAROVANE[tipo].scalo(t.nome, c.tappe[c.tappa].nome));
+        }
       }
     }
   }
@@ -1587,9 +1651,12 @@ class Game {
 
   // --- i mostri marini (audit 2) ---
 
-  // sommerso: vaga lento e, se una nave viva gli passa sopra, PUÒ emergere
-  // (a caso — l'agguato non si prevede). Emerso: addosso alla SUA preda,
-  // ognuno con la sua indole; se la preda scappa o attracca, si rituffa.
+  // sommerso: vaga lento e, se una nave viva gli passa sopra, PUÒ decidere
+  // l'agguato (a caso) — ma l'emersione è TELEGRAFATA: l'ombra si gonfia per
+  // qualche secondo prima che la bestia buchi il pelo dell'acqua. Emerso:
+  // addosso alla SUA preda, ognuno col suo kit; se la preda scappa o
+  // attracca, si rituffa. Il Serpente morde e FUGGE: si rituffa dopo ogni
+  // morso e riemerge alle spalle della preda (telegrafo rapido).
   steerMostro(ship) {
     const cfg = MOSTRI[ship.mostro];
     if (!ship.sommerso) {
@@ -1606,29 +1673,91 @@ class Game {
       }
       const d = Math.hypot(preda.x - ship.x, preda.y - ship.y);
       if (ship.mostro === 'drago') {
-        // il Drago tiene la distanza e SOFFIA fuoco
-        this.steerToward(ship, preda.x, preda.y, d > 220);
+        // artiglieria volante: tiene la distanza e RAFFICA a ventaglio
+        this.steerToward(ship, preda.x, preda.y, d > cfg.distanza);
         if (d < cfg.gittata && this.now >= ship.morsoAt) {
           ship.morsoAt = this.now + cfg.cadenza;
           const dir = Math.atan2(preda.y - ship.y, preda.x - ship.x);
-          const s = this.spawnShot(ship.id, ship.x + Math.cos(dir) * 30, ship.y + Math.sin(dir) * 30, dir,
-            { speed: 300, range: cfg.gittata + 40, dmg: cfg.morso }, 'fuoco');
-          this.broadcast({ t: 'shots', from: ship.id, shots: [s] });
+          const shots = [];
+          for (let i = 0; i < cfg.raffica; i++) {
+            const off = (i - (cfg.raffica - 1) / 2) * (cfg.ventaglio / (cfg.raffica - 1) * 2);
+            shots.push(this.spawnShot(ship.id, ship.x + Math.cos(dir + off) * 60, ship.y + Math.sin(dir + off) * 60,
+              dir + off, { speed: 300, range: cfg.gittata + 40, dmg: cfg.morso }, 'fuoco'));
+          }
+          this.broadcast({ t: 'shots', from: ship.id, shots });
         }
-      } else {
-        // Kraken e Serpente addosso: morso da presa (contatto)
+      } else if (ship.mostro === 'kraken') {
+        // la morsa: al contatto danno, vele avviluppate e PRESA che inchioda
+        // (con tregua: è una morsa, non una tomba)
         this.steerToward(ship, preda.x, preda.y);
         if (d < cfg.presa && this.now >= ship.morsoAt) {
           ship.morsoAt = this.now + cfg.cadenza;
           this.damageShip(preda, cfg.morso, ship.id);
-          // i tentacoli del Kraken avviluppano le vele
-          if (ship.mostro === 'kraken') preda.veleTagliateUntil = Math.max(preda.veleTagliateUntil, this.now + 3);
+          preda.veleTagliateUntil = Math.max(preda.veleTagliateUntil, this.now + 3);
+          if (preda.presaImmuneUntil <= this.now) {
+            preda.presaUntil = this.now + cfg.stretta;
+            preda.presaImmuneUntil = this.now + cfg.tregua;
+            this.fxQueue.push({ k: 'presa', x: r1(preda.x), y: r1(preda.y) });
+          }
           this.fxQueue.push({ k: 'morso', x: r1(preda.x), y: r1(preda.y) });
+        }
+      } else {
+        // il Serpente: morde e sparisce — si riposiziona alle spalle
+        this.steerToward(ship, preda.x, preda.y);
+        if (d < cfg.presa && this.now >= ship.morsoAt) {
+          this.damageShip(preda, cfg.morso, ship.id);
+          this.fxQueue.push({ k: 'morso', x: r1(preda.x), y: r1(preda.y) });
+          ship.sommerso = true;
+          ship.riposizionaFino = this.now + 6; // poi riemerge comunque
+          this.fxQueue.push({ k: 'tuffo', x: r1(ship.x), y: r1(ship.y) });
         }
       }
       return;
     }
-    // sommerso: deriva pigra tra due acque
+    // SOMMERSO — 1) telegrafo in corso: l'ombra si gonfia sotto la preda
+    if (ship.emersioneA) {
+      const preda = ship.predaId ? this.ships.get(ship.predaId) : null;
+      if (!preda || this.isSunk(preda) || preda.docked) {
+        ship.emersioneA = 0; ship.predaId = null;
+        ship.agguatoDorme = this.now + 20;
+        return;
+      }
+      if (this.now >= ship.emersioneA) {
+        ship.sommerso = false;
+        ship.morsoAt = this.now + 0.4; // il tempo di bucare l'acqua
+        this.fxQueue.push({ k: 'emersione', x: r1(ship.x), y: r1(ship.y) });
+        // il feed canta solo il PRIMO assalto (le riemersioni del Serpente
+        // sono il suo mestiere: l'ombra che si gonfia basta e avanza)
+        if (ship.emersioneDurata >= MOSTRO.emersione) {
+          this.broadcast({ t: 'feed', msg: `🌊 ${ship.name} EMERGE dagli abissi sotto ${preda.name}!` });
+        }
+        ship.emersioneA = 0;
+        return;
+      }
+      this.steerToward(ship, preda.x, preda.y); // l'ombra segue, piano
+      return;
+    }
+    // 2) il Serpente a caccia: nuota alle spalle della preda, poi telegrafo
+    if (ship.predaId) {
+      const preda = this.ships.get(ship.predaId);
+      const persa = !preda || this.isSunk(preda) || preda.docked ||
+        Math.hypot(preda.x - ship.x, preda.y - ship.y) > MOSTRO.fuga;
+      if (persa) {
+        ship.predaId = null;
+        ship.agguatoDorme = this.now + 20;
+        this.broadcast({ t: 'feed', msg: `🌊 ${ship.name} fa perdere le proprie tracce negli abissi.` });
+        return;
+      }
+      const bx = preda.x - Math.cos(preda.rot) * MOSTRO.spalle;
+      const by = preda.y - Math.sin(preda.rot) * MOSTRO.spalle;
+      this.steerToward(ship, bx, by);
+      if (Math.hypot(bx - ship.x, by - ship.y) < 70 || this.now >= ship.riposizionaFino) {
+        ship.emersioneA = this.now + MOSTRO.agguatoRapido;
+        ship.emersioneDurata = MOSTRO.agguatoRapido;
+      }
+      return;
+    }
+    // 3) deriva pigra tra due acque, orecchie tese all'agguato
     if (!ship.wp || Math.hypot(ship.wp.x - ship.x, ship.wp.y - ship.y) < 90) {
       ship.wp = { x: 500 + Math.random() * (WORLD.W - 1000), y: 500 + Math.random() * (WORLD.H - 1000) };
     }
@@ -1639,11 +1768,11 @@ class Game {
       if (this.inSafeWaters(p)) continue; // niente agguati in rada
       if (Math.hypot(p.x - ship.x, p.y - ship.y) > MOSTRO.aggro) continue;
       if (Math.random() > MOSTRO.pAgguato) continue;
-      ship.sommerso = false;
+      // l'agguato è DECISO: parte il telegrafo, l'ombra comincia a gonfiarsi
       ship.predaId = p.id;
-      ship.morsoAt = this.now + 1; // il tempo di uscire dall'acqua
-      this.fxQueue.push({ k: 'emersione', x: r1(ship.x), y: r1(ship.y) });
-      this.broadcast({ t: 'feed', msg: `🌊 ${ship.name} EMERGE dagli abissi sotto ${p.name}!` });
+      ship.emersioneA = this.now + MOSTRO.emersione;
+      ship.emersioneDurata = MOSTRO.emersione;
+      this.broadcast({ t: 'feed', msg: `🌊 Un'ombra enorme si gonfia sotto la chiglia di ${p.name}...` });
       break;
     }
   }
@@ -1727,7 +1856,8 @@ class Game {
         for (const ship of this.ships.values()) {
           if (ship.id === shot.owner || ship.docked || this.isSunk(ship)) continue;
           if (ship.npc === 'mostro' && ship.sommerso) continue; // le palle passano sopra la sagoma
-          if (Math.hypot(ship.x - shot.x, ship.y - shot.y) < 24) {
+          // i mostri emersi sono BERSAGLI GROSSI: il loro raggio, non i 24 di una chiglia
+          if (Math.hypot(ship.x - shot.x, ship.y - shot.y) < (ship.npc === 'mostro' ? MOSTRI[ship.mostro].raggio : 24)) {
             // la rastrellata: solo colpi diretti fra navi (le torri non
             // manovrano, il mortaio vola sopra e non c'entra: è AoE)
             let dmg = shot.damage;
@@ -1779,7 +1909,7 @@ class Game {
     for (const ship of this.ships.values()) {
       if (ship.id === shot.owner || ship.docked || this.isSunk(ship)) continue;
       if (ship.npc === 'mostro' && ship.sommerso) continue; // nemmeno il mortaio pesca sott'acqua
-      if (Math.hypot(ship.x - shot.x, ship.y - shot.y) < shot.aoe + 14) {
+      if (Math.hypot(ship.x - shot.x, ship.y - shot.y) < shot.aoe + (ship.npc === 'mostro' ? MOSTRI[ship.mostro].raggio : 14)) {
         this.damageShip(ship, shot.damage, shot.owner);
       }
     }
@@ -2123,7 +2253,10 @@ class Game {
       ship.hp = this.npcMaxHp(ship);
       ship.wp = null; ship.fleeUntil = 0;
       // il mostro rinasce SOMMERSO, altrove, senza rancori (audit 2)
-      if (ship.npc === 'mostro') { ship.sommerso = true; ship.predaId = null; ship.agguatoDorme = 0; }
+      if (ship.npc === 'mostro') {
+        ship.sommerso = true; ship.predaId = null; ship.agguatoDorme = 0;
+        ship.emersioneA = 0; ship.emersioneDurata = 0; ship.riposizionaFino = 0;
+      }
     } else {
       const p = this.spawnPoint();
       ship.x = p.x; ship.y = p.y;
@@ -2165,10 +2298,20 @@ class Game {
         ...(abUntil > this.now ? { ab: r2(abUntil - this.now) } : {}),
         // la resa (#41 fetta 3): bandiera bianca coi secondi restanti
         ...(s.resaUntil > this.now ? { rs: r2(s.resaUntil - this.now) } : {}),
+        // la presa del Kraken (audit 3): secondi d'inchiodamento, additivo
+        ...(s.presaUntil > this.now ? { pr: r2(s.presaUntil - this.now) } : {}),
         // il capo carovana si vede sulla mappa (audit 2): 1 convoglio, 2 tesoro
         ...(s.convoglio && s.convoglio.ruolo === 'capo' ? { cv: s.convoglio.tipo === 'tesoro' ? 2 : 1 } : {}),
-        // i mostri (audit 2): specie e stato sommerso, additivi
-        ...(s.mostro ? { mo: s.mostro, ...(s.sommerso ? { so: 1 } : {}) } : {}),
+        // i mostri (audit 2/3): specie e stato, additivi — so=1 sommerso
+        // pieno, so∈(0,1) mentre EMERGE (frazione di gonfiarsi che manca:
+        // il client scala l'ombra man mano che so scende verso 0)
+        ...(s.mostro ? {
+          mo: s.mostro,
+          ...(s.sommerso ? {
+            so: s.emersioneA > this.now && s.emersioneDurata
+              ? Math.max(0.03, r2((s.emersioneA - this.now) / s.emersioneDurata)) : 1,
+          } : {}),
+        } : {}),
         ...(s.gilda ? { gt: s.gilda.tag } : {}), // la bandierina della gilda
         // il guardaroba in mare (issue #25), campi ADDITIVI: lv = livrea,
         // ve = vele tinte, sc = colore scia, bf = bandiera personale (la gilda vince)

@@ -1405,25 +1405,28 @@ function interpolatedShips() {
       vel: lerp(sa.vel, sb.vel, t),
     });
   }
-  // ?forcemostro=1 (sviluppo): le tre bestie posano accanto alla nave — due
-  // emerse e una sommersa — per fotografare il design senza aspettare gli abissi
+  // ?forcemostro=1 (sviluppo): il bestiario posa accanto alla nave — due
+  // bestie emerse, una che vaga sommersa e una in TELEGRAFO (ombra gonfia
+  // a metà, so=0.45) — per fotografare il design senza aspettare gli abissi
   if (devParams.get('forcemostro')) {
     const me = out.find(s => s.id === state.meId);
     if (me) {
       out.push(
-        { id: 'mock-drago', name: 'Drago di Mare', x: me.x + 230, y: me.y - 120, rot: 2.6, vel: 0, hp: 380, maxHp: 380, k: 'x', mo: 'drago', docked: null, sunk: false, gp: [], gw: [] },
-        { id: 'mock-kraken', name: 'Kraken', x: me.x - 240, y: me.y + 70, rot: 0.4, vel: 0, hp: 520, maxHp: 700, k: 'x', mo: 'kraken', docked: null, sunk: false, gp: [], gw: [] },
-        { id: 'mock-serpente', name: 'Serpente Abissale', x: me.x + 60, y: me.y + 220, rot: -0.7, vel: 0, hp: 300, maxHp: 300, k: 'x', mo: 'serpente', so: 1, docked: null, sunk: false, gp: [], gw: [] },
+        { id: 'mock-drago', name: 'Drago di Mare', x: me.x + 380, y: me.y - 260, rot: 2.6, vel: 0, hp: 1500, maxHp: 1500, k: 'x', mo: 'drago', docked: null, sunk: false, gp: [], gw: [] },
+        { id: 'mock-kraken', name: 'Kraken', x: me.x - 430, y: me.y + 150, rot: 0.4, vel: 0, hp: 2100, maxHp: 2800, k: 'x', mo: 'kraken', docked: null, sunk: false, gp: [], gw: [] },
+        { id: 'mock-serpente', name: 'Serpente Abissale', x: me.x + 180, y: me.y + 330, rot: -0.7, vel: 0, hp: 1200, maxHp: 1200, k: 'x', mo: 'serpente', so: 1, docked: null, sunk: false, gp: [], gw: [] },
+        { id: 'mock-serpente2', name: 'Serpente Abissale', x: me.x - 280, y: me.y - 310, rot: 0.9, vel: 0, hp: 1200, maxHp: 1200, k: 'x', mo: 'serpente', so: 0.45, docked: null, sunk: false, gp: [], gw: [] },
       );
     }
   }
-  // ?forcedebuff=1|rs (sviluppo): la propria nave posa da colpita (glifi ⛓☠)
-  // o da arresa (🏳) in foto, senza aspettare una vera bordata
+  // ?forcedebuff=1|rs|pr (sviluppo): la propria nave posa da colpita (⛓☠),
+  // da arresa (🏳) o nella PRESA del Kraken (🐙), senza aspettare la bordata
   const fd = devParams.get('forcedebuff');
   if (fd) {
     const me = out.find(s => s.id === state.meId);
     if (me) {
       if (fd.includes('rs')) me.rs = 9;
+      else if (fd.includes('pr')) me.pr = 1.8;
       else { me.vt = 3; me.cf = 4; }
     }
   }

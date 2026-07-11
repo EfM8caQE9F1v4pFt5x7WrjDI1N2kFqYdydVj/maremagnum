@@ -155,10 +155,12 @@ export class Renderer {
     this.tela = undefined; // l'atlante UNICO delle vele (tela bianca): undefined = mai chiesto, null = in volo
     this.veleTinte = {}; // id vela → tinta 0x, dal catalogo del welcome (main.js)
     this._bandTex = {}; // texture dei vessilli personali, per chiave bf
+    this.mostri = undefined; // il bestiario cotto (audit 3): undefined = mai chiesto
     this.loadNavi();
     // gli atlanti sono SCAFI NUDI (fix "cannoni sopra le vele"): la tela è
     // l'overlay di TUTTI, tinto per variante/livrea/vela — si carica subito
     this.loadTela();
+    this.loadMostri();
     // le bocche da fuoco cotte (issue #17); ?armicotte=off forza il
     // fallback vettoriale (utile per i confronti e per collaudarlo)
     if (new URLSearchParams(location.search).get('armicotte') !== 'off') this.loadArmi();
@@ -257,6 +259,121 @@ export class Renderer {
       this.tela = { meta, frames };
       for (const c of this.ships.values()) c.buildKey = ''; // rivesti la flotta
     } catch { /* senza tela niente sprite cotti: si resta sul vettoriale */ }
+  }
+
+  // Il bestiario cotto (audit 3): un atlante di PARTI (corpo, ali, tentacoli,
+  // gobbe) che il client compone e anima — ogni parte è baked col pivot al
+  // centro cella, quindi anchor 0.5 = punto d'attacco, e ruota gratis.
+  async loadMostri() {
+    if (this.mostri !== undefined) return;
+    this.mostri = null; // in caricamento: non richiedere due volte
+    try {
+      const meta = await (await fetch('assets/mostri.json')).json();
+      const tex = await Assets.load('assets/mostri.webp');
+      const frames = {};
+      for (const [nome, p] of Object.entries(meta.parti)) {
+        const col = p.i % meta.cols, row = (p.i / meta.cols) | 0;
+        frames[nome] = new Texture({
+          source: tex.source,
+          frame: new Rectangle(col * meta.frame, row * meta.frame, meta.frame, meta.frame),
+        });
+      }
+      this.mostri = { meta, frames };
+      for (const c of this.ships.values()) if (c.buildKey.startsWith('mostro|')) c.buildKey = '';
+    } catch { /* bestie di vettore: pazienza */ }
+  }
+
+  // una parte del bestiario, già alla scala di gioco (span·px della cella)
+  parteMostro(nome, tinta) {
+    const { meta, frames } = this.mostri;
+    const spr = new Sprite(frames[nome]);
+    spr.anchor.set(0.5);
+    spr.scale.set(meta.parti[nome].span * meta.px / meta.frame);
+    if (tinta != null) spr.tint = tinta;
+    return spr;
+  }
+
+  // compone una bestia intera dalle parti; `tinta` scura = la SAGOMA che si
+  // vede vagare sotto il pelo dell'acqua (l'ombra è il mostro stesso)
+  composeMostro(tipo, tinta) {
+    const cont = new Container();
+    const inst = { cont };
+    const P = (nome) => this.parteMostro(nome, tinta);
+    if (tipo === 'drago') {
+      inst.ali = [];
+      for (const lato of [-1, 1]) {
+        const ala = P('drago-ala');
+        ala.position.set(24, 14 * lato);
+        ala.scale.y *= lato; // la sinistra è la destra allo specchio
+        ala.baseRot = lato * 1.35; // quasi ad angolo retto dal corpo
+        inst.ali.push(ala);
+        cont.addChild(ala);
+      }
+      inst.coda = P('drago-coda');
+      inst.coda.position.set(-160, 0);
+      inst.coda.baseRot = Math.PI; // la texture punta a +x, la coda va a poppa
+      inst.corpo = P('drago-corpo');
+      cont.addChild(inst.coda, inst.corpo);
+    } else if (tipo === 'kraken') {
+      inst.tentacoli = [];
+      for (let i = 0; i < 8; i++) {
+        const t = P('kraken-tentacolo');
+        const ang = Math.PI + (i - 3.5) * 0.3;
+        t.position.set(-14 + Math.cos(ang) * 26, Math.sin(ang) * 26);
+        t.baseRot = ang;
+        t.scale.set(t.scale.x * (0.82 + (i % 3) * 0.11), t.scale.y * (0.82 + (i % 3) * 0.11));
+        inst.tentacoli.push(t);
+        cont.addChild(t);
+      }
+      inst.mantello = P('kraken-mantello');
+      inst.mantello.position.set(42, 0);
+      cont.addChild(inst.mantello);
+    } else {
+      inst.coda = P('serpente-coda');
+      inst.coda.position.set(-172, 0);
+      inst.coda.baseRot = Math.PI;
+      inst.gobbe = [];
+      const poste = [[-118, 0.68], [-52, 0.84], [12, 1]];
+      for (const [x, sc] of poste) {
+        const g = P('serpente-gobba');
+        g.position.set(x, 0);
+        g.baseX = x;
+        g.scale.set(g.scale.x * sc);
+        inst.gobbe.push(g);
+        cont.addChild(g);
+      }
+      inst.testa = P('serpente-testa');
+      inst.testa.position.set(88, 0);
+      cont.addChild(inst.coda, inst.testa);
+    }
+    return inst;
+  }
+
+  // il respiro delle bestie: ali che battono, tentacoli che si torcono,
+  // gobbe che ondeggiano — su corpo E ombra (la sagoma nuota davvero)
+  animaMostro(anim, s) {
+    const t = this.t, ph = (s.x + s.y) * 0.003;
+    for (const inst of [anim.corpo, anim.ombra]) {
+      if (!inst) continue;
+      if (anim.tipo === 'drago') {
+        const flap = Math.sin(t * 2.1 + ph) * 0.24;
+        inst.ali[0].rotation = inst.ali[0].baseRot - flap;
+        inst.ali[1].rotation = inst.ali[1].baseRot + flap;
+        inst.coda.rotation = inst.coda.baseRot + Math.sin(t * 1.7 + ph) * 0.16;
+      } else if (anim.tipo === 'kraken') {
+        for (let i = 0; i < inst.tentacoli.length; i++) {
+          const tn = inst.tentacoli[i];
+          tn.rotation = tn.baseRot + Math.sin(t * 1.15 + i * 1.9 + ph) * 0.17;
+        }
+      } else {
+        for (let i = 0; i < inst.gobbe.length; i++) {
+          const gb = inst.gobbe[i];
+          gb.position.y = Math.sin(t * 2.0 + i * 1.35 + ph) * 7;
+        }
+        inst.testa.rotation = Math.sin(t * 1.6 + ph) * 0.09;
+        inst.coda.rotation = inst.coda.baseRot + Math.sin(t * 2.0 + 2.8 + ph) * 0.2;
+      }
+    }
   }
 
   // La tinta della tela di una nave: la vela comprata vince, poi il colore di
@@ -915,10 +1032,12 @@ export class Renderer {
   }
 
   buildShipBody(c, s, selfId) {
-    // i mostri marini (audit 2) non sono navi: corpo procedurale dedicato,
-    // con l'OMBRA da sagoma sommersa già pronta accanto al corpo
+    // i mostri marini (audit 2, cotti nell'audit 3) non sono navi: parti
+    // dall'atlante del bestiario composte e animate — l'OMBRA è la sagoma
+    // stessa tinta d'abisso. Finché l'atlante non c'è, vettoriale in scala.
     if (s.mo) {
-      const keyM = 'mostro|' + s.mo;
+      const cotto = !!this.mostri;
+      const keyM = 'mostro|' + s.mo + (cotto ? '|C' : '|V');
       if (c.buildKey === keyM) return;
       c.buildKey = keyM;
       if (c.body) c.body.destroy({ children: true });
@@ -927,7 +1046,17 @@ export class Renderer {
       c.addChildAt(bodyM, (c.glow ? 1 : 0) + (c.ring ? 1 : 0));
       c.body = bodyM;
       bodyM.sails = [];
-      this.disegnaMostro(bodyM, s.mo);
+      if (cotto) {
+        const ombra = this.composeMostro(s.mo, 0x16283f); // la sagoma d'abisso
+        const corpo = this.composeMostro(s.mo, null);
+        bodyM.addChild(ombra.cont, corpo.cont);
+        bodyM.ombraMostro = ombra.cont;
+        bodyM.corpoMostro = corpo.cont;
+        bodyM.animaMostro = { tipo: s.mo, ombra, corpo };
+      } else {
+        this.disegnaMostro(bodyM, s.mo);
+        bodyM.mostroBase = 3.8; // anche il fallback rispetta la stazza ×4
+      }
       return;
     }
     // gli sprite cotti vogliono ENTRAMBI gli atlanti: gli scafi sono nudi e
@@ -1255,14 +1384,21 @@ export class Renderer {
       c.glow.alpha = s.sunk ? 0 : Math.max(
         oro ? 0.13 + 0.05 * Math.sin(this.t * 2.1) : 0,
         night * (s.id === selfId ? 0.34 : 0.27));
-      // i mostri (audit 2): sommersi = solo l'ombra che respira, niente nome
-      // né lanterna; emersi = la bestia intera (l'ombra resta, più tenue)
+      // i mostri (audit 2/3): sommersi = solo la SAGOMA che nuota, niente
+      // nome né lanterna; quando l'agguato è deciso l'ombra SI GONFIA (so
+      // scende da 1 verso 0: profondità che risale); emersi = la bestia
+      // intera, con l'ombra di contatto sotto
       if (s.mo && c.body && c.body.corpoMostro) {
-        const giu = !!s.so;
+        const so = s.so; // 1 sommerso pieno · (0,1) sta emergendo · undefined fuori
+        const giu = !!so;
+        const gonfio = giu ? (so >= 1 ? 0 : 1 - so) : 1;
         c.body.corpoMostro.visible = !giu;
-        c.body.ombraMostro.alpha = giu ? 1 : 0.4;
-        c.body.ombraMostro.scale.set(1 + 0.06 * Math.sin(this.t * 1.6 + s.x * 0.01));
-        if (c.tag) c.tag.visible = !giu;
+        const respiro = 1 + 0.05 * Math.sin(this.t * 1.6 + s.x * 0.01);
+        c.body.ombraMostro.scale.set((giu ? 0.62 + 0.5 * gonfio : 1.04) * respiro);
+        c.body.ombraMostro.alpha = giu ? 0.5 + 0.32 * gonfio : 0.3;
+        c.body.scale.set(c.body.mostroBase || 1);
+        if (c.body.animaMostro) this.animaMostro(c.body.animaMostro, s);
+        if (c.tag) { c.tag.visible = !giu; c.tag.position.y = -138; } // il nome sopra la bestia, non sulla bestia
         if (c.glow) c.glow.alpha = 0; // le bestie non portano lanterne
       }
       // il fondino della targhetta si infittisce col buio (issue #40): i nomi
@@ -1279,7 +1415,7 @@ export class Renderer {
       }
       // i glifi di stato sopra il nome (#41 fette 2 e 3): ⛓ vele tagliate,
       // ☠ ciurma falcidiata, 🏳 resa — si vede chi è menomato o ammainato
-      const glifi = [s.vt && '⛓', s.cf && '☠', s.rs && '🏳'].filter(Boolean).join(' ');
+      const glifi = [s.vt && '⛓', s.cf && '☠', s.rs && '🏳', s.pr && '🐙'].filter(Boolean).join(' ');
       if ((c.debuffGlifi || '') !== glifi && c.tag) {
         c.debuffGlifi = glifi;
         if (!c.debuffText) {
@@ -1296,18 +1432,22 @@ export class Renderer {
         }
         c.debuffText.text = glifi;
       }
-      const scale = s.sunk ? Math.max(0.5, c.body.scale.x - dt * 0.5) : 1;
-      c.body.scale.set(scale);
+      if (!s.mo) { // le bestie governano la loro scala nel blocco qui sopra
+        const scale = s.sunk ? Math.max(0.5, c.body.scale.x - dt * 0.5) : 1;
+        c.body.scale.set(scale);
+      }
       // vele che respirano col vento e con l'andatura
       const puff = 1 + 0.05 * Math.sin(this.t * 3 + (c.body.sails[0]?.phase || 0)) + Math.min(0.12, s.vel / 1400);
       for (const sail of c.body.sails || []) sail.scale.x = sail.scale.y * puff;
       if (c.body.flag) c.body.flag.rotation = 0.08 * Math.sin(this.t * 5 + s.x * 0.01);
       c.hpBar.clear();
-      if (!s.sunk && s.hp < s.maxHp) {
-        const w = 44, frac = clamp(s.hp / s.maxHp, 0, 1);
-        c.hpBar.rect(-w / 2, -28, w, 5).fill({ color: COL.hpBg, alpha: 0.7 });
+      if (!s.sunk && s.hp < s.maxHp && !(s.mo && s.so)) {
+        // le bestie portano una barra da bestia (audit 3): 44px su 400 di
+        // tentacoli sarebbero ridicoli — e da sommerse niente barra
+        const w = s.mo ? 130 : 44, y0 = s.mo ? -95 : -28, frac = clamp(s.hp / s.maxHp, 0, 1);
+        c.hpBar.rect(-w / 2, y0, w, 5).fill({ color: COL.hpBg, alpha: 0.7 });
         // tre soglie come nell'HUD: il giallo avvisa PRIMA che sia tardi (#19)
-        c.hpBar.rect(-w / 2, -28, w * frac, 5)
+        c.hpBar.rect(-w / 2, y0, w * frac, 5)
           .fill(frac > 0.6 ? COL.hpOk : frac > 0.35 ? COL.hpMid : COL.hpBad);
       }
       // il blocco (issue #15): nave spenta con l'anello del tempo che si
@@ -1326,7 +1466,9 @@ export class Renderer {
       } else if (s.im) {
         c.hpBar.circle(0, 4, 38).stroke({ width: 2, color: COL.gold, alpha: 0.45 });
       }
-      if (!s.sunk && !s.docked && s.vel > 30 && Math.random() < 0.6) {
+      // niente scia per i mostri (audit 3): nuotano SOTTO il pelo dell'acqua,
+      // la spuma di superficie è roba da chiglie
+      if (!s.mo && !s.sunk && !s.docked && s.vel > 30 && Math.random() < 0.6) {
         this.wakes.push({
           x: s.x - Math.cos(s.rot) * 22, y: s.y - Math.sin(s.rot) * 22,
           life: 1.2, max: 1.2, size: 2 + Math.random() * 3,
@@ -1519,15 +1661,23 @@ export class Renderer {
       burst(14, { v: 110, life: 0.4, size: 2.5, color: 0xeaf6fd });
       burst(6, { v: 55, life: 0.7, size: 3.5, color: 0xbfe2f2 });
     } else if (kind === 'emersione') {
-      // il mostro EMERGE (audit 2): il mare esplode in schiuma
-      burst(26, { v: 130, life: 0.8, size: 4, color: 0xd9edf7 });
-      this.rings.push({ x, y, r: 8, maxR: 74, life: 0.7, max: 0.7 });
-      this.rings.push({ x, y, r: 4, maxR: 42, life: 0.5, max: 0.5 });
+      // il mostro EMERGE (audit 2, stazza ×4 audit 3): il mare ESPLODE
+      burst(44, { v: 190, life: 1.0, size: 5, color: 0xd9edf7 });
+      burst(18, { v: 90, life: 1.3, size: 6.5, color: 0xbfe2f2 });
+      this.rings.push({ x, y, r: 14, maxR: 150, life: 0.9, max: 0.9 });
+      this.rings.push({ x, y, r: 8, maxR: 90, life: 0.6, max: 0.6 });
+      this.shake = Math.max(this.shake, 5);
     } else if (kind === 'tuffo') {
-      burst(16, { v: 90, life: 0.6, size: 3.5, color: 0xbfe2f2 });
-      this.rings.push({ x, y, r: 6, maxR: 52, life: 0.6, max: 0.6 });
+      burst(24, { v: 110, life: 0.7, size: 4, color: 0xbfe2f2 });
+      this.rings.push({ x, y, r: 8, maxR: 84, life: 0.7, max: 0.7 });
     } else if (kind === 'morso') {
       burst(10, { v: 70, life: 0.4, size: 3, color: 0xd8552e });
+    } else if (kind === 'presa') {
+      // i tentacoli del Kraken INCHIODANO (audit 3): anelli d'inchiostro
+      // che si stringono e schiuma violacea
+      burst(16, { v: 60, life: 0.7, size: 4, color: 0x6a5590 });
+      this.rings.push({ x, y, r: 46, maxR: 12, life: 0.55, max: 0.55 });
+      this.rings.push({ x, y, r: 6, maxR: 40, life: 0.5, max: 0.5 });
     }
   }
 
