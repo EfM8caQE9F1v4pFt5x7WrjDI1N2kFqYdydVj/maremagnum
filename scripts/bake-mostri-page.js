@@ -64,27 +64,57 @@ function placca(group, x, z, l, w, materiale, alt = 0.24) {
 
 // --- DRAGO DI MARE ---------------------------------------------------------
 
-// corpo serpentino a S con testa, corna e cresta dorsale; prua a +x
+// corpo DRITTO da collo a coda (audit 4): il serpeggiare non si cuoce più
+// nella posa — lo fa il client piegando il nastro con MeshRope su una spina
+// di punti animati. Collo a SINISTRA (bordo texture = punti[0] del rope),
+// pinna caudale a destra. La testa è una parte A SÉ (non deve piegarsi).
 function dragoCorpo() {
   const g = new THREE.Group();
+  const L0 = -1.6, L1 = 1.38; // collo → attacco pinna (la pinna chiude a +1.6)
   const spina = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(1.55, 0, 0),
-    new THREE.Vector3(0.9, 0, -0.22),
-    new THREE.Vector3(0.1, 0, 0.16),
-    new THREE.Vector3(-0.8, 0, -0.14),
-    new THREE.Vector3(-1.55, 0, 0.06),
+    new THREE.Vector3(L0, 0, 0), new THREE.Vector3(0, 0, 0), new THREE.Vector3(L1, 0, 0),
   ]);
-  collana(g, spina, 16, 0.34, 0.13, mat(P.dragoPelle));
-  // vertebre alternate un filo più scure: squame a risparmio
-  const spina2 = new THREE.CatmullRomCurve3(spina.points.map(p => p.clone().setY(0.02)));
-  collana(g, spina2, 8, 0.28, 0.1, mat(P.dragoPelle2), 0.5);
-  // la TESTA: cranio, muso, arcate, corna all'indietro, occhi di brace
-  const testa = new THREE.Group();
+  collana(g, spina, 18, 0.3, 0.055, mat(P.dragoPelle));
+  const spina2 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(L0 + 0.1, 0.02, 0), new THREE.Vector3(0, 0.02, 0), new THREE.Vector3(L1 - 0.2, 0.02, 0),
+  ]);
+  collana(g, spina2, 9, 0.24, 0.05, mat(P.dragoPelle2), 0.5);
+  // cresta dorsale: placche a rombo digradanti, SDRAIATE e SCURE (lezioni
+  // delle prime infornate: in piedi non si vedono, tono su tono sparisce)
+  for (let i = 0; i < 8; i++) {
+    const t = 0.04 + i * 0.125;
+    const p = spina.getPoint(t);
+    const l = 0.32 - i * 0.026;
+    placca(g, p.x, p.z, l, l * 0.62, matLucido(0x4d1208), 0.22 - i * 0.018);
+  }
+  // due pinne laterali corte sul petto: larghezza vista dall'alto
+  for (const lato of [-1, 1]) {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0).quadraticCurveTo(0.25, 0.3 * lato, 0.05, 0.55 * lato).quadraticCurveTo(-0.15, 0.3 * lato, -0.2, 0).closePath();
+    const pinna = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.03, bevelEnabled: false }), mat(0xb4512e, { side: THREE.DoubleSide, roughness: 0.5 }));
+    pinna.rotation.x = -Math.PI / 2;
+    pinna.position.set(-0.85, 0.05, 0.26 * lato);
+    g.add(pinna);
+  }
+  // la pinna caudale chiude il nastro (si piega con lui: va bene così)
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0).lineTo(0.14, -0.2).lineTo(0.24, 0).lineTo(0.14, 0.2).closePath();
+  const pinna = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.02, bevelEnabled: false }), mat(P.dragoCresta, { side: THREE.DoubleSide }));
+  pinna.rotation.x = -Math.PI / 2;
+  pinna.position.set(L1, 0, 0);
+  g.add(pinna);
+  return g;
+}
+
+// la TESTA a sé: cranio, muso, corna all'indietro, occhi di brace — pivot al
+// centro, prua a +x (il client la incolla sul primo punto della spina)
+function dragoTesta() {
+  const g = new THREE.Group();
   const cranio = new THREE.Mesh(new THREE.SphereGeometry(0.4, 20, 16), mat(P.dragoPelle));
   cranio.scale.set(1.25, 0.6, 0.95);
   const muso = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 12), mat(P.dragoPelle2));
   muso.position.set(0.42, -0.02, 0); muso.scale.set(1.5, 0.5, 0.62);
-  testa.add(cranio, muso);
+  g.add(cranio, muso);
   for (const lato of [-1, 1]) {
     const corno = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.55, 10), matLucido(P.dragoCorno));
     corno.position.set(-0.28, 0.1, 0.16 * lato);
@@ -94,26 +124,7 @@ function dragoCorpo() {
     occhio.position.set(0.22, 0.16, 0.2 * lato);
     const narice = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), mat(0x2a0a05));
     narice.position.set(0.68, 0.08, 0.08 * lato);
-    testa.add(corno, occhio, narice);
-  }
-  testa.position.set(1.75, 0.06, 0);
-  g.add(testa);
-  // cresta dorsale: placche a rombo digradanti, SDRAIATE (si vedono a piombo)
-  // e SCURE — sul cremisi del dorso il tono su tono spariva (2ª infornata)
-  for (let i = 0; i < 7; i++) {
-    const t = 0.08 + i * 0.13;
-    const p = spina.getPoint(t);
-    const l = 0.34 - i * 0.028;
-    placca(g, p.x, p.z, l, l * 0.62, matLucido(0x4d1208), 0.24 - i * 0.02);
-  }
-  // due pinne laterali corte a metà corpo: dall'alto danno larghezza al petto
-  for (const lato of [-1, 1]) {
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 0).quadraticCurveTo(0.25, 0.3 * lato, 0.05, 0.55 * lato).quadraticCurveTo(-0.15, 0.3 * lato, -0.2, 0).closePath();
-    const pinna = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.03, bevelEnabled: false }), mat(0xb4512e, { side: THREE.DoubleSide, roughness: 0.5 }));
-    pinna.rotation.x = -Math.PI / 2;
-    pinna.position.set(0.75, 0.05, 0.26 * lato);
-    g.add(pinna);
+    g.add(corno, occhio, narice);
   }
   return g;
 }
@@ -150,26 +161,6 @@ function dragoAla() {
   const spalla = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), mat(P.dragoPelle));
   spalla.scale.y = 0.6;
   g.add(spalla);
-  return g;
-}
-
-// coda: GIUNTO nell'origine, si stende verso +x e finisce a pinna
-function dragoCoda() {
-  const g = new THREE.Group();
-  const curva = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0.45, 0, 0.1),
-    new THREE.Vector3(0.9, 0, -0.06),
-    new THREE.Vector3(1.2, 0, 0.02),
-  ]);
-  collana(g, curva, 10, 0.14, 0.045, mat(P.dragoPelle));
-  // la pinna caudale: rombo piatto
-  const shape = new THREE.Shape();
-  shape.moveTo(0, 0).lineTo(0.3, -0.22).lineTo(0.42, 0).lineTo(0.3, 0.22).closePath();
-  const pinna = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.02, bevelEnabled: false }), mat(P.dragoCresta, { side: THREE.DoubleSide }));
-  pinna.rotation.x = -Math.PI / 2;
-  pinna.position.set(1.18, 0, 0);
-  g.add(pinna);
   return g;
 }
 
@@ -222,29 +213,24 @@ function krakenMantello() {
   return g;
 }
 
-// UN tentacolo: BASE nell'origine, curling verso +x — il client ne pianta
-// otto a ventaglio con fasi diverse (la posa viene dal Kraken di Stendhal:
-// letti dall'alto, i tentacoli a raggiera vendono la bestia)
+// UN tentacolo DRITTO (audit 4): base a SINISTRA (bordo texture = punti[0]
+// del rope), punta a destra — ricciolo e torsione li fa il client piegando
+// il nastro. La posa a raggiera resta (dal Kraken di Stendhal), ma ora i
+// tentacoli si AVVITANO davvero invece di ruotare rigidi.
 function krakenTentacolo() {
   const g = new THREE.Group();
-  // più lungo e più carnoso della prima infornata: deve VENDERE la bestia
   const curva = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0.65, 0, 0.24),
-    new THREE.Vector3(1.3, 0, -0.18),
-    new THREE.Vector3(1.95, 0, 0.16),
-    new THREE.Vector3(2.35, 0, 0.52),
-    new THREE.Vector3(2.5, 0, 0.86), // il ricciolo finale
+    new THREE.Vector3(-1.3, 0, 0), new THREE.Vector3(0, 0, 0), new THREE.Vector3(1.3, 0, 0),
   ]);
-  collana(g, curva, 20, 0.24, 0.035, mat(P.krakenMantello), 0.62);
-  // ventose grandi e pallide lungo il bordo interno: si contano dall'alto
-  for (let i = 1; i < 16; i += 2) {
-    const t = i / 19;
+  collana(g, curva, 22, 0.24, 0.03, mat(P.krakenMantello), 0.62);
+  // ventose grandi e pallide lungo il bordo: si contano dall'alto
+  for (let i = 1; i < 18; i += 2) {
+    const t = i / 21;
     const p = curva.getPoint(t);
     const r = 0.085 - t * 0.055;
     const v = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.025, r), 10, 8), matLucido(P.krakenVentosa));
     v.scale.y = 0.4;
-    v.position.set(p.x, 0.14 - t * 0.08, p.z - (0.16 - t * 0.1));
+    v.position.set(p.x, 0.14 - t * 0.08, 0.14 - t * 0.09);
     g.add(v);
   }
   return g;
@@ -320,12 +306,15 @@ function serpenteCoda() {
 
 // span = unità di mondo inquadrate dalla cella (per parte): a runtime la
 // scala dello sprite è span·px/FRAME — px è il fattore unità→pixel di gioco
+// i NASTRI (drago-corpo, kraken-tentacolo) riempiono la cella da bordo a
+// bordo: il MeshRope stira l'intera texture sui punti, un margine vuoto
+// diventerebbe un buco all'attaccatura
 const PARTI = [
-  { nome: 'drago-corpo', build: dragoCorpo, span: 4.6 },
+  { nome: 'drago-corpo', build: dragoCorpo, span: 3.2 },
+  { nome: 'drago-testa', build: dragoTesta, span: 1.7 },
   { nome: 'drago-ala', build: dragoAla, span: 3.0 },
-  { nome: 'drago-coda', build: dragoCoda, span: 3.6 },
   { nome: 'kraken-mantello', build: krakenMantello, span: 4.2 },
-  { nome: 'kraken-tentacolo', build: krakenTentacolo, span: 3.8 },
+  { nome: 'kraken-tentacolo', build: krakenTentacolo, span: 2.6 },
   { nome: 'serpente-testa', build: serpenteTesta, span: 3.4 },
   { nome: 'serpente-gobba', build: serpenteGobba, span: 2.4 },
   { nome: 'serpente-coda', build: serpenteCoda, span: 2.4 },
