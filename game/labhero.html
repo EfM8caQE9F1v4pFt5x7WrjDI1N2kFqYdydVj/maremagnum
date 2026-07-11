@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8"><title>Grezzi Hero della Ciurma (sviluppo)</title>
+<style>html,body{margin:0;background:#fff}</style></head>
+<body>
+<canvas id="c" width="900" height="1200"></canvas>
+<script>
+// Grezzi «hero» per Midjourney (issue #16): tratto pulito, scala di grigi.
+// Fissano proporzione/silhouette/tratti/accessori; MJ mette il colore.
+// Stile caricato alla Monkey Island: testa grande, forme semplici, iconiche.
+const ctx = document.getElementById('c').getContext('2d');
+const ID = new URLSearchParams(location.search).get('pirata') || 'mozzo';
+const LW = 5;               // spessore del tratto
+const INK = '#22262c';
+const G = { pelle:'#e2ddd6', pelleG:'#c7c0b7', chiaro:'#cfd2d6', medio:'#a7abb1', scuro:'#6f747b', buio:'#474b52', quasi:'#eef0f2' };
+
+function seg(x1,y1,x2,y2,w,fill){ // capsula con tratto: outline poi riempimento
+  ctx.lineCap='round';
+  ctx.lineWidth=w+2*LW; ctx.strokeStyle=INK; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.lineWidth=w; ctx.strokeStyle=fill; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+}
+function disco(x,y,r,fill){ ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fillStyle=fill; ctx.fill(); ctx.lineWidth=LW; ctx.strokeStyle=INK; ctx.stroke(); }
+function blob(pts,fill,close=true){ // curva morbida da punti (Catmull→quad)
+  ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=0;i<pts.length-1;i++){ const a=pts[i],b=pts[i+1]; ctx.quadraticCurveTo(a[0],a[1],(a[0]+b[0])/2,(a[1]+b[1])/2); }
+  const l=pts[pts.length-1]; ctx.lineTo(l[0],l[1]);
+  if(close) ctx.closePath();
+  ctx.fillStyle=fill; ctx.fill(); ctx.lineWidth=LW; ctx.strokeStyle=INK; ctx.stroke();
+}
+function poly(pts,fill){ ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath(); ctx.fillStyle=fill; ctx.fill(); ctx.lineWidth=LW; ctx.strokeStyle=INK; ctx.stroke(); }
+
+const R = {
+  mozzo: { build:{h:1.0,w:1.0}, skin:G.pelle, shirt:G.chiaro, legs:G.medio, boots:'skin',
+    hat:'bandana', hair:'ciuffo', beard:null, eyepatch:false, earring:true, hook:false, peg:false,
+    weapon:'coltello', open:'panciotto',
+    nome:'Ugo «il Mozzo»', note:'Magro, giovane, sveglio. Bandana, camicia rimboccata, scalzo, coltellaccio corto — l’aria di chi sgattaiola tra le cime.' },
+  bucaniera: { build:{h:1.03,w:1.02}, skin:G.pelle, shirt:G.quasi, coat:G.scuro, legs:G.buio, boots:'dark',
+    hat:'tricorno', hair:'lunghi', beard:null, eyepatch:false, earring:true, hook:false, peg:false,
+    weapon:'sciabola', open:'cappotto',
+    nome:'Morgana «la Bucaniera»', note:'Portamento fiero, tricorno, capelli lunghi, panciotto e sciabola. La spadaccina del gruppo.' },
+  senzanome: { build:{h:1.08,w:0.95}, skin:G.quasi, shirt:G.medio, coat:G.buio, legs:G.buio, boots:'dark',
+    hat:'tricornone', hair:'lunghi', beard:'folta', eyepatch:false, earring:false, hook:false, peg:false, ghost:true,
+    weapon:'sciabola', open:'cappottone',
+    nome:'Il Capitano Senzanome', note:'Alto, spettrale, imponente. Tricorno grande, barba folta, cappotto lacero, occhi che ardono. Il leggendario che non si compra.' },
+}[ID];
+
+function volto(cx,cy,s,r){ // la testa: pelle, capelli, barba, cappello, occhi
+  const skin=r.skin;
+  // capelli lunghi dietro
+  if(r.hair==='lunghi') blob([[cx-58*s,cy-30*s],[cx-72*s,cy+40*s],[cx-40*s,cy+70*s],[cx+40*s,cy+70*s],[cx+72*s,cy+40*s],[cx+58*s,cy-30*s]], r.ghost?G.chiaro:G.scuro);
+  // testa
+  disco(cx,cy,58*s,skin);
+  // naso
+  seg(cx+2*s,cy+2*s,cx+6*s,cy+20*s,10*s,r.ghost?G.chiaro:G.pelleG);
+  // occhi
+  const ey=cy-6*s, ex=22*s;
+  if(r.ghost){ disco(cx-ex,ey,10*s,'#f4f6f8'); disco(cx+ex,ey,10*s,'#f4f6f8'); ctx.fillStyle=INK; ctx.beginPath(); ctx.arc(cx-ex,ey,4*s,0,7); ctx.arc(cx+ex,ey,4*s,0,7); ctx.fill(); }
+  else { ctx.fillStyle=INK; ctx.beginPath(); ctx.arc(cx-ex,ey,6*s,0,7); ctx.arc(cx+ex,ey,6*s,0,7); ctx.fill(); }
+  // sopracciglia
+  ctx.strokeStyle=INK; ctx.lineWidth=6*s; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(cx-ex-12*s,ey-16*s); ctx.lineTo(cx-ex+8*s,ey-20*s); ctx.moveTo(cx+ex-8*s,ey-20*s); ctx.lineTo(cx+ex+12*s,ey-16*s); ctx.stroke();
+  // barba o bocca
+  if(r.beard==='folta'){ blob([[cx-46*s,cy+18*s],[cx-40*s,cy+78*s],[cx,cy+96*s],[cx+40*s,cy+78*s],[cx+46*s,cy+18*s],[cx,cy+40*s]], r.ghost?G.chiaro:G.scuro); }
+  else { ctx.strokeStyle=INK; ctx.lineWidth=5*s; ctx.beginPath(); ctx.arc(cx,cy+30*s,16*s,0.15*Math.PI,0.85*Math.PI); ctx.stroke(); }
+  // orecchino
+  if(r.earring){ disco(cx-58*s,cy+22*s,7*s,G.chiaro); }
+  // capelli/ciuffo davanti
+  if(r.hair==='ciuffo'){ blob([[cx-52*s,cy-30*s],[cx-30*s,cy-58*s],[cx+6*s,cy-46*s],[cx+30*s,cy-58*s],[cx+52*s,cy-26*s],[cx+30*s,cy-40*s],[cx,cy-30*s],[cx-26*s,cy-42*s]], G.scuro); }
+  // cappello
+  if(r.hat==='bandana'){
+    const col=r.ghost?G.medio:G.scuro;
+    // fascia che AVVOLGE la calotta (segue la curva del cranio), non un tocco piatto
+    ctx.beginPath();
+    ctx.moveTo(cx-54*s,cy-26*s);
+    ctx.quadraticCurveTo(cx-64*s,cy-64*s,cx,cy-70*s);
+    ctx.quadraticCurveTo(cx+64*s,cy-64*s,cx+54*s,cy-26*s);
+    ctx.quadraticCurveTo(cx,cy-16*s,cx-54*s,cy-26*s); // bordo sulla fronte, lieve punta
+    ctx.closePath(); ctx.fillStyle=col; ctx.fill(); ctx.lineWidth=LW; ctx.strokeStyle=INK; ctx.stroke();
+    poly([[cx-50*s,cy-22*s],[cx-82*s,cy-32*s],[cx-72*s,cy-6*s],[cx-52*s,cy-14*s]], col); // nodo laterale
+    poly([[cx-70*s,cy-14*s],[cx-94*s,cy+30*s],[cx-74*s,cy+36*s],[cx-56*s,cy-6*s]], col); // coda che pende
+    ctx.strokeStyle=INK; ctx.lineWidth=3*s; ctx.beginPath(); ctx.moveTo(cx-38*s,cy-30*s); ctx.quadraticCurveTo(cx,cy-42*s,cx+38*s,cy-30*s); ctx.stroke(); // piega
+  } else if(r.hat==='tricorno'||r.hat==='tricornone'){
+    const big=r.hat==='tricornone'?1.28:1.0;
+    blob([[cx-92*s*big,cy-44*s],[cx,cy-58*s],[cx+92*s*big,cy-44*s],[cx+70*s*big,cy-70*s],[cx,cy-96*s*big],[cx-70*s*big,cy-70*s]], r.ghost?G.buio:'#3d4046');
+    if(!r.ghost) poly([[cx-70*s*big,cy-58*s],[cx+70*s*big,cy-58*s],[cx+66*s*big,cy-50*s],[cx-66*s*big,cy-50*s]], G.medio); // fascia
+  }
+}
+
+function figura(){
+  const b=R.build, gy=1010, cx=300, s=1.0;
+  const H=b.h, W=b.w;
+  // ombra a terra
+  ctx.fillStyle='rgba(40,44,52,.14)'; ctx.beginPath(); ctx.ellipse(cx,gy+8,120,26,0,0,7); ctx.fill();
+  const hipY=gy-330*H, shoY=gy-540*H, headY=gy-660*H;
+  // gambe (stance leggero)
+  seg(cx-30,hipY,cx-56,gy-40,44*W, R.legs);
+  seg(cx+30,hipY,cx+58,gy-40,44*W, R.legs);
+  // stivali/piedi
+  const boot=R.boots==='dark'?G.buio:R.skin;
+  poly([[cx-80,gy-46],[cx-38,gy-46],[cx-34,gy-6],[cx-92,gy-6]], boot);
+  poly([[cx+34,gy-46],[cx+80,gy-46],[cx+96,gy-6],[cx+34,gy-6]], boot);
+  // braccio dietro (mano sul fianco)
+  seg(cx-56*W,shoY+16,cx-104*W,hipY-30,34*W, R.skin);
+  seg(cx-104*W,hipY-30,cx-40,hipY-6,32*W, R.skin);
+  // torso: panciotto/cappotto
+  const body=R.coat||R.shirt;
+  blob([[cx-70*W,shoY],[cx-84*W,hipY+10],[cx,hipY+40],[cx+84*W,hipY+10],[cx+70*W,shoY],[cx,shoY-24]], body);
+  // camicia sotto (spacco del cappotto)
+  if(R.coat){ poly([[cx-24,shoY+8],[cx+24,shoY+8],[cx+30,hipY+20],[cx-30,hipY+20]], R.shirt); }
+  // cintura + fascia
+  ctx.fillStyle=G.buio; ctx.strokeStyle=INK; ctx.lineWidth=LW;
+  ctx.beginPath(); ctx.rect(cx-70*W,hipY-8,140*W,26); ctx.fill(); ctx.stroke();
+  disco(cx,hipY+5,13,G.chiaro);
+  // falde del cappotto (senzanome: lacere)
+  if(R.coat){
+    if(R.ghost) poly([[cx-70*W,hipY],[cx-88*W,hipY+130],[cx-60,hipY+96],[cx-44,hipY+140],[cx-20,hipY+90],[cx-16,hipY+10]], R.coat);
+    else poly([[cx-70*W,hipY],[cx-82*W,hipY+120],[cx-16,hipY+96],[cx-16,hipY+10]], R.coat);
+  }
+  // testa
+  volto(cx,headY,1.05,R);
+  // collo
+  seg(cx,headY+48,cx,shoY-6,30, R.skin);
+  volto(cx,headY,1.05,R); // ridisegno testa sopra il collo
+  // braccio davanti (regge l'arma)
+  seg(cx+56*W,shoY+16,cx+108*W,hipY-40,36*W, R.coat||R.shirt);
+  seg(cx+108*W,hipY-40,cx+120*W,hipY-120,32*W, R.skin);
+  disco(cx+120*W,hipY-120,20*W,R.skin);
+  // arma
+  if(R.weapon==='coltello'){ seg(cx+120*W,hipY-120,cx+150*W,hipY-190,14,G.chiaro); }
+  else { // sciabola
+    ctx.strokeStyle=INK; ctx.lineWidth=14; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(cx+120*W,hipY-120); ctx.quadraticCurveTo(cx+170*W,hipY-260,cx+150*W,hipY-330); ctx.stroke();
+    ctx.strokeStyle=G.chiaro; ctx.lineWidth=8; ctx.beginPath(); ctx.moveTo(cx+120*W,hipY-120); ctx.quadraticCurveTo(cx+170*W,hipY-260,cx+150*W,hipY-330); ctx.stroke();
+    disco(cx+120*W,hipY-118,15,G.scuro); // guardia
+  }
+}
+
+function portrait(){
+  const x=660,y=250,R2=190;
+  ctx.fillStyle='#f6f7f8'; ctx.strokeStyle=INK; ctx.lineWidth=3;
+  roundRect(x-R2,y-R2,R2*2,R2*2,24); ctx.fill(); ctx.stroke();
+  ctx.save(); roundRect(x-R2+6,y-R2+6,R2*2-12,R2*2-12,18); ctx.clip();
+  volto(x,y+30,2.35,R);
+  ctx.restore();
+  ctx.fillStyle=G.scuro; ctx.font='italic 22px Georgia,serif'; ctx.textAlign='center';
+  ctx.fillText('ritratto', x, y+R2+34);
+}
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function wrap(t,x,y,max,lh){ ctx.textAlign='left'; const w=t.split(' '); let line='',yy=y;
+  for(const word of w){ const test=line+word+' '; if(ctx.measureText(test).width>max&&line){ ctx.fillText(line,x,yy); line=word+' '; yy+=lh; } else line=test; }
+  ctx.fillText(line,x,yy); return yy; }
+
+function main(){
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,900,1200);
+  // cornice leggera
+  ctx.strokeStyle='#dcdfe3'; ctx.lineWidth=2; ctx.strokeRect(16,16,868,1168);
+  figura();
+  portrait();
+  // targhetta
+  ctx.fillStyle=INK; ctx.textAlign='left';
+  ctx.font='bold 40px Georgia,serif'; ctx.fillText(R.nome, 60, 1096);
+  ctx.fillStyle=G.scuro; ctx.font='22px Georgia,serif';
+  wrap(R.note, 60, 1130, 780, 30);
+  ctx.fillStyle='#9aa0a6'; ctx.font='italic 18px Georgia,serif';
+  ctx.fillText('riferimento grezzo — tratto pulito, scala di grigi — Midjourney libero sul colore', 60, 1180);
+  document.title='HERO-DONE';
+}
+main();
+</script>
+</body></html>
