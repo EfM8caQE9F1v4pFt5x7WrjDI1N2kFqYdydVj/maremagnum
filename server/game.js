@@ -98,8 +98,11 @@ const MOSTRI = {
     sagoma: [{ dx: 150, r: 52 }, { dx: 30, r: 58 }, { dx: -100, r: 48 }, { dx: -200, r: 36 }],
   },
   kraken: {
+    // audit 5-bis: PRIMA l'inchiostro, POI i tentacoli — da lontano sputa
+    // un getto nero LENTO e visibile (si può schivare) che INCHIODA la nave
+    // colpita; al contatto i tentacoli torcono (morso + vele), senza pin
     nome: 'Kraken', hp: 2800, vel: 55, taglia: 1600, morso: 30, presa: 230,
-    stretta: 2, tregua: 8, cadenza: 1.6, raggio: 110, muso: 0,
+    gittata: 480, sputo: 7, stretta: 2.5, tregua: 9, cadenza: 1.6, raggio: 110, muso: 0,
     sagoma: [{ dx: 110, r: 75 }, { dx: 0, r: 85 }, { dx: -130, r: 95 }],
   },
   serpente: {
@@ -112,6 +115,12 @@ const MOSTRO = {
   aggro: 320, pAgguato: 0.0015, fuga: 1100, riposo: 120, vagabondo: 40,
   emersione: 2.5, agguatoRapido: 1.2, riposiziona: 160, spalle: 240,
 };
+// La tassa del codardo (audit 5-bis, rilievo degli utenti): chi è in
+// battaglia con un ALTRO CAPITANO (mai NPC, mai dungeon) resta "ingaggiato"
+// per ttl secondi dall'ultimo colpo; se stacca la spina (refresh/chiusura)
+// mentre è ingaggiato, metà del forziere finisce A MARE in un bottino
+// galleggiante che chiunque può ripescare col tocco.
+const INGAGGIO = { ttl: 15, quota: 0.5, ttlBottino: 180, tocco: 60 };
 // L'economia del blocco (issue #15, arrembaggio v1): vita a zero per mano di
 // un capitano = nave BLOCCATA, non affondata. Il doppiofondo della Stiva è
 // SEMPRE protetto; il resto è "il forziere in gioco": 25% subito al vincitore,
@@ -302,6 +311,7 @@ class Game {
       tesoro: this.now + (CONVOGLIO_SUBITO ? 0 : CAROVANE.tesoro.primo),
     };
     this.cacciatori = 0; // quanti Cacciatori di Taglie battono il mare
+    this.bottini = new Map(); // i forzieri galleggianti dei fuggiaschi (audit 5-bis)
     this.tickCount = 0;
     this.fxQueue = [];
     for (let i = 0; i < NPCS.merc; i++) this.spawnNpc('merc');
@@ -360,7 +370,8 @@ class Game {
       // le munizioni (issue #41, fetta 2): scelta di sessione, mai persistita;
       // i debuff sono temporanei e si rinfrescano, non si sommano
       munizione: 'palle', veleTagliateUntil: 0, falcidiaUntil: 0,
-      presaUntil: 0, presaImmuneUntil: 0, // i tentacoli del Kraken (audit 3)
+      presaUntil: 0, presaImmuneUntil: 0, // l'inchiostro del Kraken (audit 3/5-bis)
+      ingaggio: null, // la battaglia PvP in corso (audit 5-bis): {con, fino}
       // la resa dei mercantili e le carovane (issue #41, fette 3-4)
       resaUntil: 0, resaCooldownUntil: 0, saccheggiato: false, convoglio: null,
       // i cacciatori di taglie (fetta 4): il conto dell'infamia e il mandato
@@ -430,6 +441,7 @@ class Game {
     ship.emersioneA = 0;       // quando l'ombra finisce di gonfiarsi (telegrafo)
     ship.emersioneDurata = 0;  // per dire al client A CHE PUNTO è il gonfiarsi
     ship.riposizionaFino = 0;  // il Serpente non gira sott'acqua in eterno
+    ship.sputoAt = 0;          // il Kraken ricarica l'inchiostro (audit 5-bis)
     ship.mounts = { left: [], right: [], bow: [], stern: [] };
     ship.ready = { left: [], right: [], bow: [], stern: [] };
     ship.hp = MOSTRI[tipo].hp;
@@ -594,11 +606,43 @@ class Game {
 
   leave(ship) {
     // scappare staccando la spina non paga: chi resta vince (issue #15)
-    if (ship.blockedUntil > this.now) this.abborda(ship);
+    if (ship.blockedUntil > this.now) {
+      this.abborda(ship);
+    } else if (!ship.npc && !ship.docked && ship.ingaggio && ship.ingaggio.fino > this.now && ship.gold > 0) {
+      // la tassa del codardo (audit 5-bis): refresh o chiusura DURANTE un
+      // ingaggio con un altro capitano = metà del forziere A MARE, in un
+      // bottino galleggiante che chiunque può ripescare. Vale solo fra
+      // capitani (l'ingaggio si segna solo lì): dungeon e NPC non c'entrano.
+      const perso = Math.floor(ship.gold * INGAGGIO.quota);
+      if (perso > 0) {
+        ship.gold -= perso;
+        const id = 'b' + this.nextId++;
+        this.bottini.set(id, { id, x: r1(ship.x), y: r1(ship.y), oro: perso, fino: this.now + INGAGGIO.ttlBottino });
+        this.annuncia('fuga', `💰 ${ship.name} è FUGGITO dalla battaglia staccando la spina: ${perso} 🪙 galleggiano dove ammainava!`);
+      }
+    }
     this.alleanze.leave(ship); // chi sbarca esce dall'alleanza (#37)
     this.missions.leave(ship);
     this.ships.delete(ship.id);
     this.broadcast({ t: 'feed', msg: `${ship.name} è tornato sulla terraferma` });
+  }
+
+  // i forzieri dei fuggiaschi: galleggiano, scadono, e il primo capitano
+  // che li tocca se li porta a bordo (audit 5-bis)
+  tickBottini() {
+    if (!this.bottini.size) return;
+    for (const b of this.bottini.values()) {
+      if (this.now > b.fino) { this.bottini.delete(b.id); continue; }
+      for (const p of this.ships.values()) {
+        if (p.npc || p.docked || this.isSunk(p)) continue;
+        if (Math.hypot(p.x - b.x, p.y - b.y) >= INGAGGIO.tocco) continue;
+        p.gold += b.oro;
+        this.sendGold(p, b.oro, 'Bottino del fuggiasco ripescato!');
+        this.broadcast({ t: 'feed', msg: `💰 ${p.name} ha ripescato il bottino del fuggiasco (+${b.oro} 🪙)` });
+        this.bottini.delete(b.id);
+        break;
+      }
+    }
   }
 
   sendTo(ship, obj) {
@@ -1378,6 +1422,7 @@ class Game {
     this.moveShots(dt);
     this.tickForts(dt);
     this.tickResa();
+    this.tickBottini();
     this.tickCarovane();
     this.missions.tick(this.now);
     this.tickCount++;
@@ -1731,18 +1776,23 @@ class Game {
           this.fxQueue.push({ k: 'soffio', x: r1(preda.x), y: r1(preda.y), da: ship.id });
         }
       } else if (ship.mostro === 'kraken') {
-        // la morsa: al contatto danno, vele avviluppate e PRESA che inchioda
-        // (con tregua: è una morsa, non una tomba)
+        // audit 5-bis: PRIMA l'inchiostro, POI i tentacoli. Da lontano il
+        // Kraken SPUTA un getto nero — lento, visibile, schivabile — che
+        // INCHIODA la nave colpita (il pin sta in damageShip, sul colpo);
+        // poi si accosta e i tentacoli TORCONO: danno e vele avviluppate.
         this.steerToward(ship, preda.x, preda.y);
+        if (d >= cfg.presa && d < cfg.gittata && this.now >= ship.sputoAt) {
+          ship.sputoAt = this.now + cfg.sputo;
+          const dir = Math.atan2(preda.y - ship.y, preda.x - ship.x);
+          const s = this.spawnShot(ship.id, ship.x + Math.cos(dir) * 120, ship.y + Math.sin(dir) * 120,
+            dir, { speed: 210, range: cfg.gittata + 60, dmg: 6 }, 'inchiostro');
+          this.broadcast({ t: 'shots', from: ship.id, shots: [s] });
+          this.fxQueue.push({ k: 'soffio', x: r1(preda.x), y: r1(preda.y), da: ship.id }); // il corpo si slancia
+        }
         if (d < cfg.presa && this.now >= ship.morsoAt) {
           ship.morsoAt = this.now + cfg.cadenza;
           this.damageShip(preda, cfg.morso, ship.id);
           preda.veleTagliateUntil = Math.max(preda.veleTagliateUntil, this.now + 3);
-          if (preda.presaImmuneUntil <= this.now) {
-            preda.presaUntil = this.now + cfg.stretta;
-            preda.presaImmuneUntil = this.now + cfg.tregua;
-            this.fxQueue.push({ k: 'presa', x: r1(preda.x), y: r1(preda.y), da: ship.id });
-          }
           this.fxQueue.push({ k: 'morso', x: r1(preda.x), y: r1(preda.y), da: ship.id });
         }
       } else {
@@ -2116,10 +2166,25 @@ class Game {
     ship.hp -= dmg;
     ship.lastHitBy = byId;
     ship.lastDamageAt = this.now;
+    // l'ingaggio PvP (audit 5-bis): fra capitani il colpo SEGNA entrambi
+    // per INGAGGIO.ttl secondi — chi stacca la spina paga la tassa del
+    // codardo. NPC, fortezze e dungeon non ingaggiano nessuno.
+    const attore = typeof byId === 'string' ? this.ships.get(byId) : null;
+    if (!ship.npc && attore && !attore.npc && attore.id !== ship.id) {
+      ship.ingaggio = { con: attore.id, fino: this.now + INGAGGIO.ttl };
+      attore.ingaggio = { con: ship.id, fino: this.now + INGAGGIO.ttl };
+    }
     // i debuff delle munizioni (issue #41, fetta 2): temporanei e si
     // RINFRESCANO senza sommarsi — mai oltre il malus dichiarato nel catalogo
     if (shot && shot.mun === 'catene') ship.veleTagliateUntil = this.now + W.MUNIZIONI.catene.taglia.durata;
     if (shot && shot.mun === 'mitraglia') ship.falcidiaUntil = this.now + W.MUNIZIONI.mitraglia.falcidia.durata;
+    // l'inchiostro del Kraken (audit 5-bis): il getto nero che INCHIODA —
+    // con la tregua di sempre (è una morsa, non una tomba)
+    if (shot && shot.mun === 'inchiostro' && ship.presaImmuneUntil <= this.now) {
+      ship.presaUntil = this.now + MOSTRI.kraken.stretta;
+      ship.presaImmuneUntil = this.now + MOSTRI.kraken.tregua;
+      this.fxQueue.push({ k: 'presa', x: r1(ship.x), y: r1(ship.y), da: shot.owner });
+    }
     // la carovana fa quadrato (issue #41, fette 3-4): tocchi uno, rispondono le scorte
     const carovana = ship.convoglio && this.carovane[ship.convoglio.tipo];
     if (carovana && typeof byId === 'string' && !byId.startsWith('fort:')) {
@@ -2146,6 +2211,10 @@ class Game {
   // Il blocco: lo scontro navale è vinto QUI — kill, missioni e diario si
   // registrano subito; l'arrembaggio è solo il bottino che manca.
   blocca(vittima, predatore) {
+    // battaglia DECISA: gli ingaggi si azzerano (audit 5-bis) — il vinto ha
+    // già pagato col blocco, il vincitore non deve la tassa se ora sbarca
+    vittima.ingaggio = null;
+    predatore.ingaggio = null;
     vittima.hp = 0;
     vittima.vel = 0;
     vittima.input = { up: false, down: false, left: false, right: false };
@@ -2303,6 +2372,7 @@ class Game {
       if (ship.npc === 'mostro') {
         ship.sommerso = true; ship.predaId = null; ship.agguatoDorme = 0;
         ship.emersioneA = 0; ship.emersioneDurata = 0; ship.riposizionaFino = 0;
+        ship.sputoAt = 0;
       }
     } else {
       const p = this.spawnPoint();
@@ -2386,6 +2456,8 @@ class Game {
     snap.br = this.burrasche.map(b => [r1(b.x), r1(b.y), b.r]);
     // campo additivo: i fumogeni attivi (x, y, raggio, secondi restanti)
     if (this.smokes.length) snap.sm = this.smokes.map(s => [r1(s.x), r1(s.y), s.r, r2(s.until - this.now)]);
+    // campo additivo: i bottini dei fuggiaschi che galleggiano (audit 5-bis)
+    if (this.bottini.size) snap.bt = [...this.bottini.values()].map(b => ({ id: b.id, x: r1(b.x), y: r1(b.y), oro: b.oro }));
     this.broadcast(snap);
   }
 

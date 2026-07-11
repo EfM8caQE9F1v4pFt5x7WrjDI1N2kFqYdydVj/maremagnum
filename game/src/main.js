@@ -816,6 +816,8 @@ function wireNet() {
       state.burrasche = m.br.map(([x, y, r]) => ({ x, y, r }));
       renderer.setBurrasche(state.burrasche);
     }
+    // i bottini dei fuggiaschi (audit 5-bis): barilotti d'oro raccoglibili
+    if (!devParams.get('forcebottino')) renderer.setBottini(m.bt || []);
     if (m.vn) setVento(m.vn[0], m.vn[1]); // il vento del mare (issue #41)
     // il colpo si SENTE: scossone e lampo rosso quando lo scafo incassa;
     // Mare calmo li spegne (issue #19, rilievo F9 dell'audit)
@@ -1457,7 +1459,17 @@ function frame(now) {
       renderer.fx('soffio', me.x, me.y, { da: 'mock-drago' });
       renderer.fx('morso', me.x, me.y, { da: 'mock-kraken' });
       renderer.fx('morso', me.x, me.y, { da: 'mock-serpente' });
+      // e il getto d'inchiostro in volo dal mock-kraken verso la nave
+      const kx = me.x - 430 + 120, ky = me.y + 150;
+      const ka = Math.atan2(me.y - ky, me.x - kx);
+      renderer.spawnShots([{ id: 'mock-ink-' + Math.random(), x: kx, y: ky,
+        vx: Math.cos(ka) * 210, vy: Math.sin(ka) * 210, ttl: 2.2, mn: 'inchiostro' }]);
     }
+  }
+  // ?forcebottino=1 (sviluppo): il barilotto del fuggiasco posa accanto
+  // alla nave — per fotografare il ripescabile senza far fuggire nessuno
+  if (me && devParams.get('forcebottino')) {
+    renderer.setBottini([{ id: 'mock-b', x: me.x + 130, y: me.y + 60, oro: 450 }]);
   }
   renderer.frame(dt, cam, me);
 
