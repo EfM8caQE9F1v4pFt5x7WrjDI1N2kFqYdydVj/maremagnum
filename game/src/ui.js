@@ -1,6 +1,7 @@
 // Tutta la UI DOM sopra il canvas: barra della rotta, HUD, plance e pergamene.
 
 import { drawTreasureMap } from './mapgen.js';
+import { t as tr } from './i18n.js';
 import { disegnaBandiera, TINTE, TAGLI, EMBLEMI } from './bandiera.js';
 
 const CATEGORIE_GILDA = ['corsari', 'mercanti', 'esploratori', 'accademici', 'guardiani'];
@@ -12,11 +13,11 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
 // "2 ore fa": il tempo delle notizie, alla buona e in italiano
 function faTempo(t) {
   const s = Math.max(0, (Date.now() - t) / 1000);
-  if (s < 90) return 'adesso';
-  if (s < 3600) return `${Math.round(s / 60)} min fa`;
-  if (s < 86400) { const h = Math.round(s / 3600); return h === 1 ? "un'ora fa" : `${h} ore fa`; }
+  if (s < 90) return tr('tempo.adesso');
+  if (s < 3600) return tr('tempo.min', { n: Math.round(s / 60) });
+  if (s < 86400) { const h = Math.round(s / 3600); return h === 1 ? tr('tempo.unora') : tr('tempo.ore', { n: h }); }
   const g = Math.round(s / 86400);
-  return g === 1 ? 'ieri' : `${g} giorni fa`;
+  return g === 1 ? tr('tempo.ieri') : tr('tempo.giorni', { n: g });
 }
 
 // ordine di priorità degli overlay quando sono impilati (es. Manuale sul Cantiere)
@@ -94,7 +95,7 @@ export class UI {
       wrap.textContent = label + ' ';
       const sel = document.createElement('select');
       sel.id = id;
-      sel.setAttribute('aria-label', label + ' della bandiera');
+      sel.setAttribute('aria-label', tr('bandiera.sel.aria', { label }));
       voci.forEach((v, i) => {
         const o = document.createElement('option');
         o.value = i; o.textContent = v;
@@ -312,10 +313,10 @@ export class UI {
   groupLabel(g) {
     const l = this.tasti || { bordataSin: 'Q', bordataDes: 'E', pruaPoppa: 'SPAZIO' };
     return {
-      left: `◀ Fiancata sinistra (${l.bordataSin})`,
-      right: `▶ Fiancata destra (${l.bordataDes})`,
-      bow: `▲ Prua (${l.pruaPoppa})`,
-      stern: `▼ Poppa (${l.pruaPoppa})`,
+      left: tr('gruppo.left', { k: l.bordataSin }),
+      right: tr('gruppo.right', { k: l.bordataDes }),
+      bow: tr('gruppo.bow', { k: l.pruaPoppa }),
+      stern: tr('gruppo.stern', { k: l.pruaPoppa }),
     }[g];
   }
 
@@ -328,9 +329,9 @@ export class UI {
       const nome = document.createElement('span');
       nome.textContent = a.nome;
       const btn = document.createElement('button');
-      btn.textContent = a.inAscolto ? 'premi un tasto…' : a.label;
+      btn.textContent = a.inAscolto ? tr('timoneria.premi') : a.label;
       if (a.inAscolto) btn.className = 'inAscolto';
-      btn.setAttribute('aria-label', `Tasto per ${a.nome}: ora ${a.label}. Attiva e premi il nuovo tasto (ESC annulla)`);
+      btn.setAttribute('aria-label', tr('timoneria.tasto.aria', { nome: a.nome, label: a.label }));
       btn.addEventListener('click', () => this.h.onRebind(a.azione));
       row.append(nome, btn);
       box.appendChild(row);
@@ -392,23 +393,23 @@ export class UI {
     const hud = $('assedioHud');
     if (!m || !m.phase) {
       hud.classList.add('hidden');
-      $('assedioInfo').textContent = 'Nessun assedio in corso. Banditene uno: scegli il tuo ruolo!';
+      $('assedioInfo').textContent = tr('assedio.nessuno');
       $('assedioTeams').innerHTML = '';
       $('joinCorr').disabled = $('joinBlocc').disabled = false;
       return;
     }
     const target = m.target ? m.target.name : '?';
     const phases = {
-      lobby: `⚔ Assedio a ${target}: in cerca di sfidanti…`,
-      countdown: `⚔ Assedio a ${target}: si salpa tra ${m.timeLeft}s!`,
-      running: `⚔ ASSEDIO IN CORSO su ${target} — ${m.timeLeft}s`,
+      lobby: tr('assedio.lobby', { t: target }),
+      countdown: tr('assedio.countdown', { t: target, s: m.timeLeft }),
+      running: tr('assedio.running', { t: target, s: m.timeLeft }),
     };
     hud.textContent = phases[m.phase] || '';
     hud.classList.remove('hidden');
     $('assedioInfo').textContent = phases[m.phase];
     $('assedioTeams').innerHTML =
-      `<div><b>🏴 Corridori</b><br>${m.corridori.map(esc).join('<br>') || '—'}</div>` +
-      `<div><b>⚓ Bloccatori</b><br>${m.bloccatori.map(esc).join('<br>') || '—'}</div>`;
+      `<div><b>${tr('assedio.corridori')}</b><br>${m.corridori.map(esc).join('<br>') || '—'}</div>` +
+      `<div><b>${tr('assedio.bloccatori')}</b><br>${m.bloccatori.map(esc).join('<br>') || '—'}</div>`;
     const closed = m.phase === 'running';
     $('joinCorr').disabled = $('joinBlocc').disabled = closed;
   }
@@ -435,7 +436,7 @@ export class UI {
   showBoard(visible) {
     if (!visible) { this.hide('board'); return; }
     const rows = this._board || [];
-    $('boardTable').innerHTML = '<tr><th scope="col">Corsaro</th><th scope="col">Affondate</th><th scope="col">Perdute</th><th scope="col">Monete 🪙</th></tr>' +
+    $('boardTable').innerHTML = tr('board.testata') +
       rows.map(r => `<tr><td>${esc(r.name)}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.gold}</td></tr>`).join('');
     this.show('board');
   }
@@ -445,7 +446,7 @@ export class UI {
     const w = Math.min(1060, innerWidth * 0.82);
     canvas.width = w; canvas.height = Math.round(w * 0.62);
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', `Mappa del tesoro: rotta tracciata verso ${island.name}`);
+    canvas.setAttribute('aria-label', tr('map.verso.aria', { nome: island.name }));
     drawTreasureMap(canvas, { from, island });
     this.show('mapOverlay');
     // niente auto-chiusura: la pergamena resta finché il capitano non salpa
@@ -472,24 +473,24 @@ export class UI {
   _shopConsiglia(m) {
     const candidati = [];
     const linee = [
-      ['Scafo', m.ship.hullCost, 'stat-hull'], ['Vele', m.ship.sailsCost, 'stat-sails'],
-      ['Timone', m.ship.helmCost ?? null, 'stat-helm'], ['Ciurma', m.ship.crewCost ?? null, 'stat-crew'],
-      ['Stiva', m.ship.holdCost ?? null, 'stat-hold'],
+      [tr('nave.scafo'), m.ship.hullCost, 'stat-hull'], [tr('nave.vele'), m.ship.sailsCost, 'stat-sails'],
+      [tr('nave.timone'), m.ship.helmCost ?? null, 'stat-helm'], [tr('nave.ciurma'), m.ship.crewCost ?? null, 'stat-crew'],
+      [tr('nave.stiva'), m.ship.holdCost ?? null, 'stat-hold'],
     ];
     for (const [nome, costo, fk] of linee) {
-      if (costo !== null && costo !== undefined) candidati.push({ testo: `un punto ${nome}`, costo, fk, scheda: 'nave' });
+      if (costo !== null && costo !== undefined) candidati.push({ testo: tr('consiglio.punto', { nome }), costo, fk, scheda: 'nave' });
     }
     for (const [g, data] of Object.entries(m.groups)) {
       for (const s of data.slots) {
-        if (s.upCost !== null) candidati.push({ testo: `potenziare la ${s.name} (${this.groupLabel(g)})`, costo: s.upCost, fk: `up-${g}-${s.slot}`, scheda: 'armi' });
-        else if (s.replace) candidati.push({ testo: `passare a ${s.replace.name} (${this.groupLabel(g)})`, costo: s.replace.cost, fk: `rep-${g}-${s.slot}`, scheda: 'armi' });
+        if (s.upCost !== null) candidati.push({ testo: tr('consiglio.potenzia', { arma: s.name, gruppo: this.groupLabel(g) }), costo: s.upCost, fk: `up-${g}-${s.slot}`, scheda: 'armi' });
+        else if (s.replace) candidati.push({ testo: tr('consiglio.passa', { arma: s.replace.name, gruppo: this.groupLabel(g) }), costo: s.replace.cost, fk: `rep-${g}-${s.slot}`, scheda: 'armi' });
       }
-      if (data.nextSlotCost !== null) candidati.push({ testo: `uno slot in più (${this.groupLabel(g)})`, costo: data.nextSlotCost, fk: `slot-${g}`, scheda: 'armi' });
+      if (data.nextSlotCost !== null) candidati.push({ testo: tr('consiglio.slot', { gruppo: this.groupLabel(g) }), costo: data.nextSlotCost, fk: `slot-${g}`, scheda: 'armi' });
     }
     const box = $('shopConsiglio');
     box.innerHTML = '';
     if (!candidati.length) {
-      box.textContent = '👑 La nave è al completo: da qui in poi si fa la leggenda.';
+      box.textContent = tr('consiglio.completo');
       box.classList.remove('hidden');
       return;
     }
@@ -497,11 +498,11 @@ export class UI {
     if (abbordabili.length) {
       const c = abbordabili[0];
       const testo = document.createElement('span');
-      testo.textContent = `⭐ Il mastro d'ascia consiglia: ${c.testo} · ${c.costo} 🪙 `;
+      testo.textContent = tr('consiglio.consiglia', { cosa: c.testo, costo: c.costo });
       const vai = document.createElement('button');
       vai.className = 'linkish';
-      vai.textContent = 'Portamici';
-      vai.setAttribute('aria-label', `Vai a ${c.testo}`);
+      vai.textContent = tr('consiglio.portamici');
+      vai.setAttribute('aria-label', tr('consiglio.vai.aria', { cosa: c.testo }));
       vai.addEventListener('click', () => {
         this._shopMostra(c.scheda);
         const el = $('shopOverlay').querySelector(`[data-fk="${c.fk}"]`);
@@ -510,7 +511,7 @@ export class UI {
       box.append(testo, vai);
     } else {
       const c = candidati.sort((a, b) => a.costo - b.costo)[0];
-      box.textContent = `🪙 Riempi il forziere: il primo acquisto utile è ${c.testo} a ${c.costo} 🪙 (ne hai ${m.gold}).`;
+      box.textContent = tr('consiglio.riempi', { cosa: c.testo, costo: c.costo, oro: m.gold });
     }
     box.classList.remove('hidden');
   }
@@ -536,24 +537,24 @@ export class UI {
         : m.varo.tipo === 'galeone' ? 'Galeone Dorato'
           : m.varo.tipo === 'goletta' ? 'Goletta Veterana'
             : m.varo.tipo === 'guerra' ? 'Brigantino Veterano' : esc(tuoTipo.nome);
-      banner.innerHTML = `⚓ La tua nave: <b>${nome}</b> — ${esc(tuoTipo.motto)}`;
+      banner.innerHTML = tr('shop.nave.banner', { nome, sotto: esc(tuoTipo.motto) });
     } else {
       const classe = h >= 4 ? (v >= 4 ? 'Galeone Dorato' : 'Galeone') : h >= 2 ? 'Brigantino' : 'Sloop';
       const prossima = h >= 4
         ? (v >= 4 ? 'la regina dei mari: non c\'è legno migliore' : 'con Vele 4 diventa <b>Galeone Dorato</b>')
         : h >= 2 ? 'con Scafo 4 diventa <b>Galeone</b>' : 'con Scafo 2 diventa <b>Brigantino</b>';
-      banner.innerHTML = `⚓ La tua nave: <b>${classe}</b> — ${prossima}`;
+      banner.innerHTML = tr('shop.nave.banner', { nome: classe, sotto: prossima });
     }
     ship.appendChild(banner);
-    ship.appendChild(this.statRow('🛡 Scafo', 'Legno di quercia, ossa dure', m.ship.hullLvl, 4, m.ship.hullCost, m.gold,
+    ship.appendChild(this.statRow('🛡 ' + tr('nave.scafo'), tr('nave.scafo.desc'), m.ship.hullLvl, 4, m.ship.hullCost, m.gold,
       () => this.h.onBuyShip('hull'), 'stat-hull'));
-    ship.appendChild(this.statRow('⛵ Vele', 'Chi fugge vive per combattere domani', m.ship.sailsLvl, 4, m.ship.sailsCost, m.gold,
+    ship.appendChild(this.statRow('⛵ ' + tr('nave.vele'), tr('nave.vele.desc'), m.ship.sailsLvl, 4, m.ship.sailsCost, m.gold,
       () => this.h.onBuyShip('sails'), 'stat-sails'));
-    ship.appendChild(this.statRow('☸ Timone', 'Vira come un pesce, non come un tronco', m.ship.helmLvl | 0, 4, m.ship.helmCost ?? null, m.gold,
+    ship.appendChild(this.statRow('☸ ' + tr('nave.timone'), tr('nave.timone.desc'), m.ship.helmLvl | 0, 4, m.ship.helmCost ?? null, m.gold,
       () => this.h.onBuyShip('helm'), 'stat-helm'));
-    ship.appendChild(this.statRow('💪 Ciurma', 'Più braccia, bordate più fitte', m.ship.crewLvl | 0, 4, m.ship.crewCost ?? null, m.gold,
+    ship.appendChild(this.statRow('💪 ' + tr('nave.ciurma'), tr('nave.ciurma.desc'), m.ship.crewLvl | 0, 4, m.ship.crewCost ?? null, m.gold,
       () => this.h.onBuyShip('crew'), 'stat-crew'));
-    ship.appendChild(this.statRow('🛢 Stiva', 'Un doppiofondo che i vincitori non trovano', m.ship.holdLvl | 0, 4, m.ship.holdCost ?? null, m.gold,
+    ship.appendChild(this.statRow('🛢 ' + tr('nave.stiva'), tr('nave.stiva.desc'), m.ship.holdLvl | 0, 4, m.ship.holdCost ?? null, m.gold,
       () => this.h.onBuyShip('hold'), 'stat-hold'));
     const varoBox = $('shopVaro');
     varoBox.innerHTML = '';
@@ -577,16 +578,13 @@ export class UI {
     if (mioTipo && mioTipo.abilitaInfo) {
       const i = mioTipo.abilitaInfo;
       const effetto = /[.!?]$/.test(i.effetto.trim()) ? i.effetto.trim() : i.effetto.trim() + '.';
-      abBox.innerHTML = `<div class="shopInfo"><b>✦ La tua abilità — tasto R: ${EMOJI_AB[m.varo.tipo] || '✦'} ${esc(i.nome)}</b>
-        <span>Effetto MOMENTANEO: ${esc(effetto)} Poi si ricarica (${i.cd}s: la barra R sotto le fiancate).</span>
-        <span class="effetti">L'abilità viaggia col TIPO di nave (${esc(mioTipo.nome)}), non coi cannoni: per averne un'altra devi varare un altro tipo.</span></div>`;
+      abBox.innerHTML = tr('armi.r.mia', { emo: EMOJI_AB[m.varo.tipo] || '✦', nome: esc(i.nome), effetto: esc(effetto), cd: i.cd, tipo: esc(mioTipo.nome) });
     } else {
-      abBox.innerHTML = `<div class="shopInfo"><b>✦ Abilità R: non ne hai ancora una</b>
-        <span>L'abilità speciale (tasto R) viene col TIPO di nave: scegline uno al Varo e la trovi a bordo.</span></div>`;
+      abBox.innerHTML = tr('armi.r.nessuna');
     }
     const vaiVaro = document.createElement('button');
-    vaiVaro.textContent = '⚓ Cambia al Varo';
-    vaiVaro.setAttribute('aria-label', 'Apri la scheda Varo: le abilità si cambiano varando un altro tipo di nave');
+    vaiVaro.textContent = tr('armi.cambiavaro');
+    vaiVaro.setAttribute('aria-label', tr('armi.cambiavaro.aria'));
     vaiVaro.addEventListener('click', () => this._shopMostra('varo'));
     abBox.appendChild(vaiVaro);
     wep.appendChild(abBox);
@@ -599,7 +597,7 @@ export class UI {
       if (altre) {
         const notaAb = document.createElement('p');
         notaAb.className = 'shopNota';
-        notaAb.textContent = `✦ Le altre abilità: ${altre} — ognuna viene col suo scafo, la scheda Varo le spiega tutte.`;
+        notaAb.textContent = tr('armi.altre', { lista: altre });
         wep.appendChild(notaAb);
       }
     }
@@ -607,7 +605,7 @@ export class UI {
     // scelgono al timone, ma è QUI che uno se lo chiede
     const nota = document.createElement('p');
     nota.className = 'shopNota';
-    nota.textContent = '⚫ In mare ogni bocca spara la munizione scelta col tasto X: palle piene (danno pieno), catene (tagliano le vele), mitraglia (falcidia la ciurma). Il colpo in poppa morde ×1.5. Le esclusive comprate restano nel tuo arsenale: col ⇄ torni al Mortaio e viceversa, gratis.';
+    nota.textContent = tr('armi.nota');
     wep.appendChild(nota);
     for (const [g, data] of Object.entries(m.groups)) {
       // il tipo non regge il gruppo (galeone senza assiali): niente vetrina vuota
@@ -616,7 +614,7 @@ export class UI {
       block.className = 'wgroup';
       const head = document.createElement('div');
       head.className = 'wgroupHead';
-      head.innerHTML = `<b>${this.groupLabel(g)}</b><span>${data.slots.length}/${data.max} slot</span>`;
+      head.innerHTML = `<b>${this.groupLabel(g)}</b><span>${tr('armi.slotcount', { n: data.slots.length, max: data.max })}</span>`;
       block.appendChild(head);
       for (const s of data.slots) {
         const row = document.createElement('div');
@@ -624,50 +622,50 @@ export class UI {
         const pips = '●'.repeat(s.lvl) + '○'.repeat(3 - s.lvl);
         // la scheda dell'arma (audit Cantiere): i numeri del livello attuale
         const statRiga = s.stats
-          ? `<span class="wstat">${s.stats.dmg} danni · gittata ${s.stats.range} · ricarica ${s.stats.reload}s</span>` : '';
-        row.innerHTML = `<div class="wname"><b>${esc(s.name)}</b> <span class="tier">Tier ${ROMAN[s.tier - 1]}</span><span class="pips">${pips}</span>${statRiga}</div>`;
+          ? `<span class="wstat">${tr('armi.stats', { dmg: s.stats.dmg, range: s.stats.range, reload: s.stats.reload })}</span>` : '';
+        row.innerHTML = `<div class="wname"><b>${esc(s.name)}</b> <span class="tier">${tr('armi.tier', { r: ROMAN[s.tier - 1] })}</span><span class="pips">${pips}</span>${statRiga}</div>`;
         // la colonna delle azioni (audit Cantiere 2): potenzia/sostituisci
         // E il ripensamento ⇄ delle esclusive convivono, impilati
         const azioni = document.createElement('div');
         azioni.className = 'wazioni';
         if (s.upCost !== null) {
           const b = document.createElement('button');
-          b.textContent = `Potenzia · ${s.upCost} 🪙`;
-          b.setAttribute('aria-label', `Potenzia ${s.name} (${this.groupLabel(g)}) per ${s.upCost} monete`);
+          b.textContent = tr('armi.potenzia', { costo: s.upCost });
+          b.setAttribute('aria-label', tr('armi.potenzia.aria', { nome: s.name, gruppo: this.groupLabel(g), costo: s.upCost }));
           b.dataset.fk = `up-${g}-${s.slot}`;
           b.disabled = m.gold < s.upCost;
-          if (b.disabled) b.title = `Servono ${s.upCost} 🪙 — ne hai ${m.gold}`;
+          if (b.disabled) b.title = tr('costo.mancano', { costo: s.upCost, oro: m.gold });
           b.addEventListener('click', () => this.h.onUpgradeWeapon(g, s.slot));
           azioni.appendChild(b);
         } else if (s.replace) {
           const b = document.createElement('button');
           b.className = 'tierUp';
           const gratis = s.replace.posseduta;
-          b.textContent = gratis ? `→ ${s.replace.name} · già tua` : `→ ${s.replace.name} · ${s.replace.cost} 🪙`;
+          b.textContent = gratis ? tr('armi.giatua', { nome: s.replace.name }) : tr('armi.sostituisci', { nome: s.replace.name, costo: s.replace.cost });
           const conStats = s.replace.stats
-            ? ` (${s.replace.stats.dmg} danni, gittata ${s.replace.stats.range}, ricarica ${s.replace.stats.reload}s)` : '';
+            ? ` (${tr('armi.stats.brevi', { dmg: s.replace.stats.dmg, range: s.replace.stats.range, reload: s.replace.stats.reload })})` : '';
           b.setAttribute('aria-label', gratis
-            ? `Rimonta ${s.replace.name}${conStats}: è nel tuo arsenale, gratis`
-            : `Sostituisci ${s.name} con ${s.replace.name}${conStats} per ${s.replace.cost} monete`);
+            ? tr('armi.rimonta.aria', { nome: s.replace.name, stats: conStats })
+            : tr('armi.sostituisci.aria', { da: s.name, a: s.replace.name, stats: conStats, costo: s.replace.cost }));
           b.dataset.fk = `rep-${g}-${s.slot}`;
           b.disabled = !gratis && m.gold < s.replace.cost;
           b.title = b.disabled
-            ? `Servono ${s.replace.cost} 🪙 — ne hai ${m.gold}`
+            ? tr('costo.mancano', { costo: s.replace.cost, oro: m.gold })
             : `${s.replace.name}${conStats}`;
           b.addEventListener('click', () => this.h.onReplaceWeapon(g, s.slot));
           azioni.appendChild(b);
         } else if (!s.indietro) {
           const span = document.createElement('span');
           span.className = 'maxed';
-          span.textContent = 'Arma suprema';
+          span.textContent = tr('armi.suprema');
           azioni.appendChild(span);
         }
         if (s.indietro) {
           const b = document.createElement('button');
-          b.textContent = `⇄ ${s.indietro.name} · gratis`;
-          b.setAttribute('aria-label', `Rimonta ${s.indietro.name} al posto di ${s.name}: gratis, l'esclusiva resta nel tuo arsenale`);
+          b.textContent = tr('armi.indietro', { nome: s.indietro.name });
+          b.setAttribute('aria-label', tr('armi.indietro.aria', { a: s.indietro.name, da: s.name }));
           b.dataset.fk = `giu-${g}-${s.slot}`;
-          b.title = 'Il ripensamento è gratis: l\'esclusiva resta tua, il Mortaio torna al livello massimo';
+          b.title = tr('armi.indietro.title');
           b.addEventListener('click', () => this.h.onTornaMortaio(g, s.slot));
           azioni.appendChild(b);
         }
@@ -677,10 +675,10 @@ export class UI {
       if (data.nextSlotCost !== null) {
         const add = document.createElement('button');
         add.className = 'addSlot';
-        add.textContent = `+ Nuovo slot (con colubrina) · ${data.nextSlotCost} 🪙`;
+        add.textContent = tr('armi.nuovoslot', { costo: data.nextSlotCost });
         add.dataset.fk = `slot-${g}`;
         add.disabled = m.gold < data.nextSlotCost;
-        if (add.disabled) add.title = `Servono ${data.nextSlotCost} 🪙 — ne hai ${m.gold}`;
+        if (add.disabled) add.title = tr('costo.mancano', { costo: data.nextSlotCost, oro: m.gold });
         add.addEventListener('click', () => this.h.onBuySlot(g));
         block.appendChild(add);
       }
@@ -706,15 +704,15 @@ export class UI {
     const nota = document.createElement('p');
     nota.className = 'shopNota';
     nota.textContent = varo.tipo
-      ? `⚓ Cambiare identità costa ${varo.cost} 🪙 (raddoppia a ogni giro). Le esclusive comprate restano tue.`
-      : `⚓ Scegli il tipo della tua nave: il primo varo costa ${varo.cost} 🪙.`;
+      ? tr('varo.nota.cambia', { costo: varo.cost })
+      : tr('varo.nota.primo', { costo: varo.cost });
     block.appendChild(nota);
     for (const [key, t] of Object.entries(varo.tipi)) {
       const eff = [];
-      if (t.hpMul !== 1) eff.push(`scafo ${pct(t.hpMul)}`);
-      if (t.speedMul !== 1) eff.push(`velocità ${pct(t.speedMul)}`);
-      if (t.turnMul !== 1) eff.push(`virata ${pct(t.turnMul)}`);
-      eff.push(`${LINEA[t.sconto]} a metà prezzo`);
+      if (t.hpMul !== 1) eff.push(tr('varo.eff.scafo', { pct: pct(t.hpMul) }));
+      if (t.speedMul !== 1) eff.push(tr('varo.eff.velocita', { pct: pct(t.speedMul) }));
+      if (t.turnMul !== 1) eff.push(tr('varo.eff.virata', { pct: pct(t.turnMul) }));
+      eff.push(tr('varo.eff.sconto', { linea: LINEA[t.sconto] }));
       const row = document.createElement('div');
       row.className = 'shopRow';
       // la carta spiega (audit Cantiere): cosa fa R, quanto dura, ogni
@@ -722,19 +720,19 @@ export class UI {
       const ab = t.abilitaInfo;
       const es = t.esclusivaInfo;
       const righeExtra = ab
-        ? `<span class="effetti abilitaRiga">✦ <b>R — ${esc(ab.nome)}</b> (ricarica ${ab.cd}s): ${esc(ab.effetto)}</span>
-           <span class="effetti esclusivaRiga">☄ esclusiva: <b>${esc(t.esclusiva)}</b>${es ? ` — ${es.dmg} danni · gittata ${es.range} · ricarica ${es.reload}s` : ''}</span>`
-        : `<span class="effetti">abilità: ${esc(t.abilita || '—')} · esclusiva: ${esc(t.esclusiva)}</span>`;
+        ? `<span class="effetti abilitaRiga">${tr('varo.abilita.riga', { nome: esc(ab.nome), cd: ab.cd, effetto: esc(ab.effetto) })}</span>
+           <span class="effetti esclusivaRiga">${tr('varo.esclusiva.riga', { nome: esc(t.esclusiva) })}${es ? ` — ${tr('armi.stats', { dmg: es.dmg, range: es.range, reload: es.reload })}` : ''}</span>`
+        : `<span class="effetti">${tr('varo.riga.breve', { abilita: esc(t.abilita || '—'), esclusiva: esc(t.esclusiva) })}</span>`;
       row.innerHTML = `<div class="shopInfo"><b>${EMOJI[key] || '⚓'} ${esc(t.nome)}</b><span>${esc(t.motto)}</span>
         <span class="effetti">${esc(eff.join(' · '))}</span>${righeExtra}</div>`;
       const btn = document.createElement('button');
       btn.dataset.fk = `varo-${key}`;
-      if (varo.tipo === key) { btn.textContent = 'La tua nave'; btn.disabled = true; }
+      if (varo.tipo === key) { btn.textContent = tr('varo.tuanave'); btn.disabled = true; }
       else {
-        btn.textContent = `Vara · ${varo.cost} 🪙`;
-        btn.setAttribute('aria-label', `Vara ${t.nome} per ${varo.cost} monete`);
+        btn.textContent = tr('varo.vara', { costo: varo.cost });
+        btn.setAttribute('aria-label', tr('varo.vara.aria', { nome: t.nome, costo: varo.cost }));
         btn.disabled = gold < varo.cost;
-        if (btn.disabled) btn.title = `Servono ${varo.cost} 🪙 — ne hai ${gold}`;
+        if (btn.disabled) btn.title = tr('costo.mancano', { costo: varo.cost, oro: gold });
         btn.addEventListener('click', () => this.h.onVaro(key));
       }
       row.appendChild(btn);
@@ -751,19 +749,19 @@ export class UI {
     const block = document.createDocumentFragment();
     const nota = document.createElement('p');
     nota.className = 'shopNota';
-    nota.textContent = '🎨 Il Negozio delle Livree — solo estetica, mai vantaggio.';
+    nota.textContent = tr('livree.nota');
     block.appendChild(nota);
     // anteprima FEDELE della nave (issue #34): mostra la nave con la livrea
     // indossata — feedback immediato, dato che attraccati la nave è invisibile
     const anteprima = document.createElement('div');
     anteprima.className = 'livreaPreview';
-    anteprima.innerHTML = '<span class="sub">anteprima della nave…</span>';
+    anteprima.innerHTML = `<span class="sub">${tr('livree.anteprima')}</span>`;
     block.appendChild(anteprima);
     if (this.h.onLivreaPreview) {
       this.h.onLivreaPreview(negozio.livrea || null, negozio.vele || null).then((canvas) => {
         anteprima.innerHTML = '';
         if (canvas) { canvas.className = 'livreaPreviewCanvas'; anteprima.appendChild(canvas); }
-        else anteprima.innerHTML = '<span class="sub">Salpa per vedere la livrea in mare.</span>';
+        else anteprima.innerHTML = `<span class="sub">${tr('livree.salpa')}</span>`;
       }).catch(() => { anteprima.innerHTML = ''; });
     }
     const possedute = new Set(negozio.possedute || []);
@@ -772,9 +770,9 @@ export class UI {
     // genere che questo client non conosce non si mostra: non si può
     // indossare quel che non si sa dove va.
     const SEZIONI = [
-      ['livrea', '🎨 Livree', 'l\'abito completo: scafo, finiture e tela'],
-      ['vele', '⛵ Vele', 'solo la tela, sopra qualunque livrea'],
-      ['scia', '🌊 Scie', 'la strada che lasci sul mare'],
+      ['livrea', tr('livree.sez.livrea'), tr('livree.sez.livrea.desc')],
+      ['vele', tr('livree.sez.vele'), tr('livree.sez.vele.desc')],
+      ['scia', tr('livree.sez.scia'), tr('livree.sez.scia.desc')],
     ];
     for (const [genere, titolo, sotto] of SEZIONI) {
       const voci = Object.entries(negozio.catalogo || {}).filter(([, l]) => l.genere === genere);
@@ -794,23 +792,23 @@ export class UI {
         btn.dataset.fk = `livrea-${id}`;
         const indossata = negozio[genere] === id;
         if (indossata) {
-          btn.textContent = 'Riponi';
-          btn.setAttribute('aria-label', `Riponi ${l.nome}`);
+          btn.textContent = tr('livree.riponi');
+          btn.setAttribute('aria-label', tr('livree.riponi.aria', { nome: l.nome }));
           btn.addEventListener('click', () => this.h.onIndossaLivrea(null, genere));
           row.classList.add('indossata');
         } else if (possedute.has(id)) {
-          btn.textContent = 'Indossa';
-          btn.setAttribute('aria-label', `Indossa ${l.nome}`);
+          btn.textContent = tr('livree.indossa');
+          btn.setAttribute('aria-label', tr('livree.indossa.aria', { nome: l.nome }));
           btn.addEventListener('click', () => this.h.onIndossaLivrea(id, genere));
         } else if (l.prezzo === null) {
-          btn.textContent = 'Si guadagna';
+          btn.textContent = tr('livree.guadagna');
           btn.disabled = true;
-          btn.title = 'Compi la campagna del Mastro di Rotte per guadagnarla';
+          btn.title = tr('livree.guadagna.title');
         } else {
-          btn.textContent = `Compra · ${l.prezzo} 🪙`;
-          btn.setAttribute('aria-label', `Compra ${l.nome} per ${l.prezzo} monete`);
+          btn.textContent = tr('livree.compra', { costo: l.prezzo });
+          btn.setAttribute('aria-label', tr('livree.compra.aria', { nome: l.nome, costo: l.prezzo }));
           btn.disabled = gold < l.prezzo;
-          if (btn.disabled) btn.title = `Servono ${l.prezzo} 🪙 — ne hai ${gold}`;
+          if (btn.disabled) btn.title = tr('costo.mancano', { costo: l.prezzo, oro: gold });
           btn.addEventListener('click', () => this.h.onCompraLivrea(id));
         }
         row.appendChild(btn);
@@ -821,14 +819,14 @@ export class UI {
     // targhetta per chi NON ha una Fratellanza (la bandiera di gilda vince).
     const vHead = document.createElement('div');
     vHead.className = 'wgroupHead';
-    vHead.innerHTML = '<b>🚩 Il tuo vessillo</b><span>gratis — la gilda, se ce l\'hai, vince</span>';
+    vHead.innerHTML = tr('vessillo.head');
     block.appendChild(vHead);
     const vRow = document.createElement('div');
     vRow.className = 'vessillo';
     const canvas = document.createElement('canvas');
     canvas.width = 90; canvas.height = 60;
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', 'Anteprima del vessillo');
+    canvas.setAttribute('aria-label', tr('vessillo.anteprima.aria'));
     const b = negozio.bandiera || { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 };
     const scelte = document.createElement('div');
     scelte.className = 'gfScelte';
@@ -841,7 +839,7 @@ export class UI {
       const wrap = document.createElement('label');
       wrap.textContent = label + ' ';
       const sel = document.createElement('select');
-      sel.setAttribute('aria-label', label + ' del vessillo');
+      sel.setAttribute('aria-label', tr('vessillo.sel.aria', { label }));
       voci.forEach((v, i) => {
         const o = document.createElement('option');
         o.value = i; o.textContent = v;
@@ -858,14 +856,14 @@ export class UI {
     ridisegna();
     const issa = document.createElement('button');
     issa.dataset.fk = 'vessillo-issa';
-    issa.textContent = negozio.bandiera ? 'Cambia il vessillo' : 'Issa il vessillo';
+    issa.textContent = negozio.bandiera ? tr('vessillo.cambia') : tr('vessillo.issa');
     issa.addEventListener('click', () => this.h.onVessillo(bozza()));
     vRow.append(canvas, scelte, issa);
     if (negozio.bandiera) {
       const ammaina = document.createElement('button');
       ammaina.className = 'linkish';
-      ammaina.textContent = 'Ammaina';
-      ammaina.setAttribute('aria-label', 'Ammaina il vessillo personale');
+      ammaina.textContent = tr('vessillo.ammaina');
+      ammaina.setAttribute('aria-label', tr('vessillo.ammaina.aria'));
       ammaina.addEventListener('click', () => this.h.onVessillo(null));
       vRow.appendChild(ammaina);
     }
@@ -877,7 +875,7 @@ export class UI {
   showRegistro(d) {
     const box = $('registroVoci');
     box.innerHTML = '';
-    const TIPI_NOMI = { goletta: 'Goletta', guerra: 'Brigantino da Guerra', galeone: 'Galeone', sciabecco: 'Sciabecco' };
+    const TIPI_NOMI = { goletta: tr('tipo.goletta'), guerra: tr('tipo.guerra'), galeone: tr('tipo.galeone'), sciabecco: tr('tipo.sciabecco') };
     const sez = (titolo, righe) => {
       const s = document.createElement('div');
       s.className = 'wgroup';
@@ -893,9 +891,9 @@ export class UI {
       }
       box.appendChild(s);
     };
-    sez('⛵ La nave', [
-      d.tipo ? `Tipo: <b>${esc(TIPI_NOMI[d.tipo] || d.tipo)}</b> (${d.vari | 0} vari all'attivo)` : 'Nessun varo ancora: il Cantiere aspetta',
-      `Battaglie: <b>${d.kills | 0}</b> vittorie · ${d.deaths | 0} naufragi`,
+    sez(tr('reg.nave'), [
+      d.tipo ? tr('reg.tipo', { nome: esc(TIPI_NOMI[d.tipo] || d.tipo), n: d.vari | 0 }) : tr('reg.senzavaro'),
+      tr('reg.battaglie', { v: d.kills | 0, n: d.deaths | 0 }),
     ]);
     const armi = {};
     for (const g of Object.values(d.mounts || {})) {
@@ -904,24 +902,24 @@ export class UI {
         armi[nome] = Math.max(armi[nome] || 0, w.lvl);
       }
     }
-    sez('⚔ L\'arsenale a bordo', Object.entries(armi).length
+    sez(tr('reg.arsenale'), Object.entries(armi).length
       ? Object.entries(armi).map(([n, l]) => `${esc(n)} <span class="pips">${'●'.repeat(l)}${'○'.repeat(3 - l)}</span>`)
-      : ['Nessuna bocca da fuoco (come ci sei arrivato fin qui?)']);
-    sez('🏰 Fortezze espugnate', (d.conquered || []).length
-      ? d.conquered.slice(0, 20).map(x => esc(x)).concat(d.conquered.length > 20 ? [`…e altre ${d.conquered.length - 20}`] : [])
-      : ['Ancora nessuna: le mura aspettano le tue bordate']);
-    sez('⭐ Approdi preferiti', (d.preferiti || []).length ? d.preferiti.map(x => esc(x)) : ['Il mare è grande: segna i porti che ami']);
+      : [tr('reg.arsenale.vuoto')]);
+    sez(tr('reg.fortezze'), (d.conquered || []).length
+      ? d.conquered.slice(0, 20).map(x => esc(x)).concat(d.conquered.length > 20 ? [tr('reg.altre', { n: d.conquered.length - 20 })] : [])
+      : [tr('reg.fortezze.vuoto')]);
+    sez(tr('reg.approdi'), (d.preferiti || []).length ? d.preferiti.map(x => esc(x)) : [tr('reg.approdi.vuoto')]);
     const cat = d.catalogo || {};
     const tot = Object.keys(cat).length;
-    sez(`🎨 Il guardaroba (${(d.livree || []).length}/${tot})`, tot
+    sez(tr('reg.guardaroba', { n: (d.livree || []).length, tot }), tot
       ? Object.entries(cat).map(([id, l]) => {
         const ha = (d.livree || []).includes(id);
         const addosso = d.livrea === id || d.vele === id || d.scia === id;
-        return `${ha ? '✅' : '◻️'} ${esc(l.nome)}${addosso ? ' <b>(addosso)</b>' : ''}${!ha && l.impresa ? ' — si guadagna con la campagna' : ''}`;
+        return `${ha ? '✅' : '◻️'} ${esc(l.nome)}${addosso ? ' <b>' + tr('reg.addosso') + '</b>' : ''}${!ha && l.impresa ? ' — ' + tr('reg.concampagna') : ''}`;
       })
-      : ['Il Negozio delle Livree apre al Porto Franco']);
+      : [tr('reg.negozio.vuoto')]);
     if (d.campagna && d.campagna.completata) {
-      sez('⚔ Il Mastro di Rotte', ['Campagna della settimana: <b>compiuta</b>']);
+      sez(tr('reg.mastro'), [tr('reg.mastro.compiuta')]);
     }
     this.show('registroOverlay');
   }
@@ -930,15 +928,15 @@ export class UI {
     const row = document.createElement('div');
     row.className = 'shopRow';
     row.innerHTML = `<div class="shopInfo"><b>${title}</b><span>${desc}</span>
-      <span class="pips" role="img" aria-label="livello ${lvl} di ${maxLvl}">${'●'.repeat(lvl)}${'○'.repeat(maxLvl - lvl)}</span></div>`;
+      <span class="pips" role="img" aria-label="${tr('statrow.livello.aria', { lvl, max: maxLvl })}">${'●'.repeat(lvl)}${'○'.repeat(maxLvl - lvl)}</span></div>`;
     const btn = document.createElement('button');
     if (fk) btn.dataset.fk = fk;
-    if (cost === null) { btn.textContent = 'Massimo'; btn.disabled = true; }
+    if (cost === null) { btn.textContent = tr('azione.massimo'); btn.disabled = true; }
     else {
       btn.textContent = `${cost} 🪙`;
-      btn.setAttribute('aria-label', `Compra un punto ${title.replace(/^\S+ /, '')} per ${cost} monete`);
+      btn.setAttribute('aria-label', tr('statrow.compra.aria', { cosa: title.replace(/^\S+ /, ''), costo: cost }));
       btn.disabled = gold < cost;
-      if (btn.disabled) btn.title = `Servono ${cost} 🪙 — ne hai ${gold}`;
+      if (btn.disabled) btn.title = tr('costo.mancano', { costo: cost, oro: gold });
       btn.addEventListener('click', onBuy);
     }
     row.appendChild(btn);
@@ -948,7 +946,7 @@ export class UI {
   showSearch() { this.show('searchOverlay'); $('searchInput').value = ''; $('searchInput').focus(); }
 
   showSiteFallback(island, url) {
-    $('siteTitle').textContent = `⚓ Attraccato: ${island.name}`;
+    $('siteTitle').textContent = tr('sito.attraccato', { nome: island.name });
     $('siteLink').href = url;
     this.show('siteOverlay');
   }
@@ -1001,7 +999,7 @@ export class UI {
     h3.textContent = `«${g.nome}» [${g.tag}]`;
     const sub = document.createElement('p');
     sub.className = 'sub';
-    sub.textContent = `${g.categoria} · ${g.aperta ? 'porte aperte' : 'porte chiuse'}` + (g.motto ? ` · “${g.motto}”` : '');
+    sub.textContent = `${g.categoria} · ${g.aperta ? tr('gilda.aperte') : tr('gilda.chiuse')}` + (g.motto ? ` · “${g.motto}”` : '');
     info.append(h3, sub);
     testa.appendChild(info);
     box.appendChild(testa);
@@ -1010,7 +1008,7 @@ export class UI {
     if (g.richieste && g.richieste.length) {
       const h4 = document.createElement('h3');
       h4.className = 'shopSection';
-      h4.textContent = '✉ Richieste in rada';
+      h4.textContent = tr('gilda.richieste');
       box.appendChild(h4);
       for (const r of g.richieste) {
         const riga = document.createElement('div');
@@ -1018,11 +1016,11 @@ export class UI {
         const nome = document.createElement('span');
         nome.textContent = r.nome;
         const si = document.createElement('button');
-        si.textContent = '⛵ Ammetti';
+        si.textContent = tr('gilda.ammetti');
         si.addEventListener('click', () => this.h.onGildaApprova(r.uid));
         const no = document.createElement('button');
         no.className = 'linkish';
-        no.textContent = 'Rifiuta';
+        no.textContent = tr('gilda.rifiuta');
         no.addEventListener('click', () => this.h.onGildaRifiuta(r.uid));
         riga.append(nome, si, no);
         box.appendChild(riga);
@@ -1031,7 +1029,7 @@ export class UI {
 
     const h4m = document.createElement('h3');
     h4m.className = 'shopSection';
-    h4m.textContent = `⚓ La ciurma (${g.membri.length}/24)`;
+    h4m.textContent = tr('gilda.ciurma', { n: g.membri.length });
     box.appendChild(h4m);
     const capitano = g.mioRuolo === 'capitano';
     const membri = g.membriUid || g.membri;
@@ -1043,14 +1041,14 @@ export class UI {
       riga.appendChild(nome);
       if (capitano && m.uid && m.ruolo === 'marinaio') {
         const pr = document.createElement('button');
-        pr.textContent = '⭐ Promuovi';
+        pr.textContent = tr('gilda.promuovi');
         pr.addEventListener('click', () => this.h.onGildaPromuovi(m.uid));
         riga.appendChild(pr);
       }
       if (m.uid && m.ruolo !== 'capitano' && (capitano || (g.mioRuolo === 'ufficiale' && m.ruolo === 'marinaio'))) {
         const ex = document.createElement('button');
         ex.className = 'linkish';
-        ex.textContent = 'Sbarca';
+        ex.textContent = tr('gilda.sbarcalo');
         ex.addEventListener('click', () => this.h.onGildaEspelli(m.uid));
         riga.appendChild(ex);
       }
@@ -1060,7 +1058,7 @@ export class UI {
     if (g.log && g.log.length) {
       const h4l = document.createElement('h3');
       h4l.className = 'shopSection';
-      h4l.textContent = '📖 Il log della Fratellanza';
+      h4l.textContent = tr('gilda.log');
       box.appendChild(h4l);
       for (const v of g.log) {
         const riga = document.createElement('p');
@@ -1075,16 +1073,16 @@ export class UI {
     if (capitano) {
       const sc = document.createElement('button');
       sc.className = 'linkish';
-      sc.textContent = '🌊 Sciogli la Fratellanza';
+      sc.textContent = tr('gilda.sciogli');
       sc.addEventListener('click', () => {
         if (sc.dataset.conferma) this.h.onGildaSciogli();
-        else { sc.dataset.conferma = '1'; sc.textContent = '🌊 Sicuro? Premi di nuovo per sciogliere'; }
+        else { sc.dataset.conferma = '1'; sc.textContent = tr('gilda.sciogli.conferma'); }
       });
       azioni.appendChild(sc);
     } else {
       const la = document.createElement('button');
       la.className = 'linkish';
-      la.textContent = '🌊 Lascia la Fratellanza';
+      la.textContent = tr('gilda.lasciala');
       la.addEventListener('click', () => this.h.onGildaLascia());
       azioni.appendChild(la);
     }
@@ -1092,13 +1090,13 @@ export class UI {
   }
 
   _renderElencoGilde(elenco, fondazione) {
-    $('gfFonda').textContent = `🏴 Fonda la Fratellanza (${fondazione} 🪙)`;
+    $('gfFonda').textContent = tr('gilda.fonda.costo', { costo: fondazione });
     const box = $('gildaElencoBox');
     box.innerHTML = '';
     if (!elenco.length) {
       const p = document.createElement('p');
       p.className = 'sub';
-      p.textContent = 'Nessuna Fratellanza batte ancora bandiera: la prima potrebbe essere la tua.';
+      p.textContent = tr('gilda.nessuna');
       box.appendChild(p);
       return;
     }
@@ -1108,14 +1106,14 @@ export class UI {
       riga.appendChild(this._bandierina(g.bandiera));
       const info = document.createElement('span');
       info.className = 'gildaInfo';
-      info.textContent = `«${g.nome}» [${g.tag}] — ${g.categoria} · ${g.membri.length}/24 · ${g.aperta ? 'aperta' : 'chiusa'}`;
+      info.textContent = `«${g.nome}» [${g.tag}] — ${g.categoria} · ${g.membri.length}/24 · ${g.aperta ? tr('gilda.tag.aperta') : tr('gilda.tag.chiusa')}`;
       riga.appendChild(info);
       const chiedi = document.createElement('button');
-      chiedi.textContent = g.sfidabile ? "⚔ Chiedi l'ingresso" : '⚔ Prima il rito';
+      chiedi.textContent = g.sfidabile ? tr('gilda.chiedi') : tr('gilda.rito.prima');
       chiedi.disabled = !g.sfidabile;
       chiedi.title = g.sfidabile
-        ? 'Hai conquistato il diritto: la richiesta parte subito'
-        : 'Blocca una loro nave per conquistare il diritto (vale 7 giorni)';
+        ? tr('gilda.chiedi.title')
+        : tr('gilda.rito.title');
       chiedi.addEventListener('click', () => this.h.onGildaRichiesta(g.id));
       riga.appendChild(chiedi);
       box.appendChild(riga);
@@ -1157,25 +1155,25 @@ export class UI {
     const mia = $('alleanzaMia');
     mia.innerHTML = '';
     if (d.mia) {
-      titolo(mia, `🤝 La tua alleanza (${d.mia.membri.length}/${d.mia.max})`);
+      titolo(mia, tr('alleanza.mia', { n: d.mia.membri.length, max: d.mia.max }));
       for (const m of d.mia.membri) {
         const r = riga(mia);
         const nome = document.createElement('span');
-        nome.textContent = `⛵ ${m.nome}${m.id === d.meId ? ' — tu' : ''}`;
+        nome.textContent = `⛵ ${m.nome}${m.id === d.meId ? tr('alleanza.tu') : ''}`;
         r.appendChild(nome);
       }
       const azioni = document.createElement('div');
       azioni.className = 'row';
       const bandiera = document.createElement('button');
-      bandiera.textContent = d.mia.aperta ? '🏳 Ammaina la bandiera aperta' : '🏴 Issa la bandiera aperta';
+      bandiera.textContent = d.mia.aperta ? tr('alleanza.ammaina') : tr('alleanza.issa');
       bandiera.title = d.mia.aperta
         ? 'Chiudi l\'arruolamento: nessun altro potrà unirsi da solo'
         : 'Chiunque potrà unirsi finché c\'è posto';
       bandiera.addEventListener('click', () => d.mia.aperta ? this.h.onAlleanzaChiudi() : this.h.onAlleanzaApri());
       const lascia = document.createElement('button');
       lascia.className = 'linkish';
-      lascia.textContent = '🌊 Sciogli le vele';
-      lascia.setAttribute('aria-label', 'Lascia l\'alleanza');
+      lascia.textContent = tr('alleanza.sciogli');
+      lascia.setAttribute('aria-label', tr('alleanza.lascia.aria'));
       lascia.addEventListener('click', () => this.h.onAlleanzaLascia());
       azioni.append(bandiera, lascia);
       mia.appendChild(azioni);
@@ -1189,15 +1187,15 @@ export class UI {
       for (const i of d.inviti) {
         const r = riga(inviti);
         const nome = document.createElement('span');
-        nome.textContent = `${i.nome} ti propone un'alleanza`;
+        nome.textContent = tr('alleanza.propone', { nome: i.nome });
         const si = document.createElement('button');
-        si.textContent = '🤝 Accetta';
+        si.textContent = tr('alleanza.accetta');
         si.disabled = !!d.mia;
-        if (si.disabled) si.title = 'Sei già in un\'alleanza: prima sciogli le vele';
+        if (si.disabled) si.title = tr('alleanza.giadentro');
         si.addEventListener('click', () => this.h.onAlleanzaAccetta(i.id));
         const no = document.createElement('button');
         no.className = 'linkish';
-        no.textContent = 'Declina';
+        no.textContent = tr('alleanza.declina');
         no.addEventListener('click', () => this.h.onAlleanzaRifiuta(i.id));
         r.append(nome, si, no);
       }
@@ -1212,10 +1210,10 @@ export class UI {
       for (const b of d.bandiere) {
         const r = riga(bandiere);
         const nome = document.createElement('span');
-        nome.textContent = `Alleanza di ${b.nomi.join(', ')} — ${b.posti} ${b.posti === 1 ? 'posto' : 'posti'}`;
+        nome.textContent = tr('alleanza.bandiera.riga', { nomi: b.nomi.join(', '), n: b.posti, posti: b.posti === 1 ? tr('alleanza.posto') : tr('alleanza.posti') });
         const btn = document.createElement('button');
-        btn.textContent = '🤝 Unisciti';
-        btn.setAttribute('aria-label', `Unisciti all'alleanza di ${b.nomi.join(', ')}`);
+        btn.textContent = tr('alleanza.unisciti');
+        btn.setAttribute('aria-label', tr('alleanza.unisciti.aria', { nomi: b.nomi.join(', ') }));
         btn.addEventListener('click', () => this.h.onAlleanzaUnisciti(b.id));
         r.append(nome, btn);
       }
@@ -1236,14 +1234,14 @@ export class UI {
     if (!tutti.length) {
       const p = document.createElement('p');
       p.className = 'sub';
-      p.textContent = 'Nessun altro capitano in queste acque, per ora.';
+      p.textContent = tr('alleanza.nessuno');
       box.appendChild(p);
       return;
     }
     if (!scelti.length) {
       const p = document.createElement('p');
       p.className = 'sub';
-      p.textContent = `Nessun capitano risponde a «${filtro}».`;
+      p.textContent = tr('alleanza.nonrisponde', { f: filtro });
       box.appendChild(p);
       return;
     }
@@ -1254,10 +1252,10 @@ export class UI {
       const nome = document.createElement('span');
       nome.textContent = `⛵ ${c.nome}`;
       const btn = document.createElement('button');
-      btn.textContent = '✉ Invita';
-      btn.setAttribute('aria-label', `Invita ${c.nome} nell'alleanza`);
+      btn.textContent = tr('alleanza.invita');
+      btn.setAttribute('aria-label', tr('alleanza.invita.aria', { nome: c.nome }));
       btn.disabled = !!pieno;
-      if (pieno) btn.title = 'L\'alleanza è al completo';
+      if (pieno) btn.title = tr('alleanza.piena');
       btn.addEventListener('click', () => this.h.onAlleanzaInvita(c.id));
       r.append(nome, btn);
       box.appendChild(r);
@@ -1318,15 +1316,15 @@ export class UI {
     const box = $('diarioImprese');
     box.innerHTML = '';
     const s = this._diario || {};
-    box.appendChild(this._sez('In corso'));
+    box.appendChild(this._sez(tr('diario.incorso')));
     let qualcosa = false;
     if (s.campagna) { box.appendChild(this._cardCampagna(s.campagna)); qualcosa = true; }
     if (s.dungeon && !s.dungeon.fatto) { box.appendChild(this._cardDungeon(s.dungeon)); qualcosa = true; }
-    if (!qualcosa) box.appendChild(this._vuoto('Nessuna impresa del Mastro in corso.'));
-    box.appendChild(this._sez('Le tre del giorno'));
+    if (!qualcosa) box.appendChild(this._vuoto(tr('diario.vuoto.mastro')));
+    box.appendChild(this._sez(tr('diario.tredelgiorno')));
     const g = s.giornaliere;
     if (!g || !(g.giornaliere || []).length) {
-      box.appendChild(this._vuoto('Le rotte del giorno arrivano col mare: salpa e torna a leggere.'));
+      box.appendChild(this._vuoto(tr('diario.vuoto.rotte')));
       return;
     }
     for (const m of g.giornaliere) box.appendChild(this._cardMissione(m));
@@ -1339,7 +1337,7 @@ export class UI {
     c.className = 'impresaCard' + (m.fatta ? ' fatta' : '');
     const h = document.createElement('h4'); h.textContent = (m.fatta ? '✓ ' : '') + m.desc;
     const r = document.createElement('span'); r.className = 'reward';
-    r.textContent = m.fatta ? `+${m.reward} 🪙 incassati` : `+${m.reward} 🪙`;
+    r.textContent = m.fatta ? tr('diario.incassati', { r: m.reward }) : `+${m.reward} 🪙`;
     c.append(h, r);
     if (!m.fatta) {
       const barra = document.createElement('div'); barra.className = 'impresaBarra';
@@ -1363,23 +1361,23 @@ export class UI {
     const valeOggi = tris.premio + strike.bonus * Math.min(catena, strike.cap);
     const riga = (testo) => { const p = document.createElement('p'); p.className = 'sub'; p.textContent = testo; return p; };
     const h = document.createElement('h4');
-    h.textContent = tris.fatto ? '✓ Tris del giorno incassato' : 'Il tris del giorno';
+    h.textContent = tris.fatto ? tr('diario.tris.fatto') : tr('diario.tris');
     c.appendChild(h);
     c.appendChild(riga(tris.fatto
-      ? `🌟 Tutte e tre compiute: +${valeOggi} 🪙 (strike di ${strike.n} ${strike.n === 1 ? 'giorno' : 'giorni'})`
-      : `🌟 Compi tutte e tre e incassi +${valeOggi} 🪙 (tris ${tris.premio} + strike ×${Math.min(catena, strike.cap)})`));
-    c.appendChild(riga(`📅 Settimana piena: ${sett.pieni}/7 giorni col tris — a 7/7 valgono +${sett.premio} 🪙`));
+      ? tr('diario.tris.tutte', { v: valeOggi, n: strike.n, giorni: strike.n === 1 ? tr('diario.giorno') : tr('diario.giorni') })
+      : tr('diario.tris.compi', { v: valeOggi, p: tris.premio, x: Math.min(catena, strike.cap) })));
+    c.appendChild(riga(tr('diario.settimana', { n: sett.pieni, p: sett.premio })));
     if (g.scadenza) {
       const ms = Math.max(0, g.scadenza - Date.now());
       const ore = Math.floor(ms / 36e5), minuti = Math.floor((ms % 36e5) / 6e4);
-      c.appendChild(riga(`⏳ Le rotte si rinnovano tra ${ore}h ${minuti}m`));
+      c.appendChild(riga(tr('diario.rinnovo', { h: ore, m: minuti })));
     }
     return c;
   }
 
   _cardCampagna(campagna) {
     const cb = document.createElement('div'); cb.className = 'impresaCard mastro';
-    const h = document.createElement('h4'); h.textContent = `⚔ Campagna della settimana: «${campagna.nome}»`;
+    const h = document.createElement('h4'); h.textContent = tr('diario.campagna', { nome: campagna.nome });
     cb.appendChild(h);
     if (campagna.lore) { const l = document.createElement('p'); l.className = 'campagnaLore'; l.textContent = campagna.lore; cb.appendChild(l); }
     const lista = document.createElement('ol'); lista.className = 'campagnaTappe';
@@ -1395,17 +1393,17 @@ export class UI {
     });
     cb.appendChild(lista);
     const premio = document.createElement('p'); premio.className = 'reward';
-    premio.textContent = campagna.completata ? `⭐ Compiuta! (+${campagna.premio} 🪙)` : `Premio del Mastro: ${campagna.premio} 🪙`;
+    premio.textContent = campagna.completata ? tr('diario.compiuta', { p: campagna.premio }) : tr('diario.premio', { p: campagna.premio });
     cb.appendChild(premio);
     return cb;
   }
 
   _cardDungeon(d) {
     const c = document.createElement('div'); c.className = 'impresaCard dungeon';
-    const h = document.createElement('h4'); h.textContent = `🗺 Dungeon del giorno: «${d.nome}»`;
+    const h = document.createElement('h4'); h.textContent = tr('diario.dungeon', { nome: d.nome });
     c.appendChild(h);
     const sub = document.createElement('p'); sub.className = 'sub';
-    sub.textContent = d.bersaglio ? `Assalta le difese di ${d.bersaglio}` : 'Espugna una Fortezza Proibita';
+    sub.textContent = d.bersaglio ? tr('diario.assalta', { b: d.bersaglio }) : tr('diario.espugna');
     c.appendChild(sub);
     const premio = document.createElement('p'); premio.className = 'reward'; premio.textContent = `+${d.premio} 🪙`;
     c.appendChild(premio);
@@ -1419,7 +1417,7 @@ export class UI {
     const s = this._diario || {};
     if (!this._cronacheFiltro) this._cronacheFiltro = 'tutte';
     const filtro = document.createElement('div'); filtro.className = 'diarioFiltro';
-    for (const [key, lab] of [['mie', 'Le mie'], ['tutte', 'Tutto il mare']]) {
+    for (const [key, lab] of [['mie', tr('diario.mie')], ['tutte', tr('diario.tutte')]]) {
       const b = document.createElement('button');
       b.textContent = lab;
       b.setAttribute('aria-pressed', this._cronacheFiltro === key ? 'true' : 'false');
@@ -1430,8 +1428,8 @@ export class UI {
     const voci = this._cronacheFiltro === 'mie' ? (s.cronache || []) : (s.gazzetta || []);
     if (!voci.length) {
       box.appendChild(this._vuoto(this._cronacheFiltro === 'mie'
-        ? 'Nessuna tua impresa, per ora. Salpa e falle parlare!'
-        : 'Il mare è quieto: nessuna notizia.'));
+        ? tr('diario.vuoto.mie')
+        : tr('diario.vuoto.tutte')));
       return;
     }
     for (const v of voci) {
@@ -1451,7 +1449,7 @@ export class UI {
   setFav(on) {
     $('favBtn').textContent = on ? '★' : '☆';
     $('favBtn').setAttribute('aria-pressed', on ? 'true' : 'false');
-    $('favBtnSito').textContent = on ? '★ Approdo preferito' : '☆ Segna come approdo preferito';
+    $('favBtnSito').textContent = on ? tr('sito.pref.on') : tr('sito.preferito');
     $('favBtnSito').setAttribute('aria-pressed', on ? 'true' : 'false');
   }
   hideDockbar() { this.hide('dockbar'); document.body.classList.remove('attraccato'); }
@@ -1462,16 +1460,16 @@ export class UI {
     const consiglio = $('deathConsiglio');
     if (dettagli.da) {
       let testo = dettagli.da === 'Il Mare'
-        ? 'Il mare si è preso la tua nave.' : `Affondato da ${dettagli.da}.`;
+        ? tr('morte.mare') : tr('morte.da', { chi: dettagli.da });
       if (dettagli.perso > 0) {
-        testo += ` Il forziere in gioco è passato al vincitore: −${dettagli.perso} 🪙` +
-          (dettagli.salvo > 0 ? ` — il doppiofondo della Stiva ne ha salvati ${dettagli.salvo}.` : '.');
+        testo += tr('morte.perso', { p: dettagli.perso }) +
+          (dettagli.salvo > 0 ? tr('morte.salvo', { s: dettagli.salvo }) : '.');
       } else {
-        testo += ' Il forziere è rimasto a bordo: gli abissi non fanno bottino.';
+        testo += tr('morte.abissi');
       }
       conto.textContent = testo;
       const stivaPiena = (dettagli.holdLvl | 0) >= 4;
-      consiglio.textContent = 'Ogni punto di Stiva mette al riparo un 10% in più del forziere.';
+      consiglio.textContent = tr('morte.consiglio');
       consiglio.classList.toggle('hidden', !(dettagli.perso > 0) || stivaPiena);
     } else {
       conto.textContent = '';
