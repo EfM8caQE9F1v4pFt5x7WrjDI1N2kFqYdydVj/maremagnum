@@ -40,14 +40,14 @@ const NOTTE = { da: 0.655, a: 0.895, cacciaFantasmi: 650 };
 const CAROVANE = {
   convoglio: {
     nome: 'Mercantile di Convoglio', scortaNome: 'Scorta del Convoglio',
-    scorte: 2, stazza: 2, bottino: 400, ogni: 300, lvlScorta: 2,
+    scorte: 2, stazza: 2, bottino: 400, ogni: 300, primo: 90, lvlScorta: 2,
     annuncio: (da, a) => `🚢 Un convoglio scortato è salpato: da ${da} verso ${a}, stive piene!`,
     arrivo: (a) => `⚓ Il convoglio è giunto sano e salvo a ${a}.`,
     perduto: '🌊 Il mercantile di convoglio è perduto: la scorta, orfana, dà la caccia ai colpevoli.',
   },
   tesoro: {
     nome: 'Galeone del Tesoro', scortaNome: 'Guardia del Tesoro',
-    scorte: 3, stazza: 3, bottino: 1000, ogni: 1800, lvlScorta: 3,
+    scorte: 3, stazza: 3, bottino: 1000, ogni: 1800, primo: 600, lvlScorta: 3,
     annuncio: (da, a) => `👑 IL GALEONE DEL TESORO è salpato: da ${da} verso ${a} — scorta serrata, stive d'oro!`,
     arrivo: (a) => `👑 Il Galeone del Tesoro è giunto al sicuro a ${a}: l'oro è sbarcato.`,
     perduto: '🌊 Il Galeone del Tesoro è negli abissi col suo oro: la Guardia, orfana, cerca vendetta.',
@@ -62,6 +62,17 @@ const CONVOGLIO_SUBITO = !!(typeof process !== 'undefined' && process.env && pro
 // colpevole e lo braccia per 4 minuti. Ucciderlo paga FISSO e azzera il
 // conto. Mai più di 2 cacciatori in mare: è un mare, non un tribunale.
 const CACCIA = { ogniKill: 3, bounty: 120, ttl: 240, max: 2, stazza: 1.5 };
+// I mostri marini (audit 2, richiesta del capitano): tre creature che vagano
+// SOMMERSE — si vede solo la sagoma scura sotto il pelo dell'acqua, e finché
+// stanno giù non si toccano — poi emergono A CASO su chi gli passa sopra e
+// restano fuori finché non vengono sconfitte o la preda non scappa. Le
+// taglie sono FISSE (listino). Vivono sott'acqua: il vento non li riguarda.
+const MOSTRI = {
+  drago: { nome: 'Drago di Mare', hp: 380, vel: 95, taglia: 500, morso: 18, gittata: 320, cadenza: 2.5 },
+  kraken: { nome: 'Kraken', hp: 700, vel: 55, taglia: 800, morso: 30, presa: 60, cadenza: 1.4 },
+  serpente: { nome: 'Serpente Abissale', hp: 300, vel: 130, taglia: 350, morso: 22, presa: 44, cadenza: 1.0 },
+};
+const MOSTRO = { aggro: 260, pAgguato: 0.0015, fuga: 1100, riposo: 120, vagabondo: 40 };
 // L'economia del blocco (issue #15, arrembaggio v1): vita a zero per mano di
 // un capitano = nave BLOCCATA, non affondata. Il doppiofondo della Stiva è
 // SEMPRE protetto; il resto è "il forziere in gioco": 25% subito al vincitore,
@@ -244,15 +255,19 @@ class Game {
     this.burrasche = vento.BURRASCA_FISSA || vento.burrascheAl(this.now * 1000); // e le sue tempeste (fetta 5)
     // le carovane scortate (issue #41, fette 3-4): una per tipo, a calendario
     this.carovane = { convoglio: null, tesoro: null };
+    // la PRIMA salpata è vicina al risveglio del mare (audit 2: il DO che
+    // dorme resettava i calendari e chi giocava da solo non vedeva MAI le
+    // carovane); le successive vanno a regime (ogni)
     this.prossimaCarovana = {
-      convoglio: this.now + (CONVOGLIO_SUBITO ? 0 : CAROVANE.convoglio.ogni),
-      tesoro: this.now + (CONVOGLIO_SUBITO ? 0 : CAROVANE.tesoro.ogni),
+      convoglio: this.now + (CONVOGLIO_SUBITO ? 0 : CAROVANE.convoglio.primo),
+      tesoro: this.now + (CONVOGLIO_SUBITO ? 0 : CAROVANE.tesoro.primo),
     };
     this.cacciatori = 0; // quanti Cacciatori di Taglie battono il mare
     this.tickCount = 0;
     this.fxQueue = [];
     for (let i = 0; i < NPCS.merc; i++) this.spawnNpc('merc');
     for (let i = 0; i < NPCS.ghost; i++) this.spawnNpc('ghost');
+    for (const tipo of Object.keys(MOSTRI)) this.spawnMostro(tipo); // gli abissi sono abitati (audit 2)
     this.timer = null;
     this.boardTimer = null;
     this.riprendi();
@@ -310,6 +325,9 @@ class Game {
       resaUntil: 0, resaCooldownUntil: 0, saccheggiato: false, convoglio: null,
       // i cacciatori di taglie (fetta 4): il conto dell'infamia e il mandato
       tagliaCacciata: 0, caccia: null,
+      // l'arsenale delle esclusive (audit Cantiere 2): pagate una volta,
+      // tue per sempre — {tipoArma: livelloMassimoRaggiunto}
+      esclusive: {},
       visited: new Set(), conquered: new Set(), preferiti: new Set(),
       livree: new Set(), livrea: null, vele: null, scia: null, bandiera: null,
       mission: null, wp: null, fleeUntil: 0,
@@ -355,7 +373,28 @@ class Game {
   }
 
   // +100% come le navi vere; il capo del convoglio è panciuto (stazza, fetta 3)
-  npcMaxHp(ship) { return (ship.npc === 'merc' ? 140 : 320) * (ship.stazza || 1); }
+  npcMaxHp(ship) {
+    if (ship.mostro) return MOSTRI[ship.mostro].hp;
+    return (ship.npc === 'merc' ? 140 : 320) * (ship.stazza || 1);
+  }
+
+  // un mostro nasce (o rinasce) sommerso, in un punto qualsiasi degli abissi
+  spawnMostro(tipo) {
+    const id = 'n' + this.nextId++;
+    const ship = this.makeShip(id, MOSTRI[tipo].nome, 'mostro');
+    ship.mostro = tipo;
+    ship.sommerso = true;
+    ship.predaId = null;
+    ship.morsoAt = 0;
+    ship.agguatoDorme = 0;
+    ship.mounts = { left: [], right: [], bow: [], stern: [] };
+    ship.ready = { left: [], right: [], bow: [], stern: [] };
+    ship.hp = MOSTRI[tipo].hp;
+    ship.x = 400 + Math.random() * (WORLD.W - 800);
+    ship.y = 400 + Math.random() * (WORLD.H - 800);
+    this.ships.set(id, ship);
+    return ship;
+  }
 
   syncReady(ship) {
     for (const g of Object.keys(W.GROUPS)) {
@@ -385,6 +424,15 @@ class Game {
     ship.mounts = sanificati.mounts;
     ship.gold = Math.min(1e7, ship.gold + sanificati.riscatto);
     ship.riscattoAlJoin = sanificati;
+    // l'arsenale delle esclusive (audit Cantiere 2): dal profilo, sanificato,
+    // più quel che è già montato (migrazione dei profili di prima)
+    ship.esclusive = {};
+    if (p.esclusive && typeof p.esclusive === 'object') {
+      for (const [t, lvl] of Object.entries(p.esclusive)) {
+        if (W.TYPES[t] && W.TYPES[t].tipo) ship.esclusive[t] = Math.min(W.MAX_WEAPON_LVL, Math.max(1, lvl | 0));
+      }
+    }
+    this.registraEsclusive(ship);
     ship.kills = Math.min(1e6, Math.max(0, p.kills | 0));
     // l'infamia dei Cacciatori (fetta 4) conta le prede di SESSIONE: il
     // veterano che torna non si trova un mandato vecchio sulla testa
@@ -483,7 +531,7 @@ class Game {
       gold: ship.gold, hullLvl: ship.hullLvl, sailsLvl: ship.sailsLvl,
       helmLvl: ship.helmLvl, crewLvl: ship.crewLvl, holdLvl: ship.holdLvl,
       tipo: ship.tipo, vari: ship.vari,
-      mounts: ship.mounts, conquered: [...ship.conquered],
+      mounts: ship.mounts, esclusive: { ...ship.esclusive }, conquered: [...ship.conquered],
       preferiti: [...ship.preferiti],
       livree: [...ship.livree], livrea: ship.livrea, vele: ship.vele, scia: ship.scia, bandiera: ship.bandiera,
       gazzettaLetta: ship.gazzettaLetta || 0,
@@ -759,6 +807,7 @@ class Game {
       case 'cartellone': this.cartellone(ship, msg.dominio); break;
       case 'upgradeWeapon': this.upgradeWeapon(ship, msg.group, msg.slot); break;
       case 'replaceWeapon': this.replaceWeapon(ship, msg.group, msg.slot); break;
+      case 'tornaMortaio': this.tornaMortaio(ship, msg.group, msg.slot); break;
       case 'assedio': this.missions.assedioJoin(ship, msg.role); break;
       // le alleanze temporanee (#37): invito diretto o bandiera aperta
       case 'alleanzaInvita': case 'alleanzaAccetta': case 'alleanzaRifiuta':
@@ -813,7 +862,7 @@ class Game {
 
   fire(ship, group) {
     if (!GROUP_DIR.hasOwnProperty(group)) return;
-    if (ship.docked || this.isSunk(ship) || ship.npc === 'merc') return;
+    if (ship.docked || this.isSunk(ship) || ship.npc === 'merc' || ship.npc === 'mostro') return;
     if (ship.blockedUntil > this.now) return; // bloccata: cannoni muti
     if (!ship.npc) ship.graceUntil = 0; // chi apre il fuoco rinuncia alla tregua
     const mounts = ship.mounts[group];
@@ -964,6 +1013,9 @@ class Game {
         slots: ship.mounts[g].map((w, i) => {
           const nt = w.lvl >= W.MAX_WEAPON_LVL ? W.nextTier(w.type, ship.tipo) : null;
           const st = W.weaponStats(w);
+          // un'esclusiva già in arsenale si rimonta gratis e al suo livello
+          const posseduta = nt && W.TYPES[nt].tipo && ship.esclusive[nt];
+          const lvlNt = posseduta ? ship.esclusive[nt] : 1;
           return {
             slot: i, type: w.type, lvl: w.lvl, name: W.TYPES[w.type].name, tier: W.TYPES[w.type].tier,
             // i numeri dell'arma AL LIVELLO ATTUALE (audit Cantiere): per
@@ -971,9 +1023,13 @@ class Game {
             stats: { dmg: st.dmg, range: st.range, reload: st.reload },
             upCost: W.upgradeCost(w),
             replace: nt ? (({ dmg, range, reload }) => ({
-              type: nt, name: W.TYPES[nt].name, cost: W.TYPES[nt].cost,
+              type: nt, name: W.TYPES[nt].name,
+              cost: posseduta ? 0 : W.TYPES[nt].cost, posseduta: !!posseduta,
               stats: { dmg, range, reload },
-            }))(W.weaponStats({ type: nt, lvl: 1 })) : null,
+            }))(W.weaponStats({ type: nt, lvl: lvlNt })) : null,
+            // dall'esclusiva si torna al Mortaio gratis (il gradino era già
+            // scalato): il ripensamento non è una tassa (audit Cantiere 2)
+            ...(W.TYPES[w.type].tipo ? { indietro: { name: W.TYPES.mortaio.name } } : {}),
           };
         }),
       };
@@ -1097,15 +1153,19 @@ class Game {
     if (!this.charge(ship, varoCost(ship))) return;
     ship.vari++;
     ship.tipo = tipo;
-    // la matrice del legno decide cosa il nuovo scafo regge: esclusive
-    // altrui, vietate e gruppi a tetto zero tornano oro pieno (fonte
-    // fidata: questi mount vivevano già sul server)
-    const { mounts, riscatto, tolte } = W.sanitizeConRiscatto(ship.mounts, tipo, true);
+    // la matrice del legno decide cosa il nuovo scafo regge: vietate e
+    // gruppi a tetto zero tornano oro pieno; le ESCLUSIVE invece restano
+    // nell'arsenale (audit Cantiere 2) — pagate una volta, tue per sempre
+    this.registraEsclusive(ship);
+    const { mounts, riscatto, tolte } = W.sanitizeConRiscatto(ship.mounts, tipo, true, true);
     ship.mounts = mounts;
     this.syncReady(ship);
     if (riscatto) {
       ship.gold += riscatto;
       this.sendGold(ship, riscatto, `Il Cantiere ha riscattato: ${[...new Set(tolte)].join(', ')}`);
+    }
+    if (Object.keys(ship.esclusive).length) {
+      this.sendTo(ship, { t: 'toast', msg: 'Le esclusive smontate restano nel tuo arsenale: si rimontano gratis.' });
     }
     ship.hp = shipStats(ship).maxHp; // il varo esce dal bacino a scafo asciutto
     this.broadcast({ t: 'feed', msg: `⚓ ${ship.name} ha varato: ora naviga su un ${TIPI[tipo].nome}!` });
@@ -1136,11 +1196,24 @@ class Game {
     this.sendShop(ship);
   }
 
+  // l'arsenale ricorda ogni esclusiva montata e il suo livello più alto:
+  // pagata una volta, tua per sempre (audit Cantiere 2)
+  registraEsclusive(ship) {
+    for (const g of Object.keys(W.GROUPS)) {
+      for (const w of ship.mounts[g] || []) {
+        if (W.TYPES[w.type] && W.TYPES[w.type].tipo) {
+          ship.esclusive[w.type] = Math.max(ship.esclusive[w.type] || 0, w.lvl);
+        }
+      }
+    }
+  }
+
   upgradeWeapon(ship, group, slot) {
     const w = W.GROUPS[group] && ship.mounts[group][slot | 0];
     if (ship.docked !== 'porto' || !w) return;
     if (!this.charge(ship, W.upgradeCost(w))) return;
     w.lvl++;
+    this.registraEsclusive(ship);
     this.sendShop(ship);
   }
 
@@ -1150,8 +1223,24 @@ class Game {
     if (w.lvl < W.MAX_WEAPON_LVL) { this.sendTo(ship, { t: 'toast', msg: 'Prima porta quest\'arma al livello massimo.' }); return; }
     const nt = W.nextTier(w.type, ship.tipo);
     if (!nt) { this.sendTo(ship, { t: 'toast', msg: 'Non esiste arma più potente di questa.' }); return; }
-    if (!this.charge(ship, W.TYPES[nt].cost)) return;
-    ship.mounts[group][slot | 0] = { type: nt, lvl: 1 };
+    // un'esclusiva già nell'arsenale si riequipaggia GRATIS, al suo livello
+    const posseduta = W.TYPES[nt].tipo && ship.esclusive[nt];
+    if (!posseduta && !this.charge(ship, W.TYPES[nt].cost)) return;
+    ship.mounts[group][slot | 0] = { type: nt, lvl: posseduta ? ship.esclusive[nt] : 1 };
+    this.registraEsclusive(ship);
+    if (posseduta) this.sendTo(ship, { t: 'toast', msg: `${W.TYPES[nt].name}: già tua, torna a bordo gratis.` });
+    this.sendShop(ship);
+  }
+
+  // il ripensamento è gratis (audit Cantiere 2): chi ha l'esclusiva può
+  // tornare al Mortaio (il gradino che aveva già scalato) e viceversa
+  tornaMortaio(ship, group, slot) {
+    const w = W.GROUPS[group] && ship.mounts[group][slot | 0];
+    if (ship.docked !== 'porto' || !w) return;
+    if (!W.TYPES[w.type] || !W.TYPES[w.type].tipo) return; // solo dalle esclusive
+    this.registraEsclusive(ship);
+    ship.mounts[group][slot | 0] = { type: 'mortaio', lvl: W.MAX_WEAPON_LVL };
+    this.sendTo(ship, { t: 'toast', msg: `${W.TYPES[w.type].name} torna nell'arsenale: rimontala gratis quando vuoi.` });
     this.sendShop(ship);
   }
 
@@ -1238,7 +1327,7 @@ class Game {
         if (ship.convoglio) this.steerScorta(ship);
         else if (ship.caccia) this.steerCacciatore(ship);
         else this.steerGhost(ship);
-      }
+      } else if (ship.npc === 'mostro') this.steerMostro(ship);
       this.move(ship, dt);
       if (ship.ramUntil > this.now) this.ramTick(ship);
       this.regen(ship, dt);
@@ -1259,11 +1348,19 @@ class Game {
     // velocità fisse bypassano shipStats): una regola sola, anche per le
     // cariche di Speronamento e Colpo di Vento che moltiplicano questa speed.
     // Le vele tagliate dalle catene (fetta 2) frenano allo stesso modo.
-    // Dentro una burrasca (fetta 5) il vento morde a forza PIENA.
-    const inTempesta = vento.inBurrasca(this.burrasche, ship.x, ship.y);
-    const fv = vento.fattore(inTempesta ? { dir: this.vento.dir, forza: 1 } : this.vento, ship.rot);
-    const taglio = ship.veleTagliateUntil > this.now ? W.MUNIZIONI.catene.taglia.malus : 1;
-    const speed = (ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed)) * fv * taglio;
+    // Dentro una burrasca (fetta 5) il vento morde a forza PIENA e il mare
+    // grosso frena tutti (lentezza): navigarci è una scelta, non un pass.
+    // I MOSTRI invece nuotano sotto: vento, tempeste e vele non li toccano.
+    let speed;
+    if (ship.npc === 'mostro') {
+      speed = ship.sommerso ? MOSTRO.vagabondo : MOSTRI[ship.mostro].vel;
+    } else {
+      const inTempesta = vento.inBurrasca(this.burrasche, ship.x, ship.y);
+      const fv = vento.fattore(inTempesta ? { dir: this.vento.dir, forza: 1 } : this.vento, ship.rot);
+      const mareGrosso = inTempesta ? vento.BURRASCHE.lentezza : 1;
+      const taglio = ship.veleTagliateUntil > this.now ? W.MUNIZIONI.catene.taglia.malus : 1;
+      speed = (ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed)) * fv * taglio * mareGrosso;
+    }
     const turn = (ship.input.left ? -1 : 0) + (ship.input.right ? 1 : 0);
     ship.rot += turn * st.turnRate * dt;
     // durante lo speronamento (o il Colpo di Vento) la nave carica, vele o non vele
@@ -1488,6 +1585,69 @@ class Game {
     if (motivo) this.broadcast({ t: 'feed', msg: motivo });
   }
 
+  // --- i mostri marini (audit 2) ---
+
+  // sommerso: vaga lento e, se una nave viva gli passa sopra, PUÒ emergere
+  // (a caso — l'agguato non si prevede). Emerso: addosso alla SUA preda,
+  // ognuno con la sua indole; se la preda scappa o attracca, si rituffa.
+  steerMostro(ship) {
+    const cfg = MOSTRI[ship.mostro];
+    if (!ship.sommerso) {
+      const preda = ship.predaId ? this.ships.get(ship.predaId) : null;
+      const persa = !preda || this.isSunk(preda) || preda.docked ||
+        Math.hypot(preda.x - ship.x, preda.y - ship.y) > MOSTRO.fuga;
+      if (persa) {
+        ship.sommerso = true;
+        ship.predaId = null;
+        ship.agguatoDorme = this.now + 20; // digerisce la delusione
+        this.fxQueue.push({ k: 'tuffo', x: r1(ship.x), y: r1(ship.y) });
+        this.broadcast({ t: 'feed', msg: `🌊 ${ship.name} si rituffa negli abissi.` });
+        return;
+      }
+      const d = Math.hypot(preda.x - ship.x, preda.y - ship.y);
+      if (ship.mostro === 'drago') {
+        // il Drago tiene la distanza e SOFFIA fuoco
+        this.steerToward(ship, preda.x, preda.y, d > 220);
+        if (d < cfg.gittata && this.now >= ship.morsoAt) {
+          ship.morsoAt = this.now + cfg.cadenza;
+          const dir = Math.atan2(preda.y - ship.y, preda.x - ship.x);
+          const s = this.spawnShot(ship.id, ship.x + Math.cos(dir) * 30, ship.y + Math.sin(dir) * 30, dir,
+            { speed: 300, range: cfg.gittata + 40, dmg: cfg.morso }, 'fuoco');
+          this.broadcast({ t: 'shots', from: ship.id, shots: [s] });
+        }
+      } else {
+        // Kraken e Serpente addosso: morso da presa (contatto)
+        this.steerToward(ship, preda.x, preda.y);
+        if (d < cfg.presa && this.now >= ship.morsoAt) {
+          ship.morsoAt = this.now + cfg.cadenza;
+          this.damageShip(preda, cfg.morso, ship.id);
+          // i tentacoli del Kraken avviluppano le vele
+          if (ship.mostro === 'kraken') preda.veleTagliateUntil = Math.max(preda.veleTagliateUntil, this.now + 3);
+          this.fxQueue.push({ k: 'morso', x: r1(preda.x), y: r1(preda.y) });
+        }
+      }
+      return;
+    }
+    // sommerso: deriva pigra tra due acque
+    if (!ship.wp || Math.hypot(ship.wp.x - ship.x, ship.wp.y - ship.y) < 90) {
+      ship.wp = { x: 500 + Math.random() * (WORLD.W - 1000), y: 500 + Math.random() * (WORLD.H - 1000) };
+    }
+    this.steerToward(ship, ship.wp.x, ship.wp.y);
+    if (this.now < ship.agguatoDorme) return;
+    for (const p of this.ships.values()) {
+      if (p.npc || p.docked || this.isSunk(p) || p.graceUntil > this.now) continue;
+      if (this.inSafeWaters(p)) continue; // niente agguati in rada
+      if (Math.hypot(p.x - ship.x, p.y - ship.y) > MOSTRO.aggro) continue;
+      if (Math.random() > MOSTRO.pAgguato) continue;
+      ship.sommerso = false;
+      ship.predaId = p.id;
+      ship.morsoAt = this.now + 1; // il tempo di uscire dall'acqua
+      this.fxQueue.push({ k: 'emersione', x: r1(ship.x), y: r1(ship.y) });
+      this.broadcast({ t: 'feed', msg: `🌊 ${ship.name} EMERGE dagli abissi sotto ${p.name}!` });
+      break;
+    }
+  }
+
   // il saccheggio col tocco: primo capitano accosto al mercantile arreso
   tickResa() {
     for (const ship of this.ships.values()) {
@@ -1566,6 +1726,7 @@ class Game {
       if (!shot.arc) {
         for (const ship of this.ships.values()) {
           if (ship.id === shot.owner || ship.docked || this.isSunk(ship)) continue;
+          if (ship.npc === 'mostro' && ship.sommerso) continue; // le palle passano sopra la sagoma
           if (Math.hypot(ship.x - shot.x, ship.y - shot.y) < 24) {
             // la rastrellata: solo colpi diretti fra navi (le torri non
             // manovrano, il mortaio vola sopra e non c'entra: è AoE)
@@ -1617,6 +1778,7 @@ class Game {
     this.fxQueue.push({ k: 'boom', x: r1(shot.x), y: r1(shot.y), r: shot.aoe });
     for (const ship of this.ships.values()) {
       if (ship.id === shot.owner || ship.docked || this.isSunk(ship)) continue;
+      if (ship.npc === 'mostro' && ship.sommerso) continue; // nemmeno il mortaio pesca sott'acqua
       if (Math.hypot(ship.x - shot.x, ship.y - shot.y) < shot.aoe + 14) {
         this.damageShip(ship, shot.damage, shot.owner);
       }
@@ -1773,6 +1935,7 @@ class Game {
     if (ship.graceUntil > this.now) return; // tregua: il colpo scivola in mare
     if (ship.immuneUntil > this.now) return; // appena svincolato: intoccabile
     if (ship.blockedUntil > this.now) return; // già vinta: si abborda, non si bombarda
+    if (ship.npc === 'mostro' && ship.sommerso) return; // sotto il pelo dell'acqua non si tocca
     ship.hp -= dmg;
     ship.lastHitBy = byId;
     ship.lastDamageAt = this.now;
@@ -1902,8 +2065,10 @@ class Game {
       killerName = killer.name;
       if (ship.npc) {
         // le prede PvE pagano poco e FISSO: l'oro vero naviga sotto bandiera
-        // altrui — ma la testa di un Cacciatore di Taglie vale il suo prezzo
-        bounty = ship.caccia ? CACCIA.bounty : (PVE_BOUNTY[ship.npc] || 0);
+        // altrui — ma Cacciatori e MOSTRI valgono il loro prezzo (listino)
+        bounty = ship.caccia ? CACCIA.bounty
+          : ship.mostro ? MOSTRI[ship.mostro].taglia
+            : (PVE_BOUNTY[ship.npc] || 0);
       } else {
         // legge del mare: chi affonda un capitano si prende il forziere —
         // meno quel che la Stiva nasconde nel doppiofondo (10% a punto)
@@ -1916,11 +2081,16 @@ class Game {
       killer.kills++;
       this.sendGold(killer, bounty, `Hai affondato ${ship.name}!`);
       this.missions.onKill(killer, ship);
-      if (ship.npc) this.avanzaCampagna(killer, ship.npc === 'ghost' ? 'fantasmi' : 'mercantili');
-      this.valutaTaglia(killer); // l'infamia cresce a ogni preda (fetta 4)
+      if (ship.npc === 'merc' || ship.npc === 'ghost') this.avanzaCampagna(killer, ship.npc === 'ghost' ? 'fantasmi' : 'mercantili');
+      // abbattere un MOSTRO è eroismo, non pirateria: niente Cacciatori
+      // addosso, ma la Gazzetta ne parla (audit 2)
+      if (ship.mostro) this.annuncia('mostro', `🐉⚔ ${killer.name} ha abbattuto il ${ship.name}! (+${bounty} 🪙)`);
+      else this.valutaTaglia(killer); // l'infamia cresce a ogni preda (fetta 4)
     } else if (killer && killer.npc === 'ghost') {
       killerName = killer.name;
     }
+    // il mostro abbattuto riposa a lungo negli abissi prima di ripresentarsi
+    if (ship.mostro) ship.sunkUntil = this.now + MOSTRO.riposo;
     // il Cacciatore affondato chiude il mandato: il conto del braccato
     // riparte da zero — s'è comprato la pace a cannonate (fetta 4)
     if (ship.caccia) {
@@ -1952,6 +2122,8 @@ class Game {
       ship.y = 400 + Math.random() * (WORLD.H - 800);
       ship.hp = this.npcMaxHp(ship);
       ship.wp = null; ship.fleeUntil = 0;
+      // il mostro rinasce SOMMERSO, altrove, senza rancori (audit 2)
+      if (ship.npc === 'mostro') { ship.sommerso = true; ship.predaId = null; ship.agguatoDorme = 0; }
     } else {
       const p = this.spawnPoint();
       ship.x = p.x; ship.y = p.y;
@@ -1975,7 +2147,7 @@ class Game {
         vel: r1(s.vel), hp: Math.ceil(s.hp),
         maxHp: s.npc ? this.npcMaxHp(s) : shipStats(s).maxHp,
         docked: s.docked, sunk: this.isSunk(s),
-        k: s.npc === 'merc' ? 'm' : s.npc === 'ghost' ? 'g' : 'p',
+        k: s.npc === 'merc' ? 'm' : s.npc === 'ghost' ? 'g' : s.npc === 'mostro' ? 'x' : 'p',
         sl: s.npc ? 0 : s.sailsLvl,
         tp: TIPO_SNAP[s.tipo] || 0, // il tipo vestito dal varo (0 = nessuno)
         gp: [s.mounts.left.length, s.mounts.right.length, s.mounts.bow.length, s.mounts.stern.length],
@@ -1993,6 +2165,10 @@ class Game {
         ...(abUntil > this.now ? { ab: r2(abUntil - this.now) } : {}),
         // la resa (#41 fetta 3): bandiera bianca coi secondi restanti
         ...(s.resaUntil > this.now ? { rs: r2(s.resaUntil - this.now) } : {}),
+        // il capo carovana si vede sulla mappa (audit 2): 1 convoglio, 2 tesoro
+        ...(s.convoglio && s.convoglio.ruolo === 'capo' ? { cv: s.convoglio.tipo === 'tesoro' ? 2 : 1 } : {}),
+        // i mostri (audit 2): specie e stato sommerso, additivi
+        ...(s.mostro ? { mo: s.mostro, ...(s.sommerso ? { so: 1 } : {}) } : {}),
         ...(s.gilda ? { gt: s.gilda.tag } : {}), // la bandierina della gilda
         // il guardaroba in mare (issue #25), campi ADDITIVI: lv = livrea,
         // ve = vele tinte, sc = colore scia, bf = bandiera personale (la gilda vince)

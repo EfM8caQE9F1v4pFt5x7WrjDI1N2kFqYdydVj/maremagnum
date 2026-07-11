@@ -18,7 +18,10 @@
 const campagna = require('./campagna-core');
 
 const PERIODO_S = 300; // ogni 5 minuti un nuovo bersaglio, raggiunto per gradi
-const MORSO = 0.15;    // poppa +15%, bolina −15% a piena forza (tetto #11: ±20%)
+// Il morso è ASIMMETRICO (ordine del capitano, 2026-07-11): la bolina
+// punisce più di quanto la poppa premi — chi va contro vento lo deve
+// SENTIRE. Deroga esplicita al vecchio tetto ±20% del #11, sua decisione.
+const MORSO = { poppa: 0.15, bolina: 0.25 };
 const FORZA_MIN = 0.5; // mai bonaccia totale
 
 const smooth = (k) => k * k * (3 - 2 * k);
@@ -46,11 +49,12 @@ function ventoAl(tMs) {
   };
 }
 
-// quanto il vento spinge (o frena) una prua: 1 ± MORSO·forza·cos(Δ).
-// Curva unica per tutti i tipi (deciso dal capitano, 2026-07-10): leggibile
-// a colpo d'occhio — poppa spinge, bolina frena, al traverso non cambia nulla.
+// quanto il vento spinge (o frena) una prua: curva unica per tutti i tipi
+// ma ASIMMETRICA — in poppa +15%·forza, di bolina fino a −25%·forza.
+// Leggibile a colpo d'occhio: poppa spinge, bolina FRENA, traverso neutro.
 function fattore(vento, rot) {
-  return 1 + MORSO * vento.forza * Math.cos(rot - vento.dir);
+  const c = Math.cos(rot - vento.dir);
+  return 1 + (c >= 0 ? MORSO.poppa : MORSO.bolina) * vento.forza * c;
 }
 
 // --- le burrasche vaganti (issue #41, fetta 5) ---
@@ -60,7 +64,9 @@ function fattore(vento, rot) {
 // ci deriva con lo smoothstep — stesso conto su ogni macchina, sonno del DO
 // compreso. Dentro una burrasca il vento morde a forza PIENA e le palle
 // volano corte: chi ci si infila sceglie il rischio.
-const BURRASCHE = { n: 2, raggio: 550, periodoS: 240, gittata: 0.7 };
+// dentro una burrasca si naviga peggio SEMPRE (lentezza, ordine del
+// capitano): oltre al vento a forza piena e alle palle corte
+const BURRASCHE = { n: 2, raggio: 550, periodoS: 240, gittata: 0.7, lentezza: 0.85 };
 
 function approdoBurrasca(k, n) {
   const rng = campagna.mulberry32(campagna.hashStr(`burrasca-${k}-${n}`));

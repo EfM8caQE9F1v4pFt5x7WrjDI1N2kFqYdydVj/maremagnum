@@ -571,7 +571,7 @@ export class UI {
     // scelgono al timone, ma è QUI che uno se lo chiede
     const nota = document.createElement('p');
     nota.className = 'shopNota';
-    nota.textContent = '⚫ In mare ogni bocca spara la munizione scelta col tasto X: palle piene (danno pieno), catene (tagliano le vele), mitraglia (falcidia la ciurma). Il colpo in poppa morde ×1.5.';
+    nota.textContent = '⚫ In mare ogni bocca spara la munizione scelta col tasto X: palle piene (danno pieno), catene (tagliano le vele), mitraglia (falcidia la ciurma). Il colpo in poppa morde ×1.5. Le esclusive comprate restano nel tuo arsenale: col ⇄ torni al Mortaio e viceversa, gratis.';
     wep.appendChild(nota);
     for (const [g, data] of Object.entries(m.groups)) {
       // il tipo non regge il gruppo (galeone senza assiali): niente vetrina vuota
@@ -590,6 +590,10 @@ export class UI {
         const statRiga = s.stats
           ? `<span class="wstat">${s.stats.dmg} danni · gittata ${s.stats.range} · ricarica ${s.stats.reload}s</span>` : '';
         row.innerHTML = `<div class="wname"><b>${esc(s.name)}</b> <span class="tier">Tier ${ROMAN[s.tier - 1]}</span><span class="pips">${pips}</span>${statRiga}</div>`;
+        // la colonna delle azioni (audit Cantiere 2): potenzia/sostituisci
+        // E il ripensamento ⇄ delle esclusive convivono, impilati
+        const azioni = document.createElement('div');
+        azioni.className = 'wazioni';
         if (s.upCost !== null) {
           const b = document.createElement('button');
           b.textContent = `Potenzia · ${s.upCost} 🪙`;
@@ -598,27 +602,40 @@ export class UI {
           b.disabled = m.gold < s.upCost;
           if (b.disabled) b.title = `Servono ${s.upCost} 🪙 — ne hai ${m.gold}`;
           b.addEventListener('click', () => this.h.onUpgradeWeapon(g, s.slot));
-          row.appendChild(b);
+          azioni.appendChild(b);
         } else if (s.replace) {
           const b = document.createElement('button');
           b.className = 'tierUp';
-          b.textContent = `→ ${s.replace.name} · ${s.replace.cost} 🪙`;
+          const gratis = s.replace.posseduta;
+          b.textContent = gratis ? `→ ${s.replace.name} · già tua` : `→ ${s.replace.name} · ${s.replace.cost} 🪙`;
           const conStats = s.replace.stats
             ? ` (${s.replace.stats.dmg} danni, gittata ${s.replace.stats.range}, ricarica ${s.replace.stats.reload}s)` : '';
-          b.setAttribute('aria-label', `Sostituisci ${s.name} con ${s.replace.name}${conStats} per ${s.replace.cost} monete`);
+          b.setAttribute('aria-label', gratis
+            ? `Rimonta ${s.replace.name}${conStats}: è nel tuo arsenale, gratis`
+            : `Sostituisci ${s.name} con ${s.replace.name}${conStats} per ${s.replace.cost} monete`);
           b.dataset.fk = `rep-${g}-${s.slot}`;
-          b.disabled = m.gold < s.replace.cost;
+          b.disabled = !gratis && m.gold < s.replace.cost;
           b.title = b.disabled
             ? `Servono ${s.replace.cost} 🪙 — ne hai ${m.gold}`
             : `${s.replace.name}${conStats}`;
           b.addEventListener('click', () => this.h.onReplaceWeapon(g, s.slot));
-          row.appendChild(b);
-        } else {
+          azioni.appendChild(b);
+        } else if (!s.indietro) {
           const span = document.createElement('span');
           span.className = 'maxed';
           span.textContent = 'Arma suprema';
-          row.appendChild(span);
+          azioni.appendChild(span);
         }
+        if (s.indietro) {
+          const b = document.createElement('button');
+          b.textContent = `⇄ ${s.indietro.name} · gratis`;
+          b.setAttribute('aria-label', `Rimonta ${s.indietro.name} al posto di ${s.name}: gratis, l'esclusiva resta nel tuo arsenale`);
+          b.dataset.fk = `giu-${g}-${s.slot}`;
+          b.title = 'Il ripensamento è gratis: l\'esclusiva resta tua, il Mortaio torna al livello massimo';
+          b.addEventListener('click', () => this.h.onTornaMortaio(g, s.slot));
+          azioni.appendChild(b);
+        }
+        row.appendChild(azioni);
         block.appendChild(row);
       }
       if (data.nextSlotCost !== null) {
@@ -647,12 +664,15 @@ export class UI {
     const LINEA = { hullLvl: 'Scafo', sailsLvl: 'Vele', helmLvl: 'Timone', crewLvl: 'Ciurma', holdLvl: 'Stiva' };
     const EMOJI = { goletta: '🐟', guerra: '⚔', galeone: '🏰', sciabecco: '🌊' };
     const pct = (mul) => `${mul > 1 ? '+' : ''}${Math.round((mul - 1) * 100)}%`;
-    const block = document.createElement('div');
-    block.className = 'wgroup';
-    const head = document.createElement('div');
-    head.className = 'wgroupHead';
-    head.innerHTML = `<b>⚓ Il varo${varo.tipo ? '' : ' — scegli il tipo della tua nave'}</b><span>${varo.cost} 🪙</span>`;
-    block.appendChild(head);
+    // niente scatola-nella-scatola (audit Cantiere 2): le carte del varo
+    // stanno nel ritmo della scheda come ogni altra riga del Cantiere
+    const block = document.createDocumentFragment();
+    const nota = document.createElement('p');
+    nota.className = 'shopNota';
+    nota.textContent = varo.tipo
+      ? `⚓ Cambiare identità costa ${varo.cost} 🪙 (raddoppia a ogni giro). Le esclusive comprate restano tue.`
+      : `⚓ Scegli il tipo della tua nave: il primo varo costa ${varo.cost} 🪙.`;
+    block.appendChild(nota);
     for (const [key, t] of Object.entries(varo.tipi)) {
       const eff = [];
       if (t.hpMul !== 1) eff.push(`scafo ${pct(t.hpMul)}`);
@@ -690,12 +710,13 @@ export class UI {
   // Il Negozio delle Livree (issue #25): pay to show, mai pay to win —
   // vendita diretta, prezzi in chiaro, l'edizione-impresa non si compra.
   livreeBlock(negozio, gold) {
-    const block = document.createElement('div');
-    block.className = 'wgroup';
-    const head = document.createElement('div');
-    head.className = 'wgroupHead';
-    head.innerHTML = '<b>🎨 Il Negozio delle Livree</b><span>solo estetica, mai vantaggio</span>';
-    block.appendChild(head);
+    // scheda piatta nel ritmo dei token (audit Cantiere 2): niente
+    // scatolone, sezioni con il titolo di casa (.shopSection)
+    const block = document.createDocumentFragment();
+    const nota = document.createElement('p');
+    nota.className = 'shopNota';
+    nota.textContent = '🎨 Il Negozio delle Livree — solo estetica, mai vantaggio.';
+    block.appendChild(nota);
     // anteprima FEDELE della nave (issue #34): mostra la nave con la livrea
     // indossata — feedback immediato, dato che attraccati la nave è invisibile
     const anteprima = document.createElement('div');
@@ -722,9 +743,9 @@ export class UI {
     for (const [genere, titolo, sotto] of SEZIONI) {
       const voci = Object.entries(negozio.catalogo || {}).filter(([, l]) => l.genere === genere);
       if (!voci.length) continue;
-      const sHead = document.createElement('div');
-      sHead.className = 'wgroupHead';
-      sHead.innerHTML = `<b>${titolo}</b><span>${sotto}</span>`;
+      const sHead = document.createElement('h3');
+      sHead.className = 'shopSection';
+      sHead.innerHTML = `${titolo} <span class="sezioneSotto">— ${esc(sotto)}</span>`;
       block.appendChild(sHead);
       for (const [id, l] of voci) {
         const row = document.createElement('div');

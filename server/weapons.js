@@ -125,7 +125,7 @@ function defaultMounts() {
 // contrabbando, e il contrabbando si rifiuta, non si compra. Gli slot di un
 // gruppo perso si riscattano anch'essi; gli slot oltre i tetti nuovi negli
 // altri gruppi restano (grandfathering, tetto assoluto a monte).
-function sanitizeConRiscatto(m, tipo, fidato) {
+function sanitizeConRiscatto(m, tipo, fidato, conservaEsclusive) {
   const out = defaultMounts();
   let riscatto = 0;
   const tolte = [];
@@ -133,6 +133,10 @@ function sanitizeConRiscatto(m, tipo, fidato) {
   const vietate = VIETATE[tipo] || [];
   const gruppi = groupsPer(tipo);
   const contrabbando = w => !fidato && TYPES[w.type].tipo && TYPES[w.type].tipo !== tipo;
+  // con conservaEsclusive (il varo, audit 2) le esclusive smontate NON
+  // tornano oro: restano nell'arsenale del corsaro (ship.esclusive) e si
+  // riequipaggiano gratis quando il legno torna quello giusto
+  const daConservare = w => conservaEsclusive && TYPES[w.type].tipo;
   for (const g of Object.keys(GROUPS)) {
     if (!Array.isArray(m[g])) continue;
     const grezzi = m[g].slice(0, MAX_ASSOLUTO[g]).filter(w => w && TYPES[w.type])
@@ -140,7 +144,7 @@ function sanitizeConRiscatto(m, tipo, fidato) {
     if (gruppi[g].max === 0) {
       // il tipo non regge il gruppo: armi E slot riscattati
       for (const w of grezzi) {
-        if (contrabbando(w)) continue;
+        if (contrabbando(w) || daConservare(w)) continue;
         riscatto += weaponValue(w);
         tolte.push(TYPES[w.type].name);
       }
@@ -152,7 +156,7 @@ function sanitizeConRiscatto(m, tipo, fidato) {
     const list = grezzi.map(w => {
       const t = TYPES[w.type];
       if ((t.tipo && t.tipo !== tipo) || vietate.includes(w.type)) {
-        if (!contrabbando(w)) { riscatto += weaponValue(w); tolte.push(t.name); }
+        if (!contrabbando(w) && !daConservare(w)) { riscatto += weaponValue(w); tolte.push(t.name); }
         return { type: 'colubrina', lvl: 1 };
       }
       return w;

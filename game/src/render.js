@@ -614,6 +614,65 @@ export class Renderer {
   // passa all'acqua — la deriva della corrente segue il vento vero
   setVento(dir, forza) { this.vento = { dir, forza }; }
 
+  // I mostri marini (audit 2): tre bestie disegnate a mano nel linguaggio
+  // piatto del mondo — prua a +x come le navi. Ogni corpo porta con sé
+  // l'OMBRA da sommerso: il ballo visibile/sommerso lo fa updateShips.
+  disegnaMostro(body, tipo) {
+    const ombra = new Graphics();
+    // la sagoma scura sotto il pelo dell'acqua: tre chiazze allungate
+    ombra.ellipse(0, 0, 44, 16).fill({ color: 0x061420, alpha: 0.3 });
+    ombra.ellipse(-18, 0, 26, 11).fill({ color: 0x061420, alpha: 0.22 });
+    ombra.ellipse(20, 0, 20, 9).fill({ color: 0x061420, alpha: 0.22 });
+    const corpo = new Graphics();
+    if (tipo === 'drago') {
+      // DRAGO DI MARE: corpo serpentino cremisi, ali-pinna, corna, occhi di brace
+      corpo.moveTo(30, 0).lineTo(10, -9).lineTo(-14, -7).lineTo(-32, -3).lineTo(-38, 0)
+        .lineTo(-32, 3).lineTo(-14, 7).lineTo(10, 9).closePath()
+        .fill(0x8f2a1f).stroke({ width: 1.5, color: 0x3a1008 });
+      corpo.moveTo(2, -8).lineTo(-10, -26).lineTo(-16, -8).closePath().fill(0xa1361f);
+      corpo.moveTo(2, 8).lineTo(-10, 26).lineTo(-16, 8).closePath().fill(0xa1361f);
+      for (const [x, r] of [[8, 3.5], [-2, 4], [-12, 3], [-22, 2.4]]) corpo.circle(x, 0, r).fill(0x5f1a10);
+      corpo.moveTo(30, -2).lineTo(39, -7).lineTo(32, -1).closePath().fill(0x5f1a10);
+      corpo.moveTo(30, 2).lineTo(39, 7).lineTo(32, 1).closePath().fill(0x5f1a10);
+      corpo.circle(24, -4, 2).fill(0xffd24a);
+      corpo.circle(24, 4, 2).fill(0xffd24a);
+      corpo.moveTo(-38, 0).lineTo(-48, -7).lineTo(-43, 0).lineTo(-48, 7).closePath().fill(0xa1361f);
+    } else if (tipo === 'kraken') {
+      // KRAKEN: otto tentacoli a ventaglio verso poppa, mantello d'inchiostro,
+      // occhi enormi che non promettono niente di buono
+      for (let i = 0; i < 8; i++) {
+        const dir = Math.PI + (i - 3.5) * 0.34;
+        const x1 = Math.cos(dir) * 12, y1 = Math.sin(dir) * 12;
+        const cx = Math.cos(dir + 0.35) * 34, cy = Math.sin(dir + 0.35) * 34;
+        const x2 = Math.cos(dir - 0.2) * 50, y2 = Math.sin(dir - 0.2) * 50;
+        corpo.moveTo(x1, y1).quadraticCurveTo(cx, cy, x2, y2)
+          .stroke({ width: 5 - (i % 2), color: 0x3a2a52, cap: 'round' });
+        corpo.circle(x2, y2, 2).fill(0x4a3862);
+      }
+      corpo.ellipse(6, 0, 20, 17).fill(0x4a3862).stroke({ width: 1.5, color: 0x241736 });
+      corpo.ellipse(14, 0, 9, 12).fill({ color: 0x5c4a78, alpha: 0.7 });
+      corpo.circle(12, -6, 3.6).fill(0xf3e6c2);
+      corpo.circle(12, 6, 3.6).fill(0xf3e6c2);
+      corpo.circle(13, -6, 1.8).fill(0x1a0f2a);
+      corpo.circle(13, 6, 1.8).fill(0x1a0f2a);
+    } else {
+      // SERPENTE ABISSALE: la silhouette di Loch Ness vista dall'alto —
+      // testa sul collo lungo e le gobbe staccate che tagliano l'acqua
+      corpo.ellipse(-6, 0, 11, 8).fill(0x2e5d3a).stroke({ width: 1.5, color: 0x14301c });
+      corpo.ellipse(-24, 0, 9, 7).fill(0x2e5d3a).stroke({ width: 1.5, color: 0x14301c });
+      corpo.ellipse(-40, 0, 7, 5.5).fill(0x2e5d3a).stroke({ width: 1.5, color: 0x14301c });
+      corpo.moveTo(4, 0).lineTo(20, -3).lineTo(26, 0).lineTo(20, 3).closePath().fill(0x2e5d3a); // collo
+      corpo.ellipse(29, 0, 7, 5).fill(0x3d7a4c).stroke({ width: 1.5, color: 0x14301c });         // testa
+      corpo.circle(31, -2.2, 1.4).fill(0xffd24a);
+      corpo.circle(31, 2.2, 1.4).fill(0xffd24a);
+      corpo.moveTo(-46, 0).lineTo(-54, -5).lineTo(-50, 0).lineTo(-54, 5).closePath().fill(0x2e5d3a); // coda
+      for (const [x, r] of [[-6, 5], [-24, 4], [-40, 3]]) corpo.moveTo(x - r, -1).lineTo(x, -r - 4).lineTo(x + r, -1).closePath().fill(0x3d7a4c); // creste
+    }
+    body.addChild(ombra, corpo);
+    body.ombraMostro = ombra;
+    body.corpoMostro = corpo;
+  }
+
   // le burrasche vaganti (fetta 5): zone di tempesta dallo snapshot
   setBurrasche(list) { this.burrasche = list || []; }
 
@@ -856,6 +915,21 @@ export class Renderer {
   }
 
   buildShipBody(c, s, selfId) {
+    // i mostri marini (audit 2) non sono navi: corpo procedurale dedicato,
+    // con l'OMBRA da sagoma sommersa già pronta accanto al corpo
+    if (s.mo) {
+      const keyM = 'mostro|' + s.mo;
+      if (c.buildKey === keyM) return;
+      c.buildKey = keyM;
+      if (c.body) c.body.destroy({ children: true });
+      if (c.shadow) { c.shadow.destroy(); c.shadow = null; }
+      const bodyM = new Container();
+      c.addChildAt(bodyM, (c.glow ? 1 : 0) + (c.ring ? 1 : 0));
+      c.body = bodyM;
+      bodyM.sails = [];
+      this.disegnaMostro(bodyM, s.mo);
+      return;
+    }
     // gli sprite cotti vogliono ENTRAMBI gli atlanti: gli scafi sono nudi e
     // senza la tela sopra sembrerebbero relitti — finché uno dei due manca
     // si resta sul vettoriale (che le vele le disegna da sé)
@@ -1062,7 +1136,7 @@ export class Renderer {
         text: s.name,
         style: {
           fontFamily: 'Atkinson Hyperlegible Next, sans-serif', fontSize: 13,
-          fill: s.id === selfId ? 0xbfe8a8 : (s.k === 'g' ? 0xf0937b : s.k === 'm' ? 0xcfd6d9 : 0xffc9b0),
+          fill: s.id === selfId ? 0xbfe8a8 : (s.k === 'g' ? 0xf0937b : s.k === 'm' ? 0xcfd6d9 : s.k === 'x' ? 0xc9a0e8 : 0xffc9b0),
           stroke: { color: 0x1a1208, width: 3 },
         },
       });
@@ -1181,6 +1255,16 @@ export class Renderer {
       c.glow.alpha = s.sunk ? 0 : Math.max(
         oro ? 0.13 + 0.05 * Math.sin(this.t * 2.1) : 0,
         night * (s.id === selfId ? 0.34 : 0.27));
+      // i mostri (audit 2): sommersi = solo l'ombra che respira, niente nome
+      // né lanterna; emersi = la bestia intera (l'ombra resta, più tenue)
+      if (s.mo && c.body && c.body.corpoMostro) {
+        const giu = !!s.so;
+        c.body.corpoMostro.visible = !giu;
+        c.body.ombraMostro.alpha = giu ? 1 : 0.4;
+        c.body.ombraMostro.scale.set(1 + 0.06 * Math.sin(this.t * 1.6 + s.x * 0.01));
+        if (c.tag) c.tag.visible = !giu;
+        if (c.glow) c.glow.alpha = 0; // le bestie non portano lanterne
+      }
       // il fondino della targhetta si infittisce col buio (issue #40): i nomi
       // compensano la notte come già fanno lanterne e faro
       if (c.fondino) c.fondino.alpha = 0.42 + 0.26 * night;
@@ -1434,6 +1518,16 @@ export class Renderer {
       // non l'anello dello sperone — ogni abilità ha la sua voce
       burst(14, { v: 110, life: 0.4, size: 2.5, color: 0xeaf6fd });
       burst(6, { v: 55, life: 0.7, size: 3.5, color: 0xbfe2f2 });
+    } else if (kind === 'emersione') {
+      // il mostro EMERGE (audit 2): il mare esplode in schiuma
+      burst(26, { v: 130, life: 0.8, size: 4, color: 0xd9edf7 });
+      this.rings.push({ x, y, r: 8, maxR: 74, life: 0.7, max: 0.7 });
+      this.rings.push({ x, y, r: 4, maxR: 42, life: 0.5, max: 0.5 });
+    } else if (kind === 'tuffo') {
+      burst(16, { v: 90, life: 0.6, size: 3.5, color: 0xbfe2f2 });
+      this.rings.push({ x, y, r: 6, maxR: 52, life: 0.6, max: 0.6 });
+    } else if (kind === 'morso') {
+      burst(10, { v: 70, life: 0.4, size: 3, color: 0xd8552e });
     }
   }
 
@@ -1554,6 +1648,11 @@ export class Renderer {
         for (const [ox, oy] of [[0, -3], [-3, 2], [3, 2]]) {
           this.shotGfx.circle(s.x + ox, s.y + oy, 1.6).fill(ballCol);
         }
+      } else if (s.mn === 'fuoco') {
+        // il soffio del Drago (audit 2): palla di brace con la scia
+        this.shotGfx.circle(s.x - s.vx * 0.04, s.y - s.vy * 0.04, 3.2).fill({ color: 0xd8552e, alpha: 0.5 });
+        this.shotGfx.circle(s.x, s.y, 5).fill({ color: 0xff8c2e, alpha: 0.92 });
+        this.shotGfx.circle(s.x, s.y, 2.4).fill(0xffe9a0);
       } else {
         this.shotGfx.circle(s.x + 2, s.y + 3, 3).fill({ color: 0x000000, alpha: 0.25 });
         this.shotGfx.circle(s.x, s.y, 3).fill(ballCol);

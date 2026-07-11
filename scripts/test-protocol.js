@@ -76,7 +76,11 @@ class Player {
 async function main() {
   console.log('— Avvio server di test (WEAK_FORTS) —');
   const server = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
-    env: { ...process.env, PORT, WEAK_FORTS: '1', DEV_UID_OK: '1', OG_FINTO: '1', SENZA_T0: '1' }, stdio: 'ignore',
+    // BURRASCA_FISSA in un angolo sperduto: le tempeste vaganti (fetta 5)
+    // rallentano chi ci finisce dentro (×0.85) e renderebbero i budget dei
+    // goto una lotteria — qui si collauda il protocollo, il meteo ha i suoi
+    // test dedicati (test-meteo.js). VENTO_FISSO resta passabile da fuori.
+    env: { ...process.env, PORT, WEAK_FORTS: '1', DEV_UID_OK: '1', OG_FINTO: '1', SENZA_T0: '1', BURRASCA_FISSA: process.env.BURRASCA_FISSA || '5700,5700,1' }, stdio: 'ignore',
   });
   for (let i = 0; i < 40; i++) {
     try { const r = await fetch(`http://localhost:${PORT}/health`); if (r.ok) break; } catch { /* riprova */ }
@@ -149,7 +153,7 @@ async function main() {
     // profilo sporco: tipo inventato, Organo comprato ai vecchi tempi,
     // e un'esclusiva di un ALTRO tipo infilata di contrabbando
     const C = new Player('Mastro Organista', {
-      gold: 13000, tipo: 'sgorbio',
+      gold: 27550, tipo: 'sgorbio',
       mounts: { left: [{ type: 'organo', lvl: 2 }], right: [{ type: 'lunga', lvl: 1 }] },
     });
     await C.join();
@@ -187,10 +191,13 @@ async function main() {
     C.send({ t: 'varo', tipo: 'galeone' });
     ok(!!await C.wait(m => m.t === 'toast' && /già la tua nave/.test(m.msg), 3000), 'varare lo stesso tipo è rifiutato senza spese');
     C.send({ t: 'varo', tipo: 'goletta' });
-    ok(!!await C.wait(m => m.t === 'gold' && m.delta === 14550, 3000), 'l\'Organo L2 è riscattato al prezzo pieno pagato (14550 🪙)');
+    // il contratto NUOVO (audit Cantiere 2): l'esclusiva smontata non torna
+    // oro — resta nell'ARSENALE e si rimonta gratis al legno giusto
+    ok(!!await C.wait(m => m.t === 'toast' && /restano nel tuo arsenale/.test(m.msg), 3000),
+      'l\'Organo smontato resta nell\'arsenale (niente rimborso)');
     cshop = await C.wait(m => m.t === 'shop', 3000);
     ok(cshop && cshop.varo.tipo === 'goletta' && cshop.varo.cost === 180, 'ora è Goletta; il prossimo varo costa il doppio (180)');
-    ok(cshop && cshop.gold === 13000 - 90 + 14550, `i conti tornano: ${cshop && cshop.gold} 🪙 (13000 − 90 + 14550)`);
+    ok(cshop && cshop.gold === 27550 - 90, `i conti tornano: ${cshop && cshop.gold} 🪙 (27550 − 90, nessun riscatto)`);
     ok(cshop && cshop.mounts.left[0].type === 'colubrina' && cshop.mounts.left[0].lvl === 1, 'lo slot dell\'Organo riparte con la colubrina');
     ok(cshop && cshop.ship.helmCost === 45, 'lo sconto segue il tipo: ora è il Timone a metà prezzo (45)');
     ok(cshop && cshop.groups.bow.max === 3 && cshop.groups.left.max === 4,
