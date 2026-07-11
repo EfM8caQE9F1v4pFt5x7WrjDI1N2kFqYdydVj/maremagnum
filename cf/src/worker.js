@@ -45,7 +45,7 @@ async function generaDungeon(env, tipo = 'settimanale') {
           content: 'Sei il Mastro di Rotte, narratore BILINGUE di un gioco piratesco dove i siti web sono isole: scrivi in italiano E in inglese. ' +
             `Progetta il dungeon ${ETICHETTA[tipo] || 'della settimana'}. Rispondi SOLO con JSON, senza testo attorno: ` +
             '{"nome":"...","nome_en":"...","lore":"...","lore_en":"...","difficolta":"facile|medio|tosto","bersaglio":"<dominio>","tappe":["..."],"tappe_en":["..."],' +
-            '"difese":{"torri":N,"bombarde":N,"specchio":true|false}}. ' +
+            '"difese":{"torri":N,"bombarde":N,"corazzate":N,"serventi":N,"specchio":true|false}}. ' +
             '- nome: evocativo, max 5 parole; nome_en: lo STESSO nome reso in inglese. ' +
             '- lore: una riga d\'atmosfera, max 25 parole; lore_en: la stessa riga in inglese. ' +
             (lista.length
@@ -54,7 +54,7 @@ async function generaDungeon(env, tipo = 'settimanale') {
             '- difficolta: quanto è tosto l\'assalto. ' +
             `- tappe: una riga di lore piratesca in italiano (max 15 parole) per ciascuna di queste ${c.tappe.length} tappe: ` +
             c.tappe.map((t, i) => `${i + 1}) ${t.desc}`).join('; ') + '; tappe_en: le stesse righe in inglese, stesso ordine. ' +
-            '- difese: quante torri (3-10), bombarde (0-3) e se c\'è lo Specchio Ustorio sul mastio. ' +
+            '- difese: quante torri (3-10), bombarde (0-3), corazzate (0-3: cadono solo coi pezzi pesanti), serventi (0-3: cadono solo sotto la mitraglia) e se c\'è lo Specchio Ustorio sul mastio (si abbatte solo con armi ad arco). ' +
             'Niente numeri di premio né dobloni: quelli li mette il porto. Solo design e atmosfera. /think',
         }],
         max_tokens: 2600,

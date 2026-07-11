@@ -42,8 +42,8 @@ function premioPer(difficolta) { return LISTINO[difficoltaValida(difficolta)]; }
 // muro di 1000 torri non è divertente, è ingiocabile).
 const DIFESE_BASE = {
   facile: { torri: 4, bombarde: 1, specchio: false },
-  medio: { torri: 6, bombarde: 2, specchio: false },
-  tosto: { torri: 8, bombarde: 2, specchio: true },
+  medio: { torri: 6, bombarde: 2, specchio: false, serventi: 1 },
+  tosto: { torri: 8, bombarde: 2, specchio: true, corazzate: 2, serventi: 2 },
 };
 function difeseValide(spec, difficolta) {
   const base = DIFESE_BASE[difficoltaValida(difficolta)];
@@ -55,6 +55,8 @@ function difeseValide(spec, difficolta) {
   return {
     torri: clamp(s.torri, 3, 10, base.torri),
     bombarde: clamp(s.bombarde, 0, 3, base.bombarde),
+    corazzate: clamp(s.corazzate, 0, 3, base.corazzate || 0),
+    serventi: clamp(s.serventi, 0, 3, base.serventi || 0),
     specchio: typeof s.specchio === 'boolean' ? s.specchio : base.specchio,
   };
 }

@@ -55,6 +55,11 @@ const CAROVANE = {
   },
 };
 const MINACCIA_TTL = 30; // il mutuo soccorso ricorda l'aggressore per 30s
+// la CORAZZATA ignora i colpi sotto questa soglia di danno (feature del
+// capitano): carronate, mortai ed esclusive pesanti la scalfiscono, le
+// colubrine ci rimbalzano — ogni tipo di nave ha almeno una via (carronata,
+// mortaio, Colubrina Lunga, Carronata Pesante)
+const SOGLIA_CORAZZA = 28;
 // CONVOGLIO_SUBITO=1 (env, solo Node dev/test): le carovane salpano al primo
 // tick invece che a calendario — per collaudi riproducibili
 const CONVOGLIO_SUBITO = !!(typeof process !== 'undefined' && process.env && process.env.CONVOGLIO_SUBITO);
@@ -2004,24 +2009,21 @@ class Game {
           for (const i of islands) {
             if (i.defs && !String(shot.owner).startsWith('fort:')) {
               for (const def of i.defs) {
-                const rr = def.kind === 't' ? 30 : def.kind === 'b' ? 34 : 40;
+                const rr = def.kind === 't' ? 30 : def.kind === 'b' ? 34 : def.kind === 'c' ? 32 : def.kind === 'v' ? 26 : 40;
                 if (!def.dead && Math.hypot(def.x - shot.x, def.y - shot.y) < rr) {
-                  this.damageDefense(i, def, shot.damage, shot.owner);
+                  this.damageDefense(i, def, shot.damage, shot.owner, shot);
                   this.fxQueue.push({ k: 'hit', x: r1(shot.x), y: r1(shot.y) });
                   gone = true; break;
                 }
               }
             }
             if (gone) break;
-            // BUG segnalato dagli utenti: lo Specchio Ustorio sta sul MASTIO
-            // (il centro esatto dell'isola) e ogni palla moriva sulla
-            // spiaggia (thud a i.r-6) cento leghe prima di raggiungerlo —
-            // imbattibile senza mortaio. Finché lo Specchio è VIVO, l'isola
-            // non fa scudo: il cuore difensivo è esposto lassù e le palle
-            // sorvolano le mura. Abbattuto lo specchio, la terra torna a
-            // bloccare come sempre.
-            const specchioVivo = i.defs && i.defs.some(d => d.kind === 's' && !d.dead);
-            if (!specchioVivo && Math.hypot(i.x - shot.x, i.y - shot.y) < i.r - 6) {
+            // FEATURE (parola del capitano): lo Specchio Ustorio sta sul
+            // MASTIO e la terraferma FA scudo — le palle dirette muoiono
+            // sulla spiaggia, lo Specchio si prende SOLO con le armi ad
+            // arco (mortai e bombarde). Le difese a vulnerabilità specifica
+            // costringono ad allearsi con armi diverse: è il disegno.
+            if (Math.hypot(i.x - shot.x, i.y - shot.y) < i.r - 6) {
               this.fxQueue.push({ k: 'thud', x: r1(shot.x), y: r1(shot.y) });
               gone = true; break;
             }
@@ -2059,7 +2061,18 @@ class Game {
     }
   }
 
-  damageDefense(island, def, dmg, byId) {
+  damageDefense(island, def, dmg, byId, shot) {
+    // le difese con carattere (feature del capitano): ognuna cade con
+    // l'arma giusta — la squadra si compone di armi diverse.
+    // CORAZZATA: il piombo leggero rimbalza (sotto soglia, zero danni);
+    // passano i pezzi pesanti e le armi in area (il mortaio arriva senza
+    // shot). SERVENTI: dietro i parapetti tutto morde pochissimo, ma la
+    // MITRAGLIA li falcidia (danno doppio).
+    if (def.kind === 'c' && shot && !shot.aoe && shot.damage < SOGLIA_CORAZZA) {
+      this.fxQueue.push({ k: 'clang', x: r1(def.x), y: r1(def.y) });
+      return;
+    }
+    if (def.kind === 'v') dmg = shot && shot.mun === 'mitraglia' ? dmg * 2 : dmg * 0.15;
     // il registro dell'assalto (#37): chi batte le difese è in squadra quando
     // cadono — il tempo dell'ultimo colpo decide chi era davvero in battaglia
     (island.assalitori = island.assalitori || new Map()).set(byId, this.now);
@@ -2164,7 +2177,7 @@ class Game {
         }
         if (WEAK_FORTS) continue; // nei test le difese non sparano
         if (this.now < def.fireAt) continue;
-        const spec = def.kind === 't' ? FORT.torre : def.kind === 'b' ? FORT.bombarda : FORT.specchio;
+        const spec = def.kind === 't' ? FORT.torre : def.kind === 'b' ? FORT.bombarda : def.kind === 'c' ? FORT.corazzata : def.kind === 'v' ? FORT.serventi : FORT.specchio;
         let target = null, bestD = spec.range;
         for (const ship of this.ships.values()) {
           if (ship.docked || this.isSunk(ship) || ship.conquered.has(island.id)) continue;

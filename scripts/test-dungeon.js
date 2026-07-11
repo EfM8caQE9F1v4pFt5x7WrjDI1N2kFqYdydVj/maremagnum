@@ -88,40 +88,62 @@ assert(R.conquered.has(fake.id), 'la Fortezza vera si conquista in modo permanen
 assert.strictEqual(R.gold - oroR, 1500, 'la Fortezza vera paga la taglia piena (1500), non il listino dungeon');
 ok('le vere Fortezze Proibite restano intatte (conquista permanente, taglia 1500)');
 
-// — REGRESSIONE (bug segnalato dagli utenti): lo Specchio Ustorio sul mastio
-// era IRRAGGIUNGIBILE dal tiro diretto — le palle morivano sulla spiaggia
-// (thud a i.r-6) prima di arrivare al centro. Ora: finché lo Specchio è
-// vivo l'isola non fa scudo; abbattuto lui, la terra torna a bloccare.
+// — LE DIFESE CON CARATTERE (feature del capitano): ogni difesa cade con
+// l'arma giusta — lo Specchio sul mastio si prende SOLO ad arco (la terra
+// fa scudo ai tiri diretti), la Corazzata fa rimbalzare il piombo leggero,
+// i Serventi cadono solo sotto la mitraglia. Una nave sola non basta:
+// l'alleanza con armi diverse è il disegno.
 {
   const g2 = new Game(() => {});
   g2.pausa();
   const dgS = campagna.genera('giornaliero', campagna.giornoDi() + 1, ['mastio-di-prova.org']);
-  dgS.difese = { torri: 3, bombarde: 0, specchio: true };
+  dgS.difese = { torri: 3, bombarde: 0, corazzate: 1, serventi: 1, specchio: true };
   campagna.setDungeon('giornaliero', dgS);
   campagna.setDungeon('settimanale', null); // le sezioni sopra lasciano un settimanale in campo
   const isolaS = g2.archipelago.ensure('mastio-di-prova.org').island;
   g2.applicaDungeoni();
   const specchio = isolaS.defs.find(d => d.kind === 's');
-  assert(specchio && specchio.x === isolaS.x && specchio.y === isolaS.y, 'lo Specchio sta sul mastio (centro esatto)');
+  const corazzata = isolaS.defs.find(d => d.kind === 'c');
+  const serventi = isolaS.defs.find(d => d.kind === 'v');
+  assert(specchio && corazzata && serventi, 'specchio, corazzata e serventi in campo');
+  assert(specchio.x === isolaS.x && specchio.y === isolaS.y, 'lo Specchio sta sul mastio (centro esatto)');
   const S = g2.join(conn(), { t: 'join', name: 'Bombardiere', profile: { gold: 0 } });
   S.graceUntil = 0;
-  // si sgombra il tiro: cadono torri e bombarde, resta SOLO lo specchio
-  for (const d of isolaS.defs) { if (d.kind !== 's') g2.damageDefense(isolaS, d, 99999, S.id); }
-  assert(!specchio.dead && g2.fortressBlocks(S, isolaS), 'con lo Specchio vivo il blocco regge');
-  // palla dritta al mastio, da fuori costa: DEVE arrivarci
-  const hpPrima = specchio.hp;
-  g2.spawnShot(S.id, isolaS.x - isolaS.r - 150, isolaS.y, 0, { speed: 460, range: isolaS.r + 400, dmg: 20 });
-  for (let i = 0; i < 300 && g2.shots.size; i++) g2.moveShots(1 / 30);
-  assert(specchio.hp < hpPrima, `la palla ha raggiunto lo Specchio sul mastio (hp ${specchio.hp}/${hpPrima})`);
-  ok('Specchio vivo: le palle sorvolano le mura e lo colpiscono');
-  // abbattuto lo Specchio, la terraferma torna a fare scudo
-  g2.damageDefense(isolaS, specchio, 99999, S.id);
-  assert(specchio.dead, 'lo Specchio è caduto (e con lui tutte le difese)');
+
+  // 1) lo SPECCHIO: il tiro diretto muore sulla spiaggia (la terra fa scudo)
+  let hpPrima = specchio.hp;
   g2.fxQueue.length = 0;
-  g2.spawnShot(S.id, isolaS.x - isolaS.r - 150, isolaS.y, 0, { speed: 460, range: isolaS.r + 400, dmg: 20 });
+  g2.spawnShot(S.id, isolaS.x - isolaS.r - 150, isolaS.y, 0, { speed: 460, range: isolaS.r + 400, dmg: 50 });
   for (let i = 0; i < 300 && g2.shots.size; i++) g2.moveShots(1 / 30);
-  assert(g2.fxQueue.some(f => f.k === 'thud'), 'senza Specchio la palla muore sulla spiaggia (thud)');
-  ok('Specchio abbattuto: la terra torna a bloccare i tiri');
+  // (la palla può morire sulla spiaggia O su una difesa di cinta: in
+  // entrambi i casi il mastio resta fuori portata — è questo il punto)
+  assert.strictEqual(specchio.hp, hpPrima, 'il tiro diretto NON tocca lo Specchio sul mastio');
+  assert.strictEqual(g2.shots.size, 0, 'e la palla è morta per strada');
+  // ...ma il MORTAIO (arco + area) lo raggiunge
+  g2.spawnShot(S.id, isolaS.x - 60, isolaS.y, 0, { speed: 250, range: 60, dmg: 50, aoe: 70, arc: true });
+  for (let i = 0; i < 300 && g2.shots.size; i++) g2.moveShots(1 / 30);
+  assert(specchio.hp < hpPrima, `il mortaio ad arco lo scalfisce (hp ${specchio.hp}/${hpPrima})`);
+  ok('Specchio Ustorio: immune al tiro diretto, cade solo sotto le armi ad arco');
+
+  // 2) la CORAZZATA: il piombo leggero rimbalza (clang), il pesante morde
+  hpPrima = corazzata.hp;
+  g2.fxQueue.length = 0;
+  g2.damageDefense(isolaS, corazzata, 12, S.id, { damage: 12, mun: 'palle', aoe: 0 });
+  assert.strictEqual(corazzata.hp, hpPrima, 'il colpo leggero (12) rimbalza: zero danni');
+  assert(g2.fxQueue.some(f => f.k === 'clang'), 'e si sente il CLANG');
+  g2.damageDefense(isolaS, corazzata, 34, S.id, { damage: 34, mun: 'palle', aoe: 0 });
+  assert.strictEqual(corazzata.hp, hpPrima - 34, 'la carronata (34) la scalfisce');
+  g2.damageDefense(isolaS, corazzata, 20, S.id); // il mortaio arriva senza shot: area, passa
+  assert.strictEqual(corazzata.hp, hpPrima - 54, 'le armi in area passano la corazza');
+  ok('Torre Corazzata: sotto i 28 danni rimbalza, i pezzi pesanti mordono');
+
+  // 3) i SERVENTI: dietro i parapetti solo la mitraglia falcidia
+  hpPrima = serventi.hp;
+  g2.damageDefense(isolaS, serventi, 20, S.id, { damage: 20, mun: 'palle', aoe: 0 });
+  assert.strictEqual(serventi.hp, hpPrima - 3, 'le palle piene mordono pochissimo (×0.15)');
+  g2.damageDefense(isolaS, serventi, 20, S.id, { damage: 20, mun: 'mitraglia', aoe: 0 });
+  assert.strictEqual(serventi.hp, hpPrima - 3 - 40, 'la mitraglia li falcidia (×2)');
+  ok('Batteria dei Serventi: solo la mitraglia li falcidia');
   g2.stop();
 }
 
