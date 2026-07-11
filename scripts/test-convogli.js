@@ -59,10 +59,10 @@ merc.hp = game.npcMaxHp(merc); merc.resaCooldownUntil = 0; // ripulito per dopo
 ok('cooldown: il mare non è un bancomat');
 
 // — 5) il convoglio salpa: capo panciuto, scorte in stazione, Gazzetta avvisata —
-game.spawnConvoglio();
-assert(game.convoglio, 'il convoglio esiste');
-const capo = game.ships.get(game.convoglio.capo);
-const scorte = game.convoglio.scorte.map(id => game.ships.get(id));
+game.spawnCarovana('convoglio');
+assert(game.carovane.convoglio, 'il convoglio esiste');
+const capo = game.ships.get(game.carovane.convoglio.capo);
+const scorte = game.carovane.convoglio.scorte.map(id => game.ships.get(id));
 assert(capo && capo.name === 'Mercantile di Convoglio' && game.npcMaxHp(capo) === 280, 'capo panciuto (280 hp)');
 assert(scorte.length === 2 && scorte.every(s => s && s.npc === 'ghost' && s.name === 'Scorta del Convoglio'), 'due scorte');
 assert(scorte.every(s => Math.hypot(s.x - capo.x, s.y - capo.y) < 200), 'le scorte nascono in stazione');
@@ -72,7 +72,7 @@ ok('convoglio: capo panciuto + 2 scorte, rotta annunciata');
 
 // — 6) tocchi uno, rispondono tutti: l'aggro è di squadra —
 game.damageShip(capo, 10, P.id);
-assert(game.convoglio.minaccia && game.convoglio.minaccia.id === P.id, 'la minaccia è annotata');
+assert(game.carovane.convoglio.minaccia && game.carovane.convoglio.minaccia.id === P.id, 'la minaccia è annotata');
 P.x = capo.x + 400; P.y = capo.y; // a tiro di caccia
 const s0 = scorte[0];
 s0.input = { up: false, down: false, left: false, right: false };
@@ -81,24 +81,24 @@ assert(s0.input.up, 'la scorta molla la stazione e dà la caccia');
 ok('mutuo soccorso: la scorta caccia chi ha toccato il capo');
 
 // — 7) l'arrivo: tutti a terra, il mare si svuota, il prossimo è in calendario —
-capo.x = game.convoglio.meta.x; capo.y = game.convoglio.meta.y;
-game.tickConvoglio();
-assert(!game.convoglio, 'convoglio sciolto all\'arrivo');
+capo.x = game.carovane.convoglio.meta.x; capo.y = game.carovane.convoglio.meta.y;
+game.tickCarovane();
+assert(!game.carovane.convoglio, 'convoglio sciolto all\'arrivo');
 assert(!game.ships.has(capo.id) && scorte.every(s => !game.ships.has(s.id)), 'capo e scorte a terra');
-assert(game.prossimoConvoglio > game.now, 'il prossimo è in calendario');
+assert(game.prossimaCarovana.convoglio > game.now, 'il prossimo è in calendario');
 assert(etere.some(m => m.t === 'feed' && /giunto sano e salvo/.test(m.msg)), 'l\'arrivo si festeggia');
 ok('arrivo: convoglio a terra, feed avvisato, calendario aggiornato');
 
 // — 8) capo affondato: le scorte restano (orfane), ma nessuno rispawna —
-game.prossimoConvoglio = 0;
-game.tickConvoglio(); // ne salpa un altro
-const c2 = game.convoglio;
+game.prossimaCarovana.convoglio = 0;
+game.tickCarovane(); // ne salpa un altro
+const c2 = game.carovane.convoglio;
 const capo2 = game.ships.get(c2.capo);
 const orfana = game.ships.get(c2.scorte[0]);
 capo2.hp = 1;
 game.damageShip(capo2, 999, P.id); // affonda (il predone incassa la taglia PvE)
-game.tickConvoglio();
-assert(!game.convoglio, 'convoglio perduto');
+game.tickCarovane();
+assert(!game.carovane.convoglio, 'convoglio perduto');
 assert(game.ships.has(orfana.id), 'la scorta orfana resta in mare');
 // il relitto del capo non rinasce: al "respawn" sparisce
 capo2.sunkUntil = game.now - 1;
