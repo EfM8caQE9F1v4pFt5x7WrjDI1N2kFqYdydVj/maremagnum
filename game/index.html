@@ -8,11 +8,8 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main id="stage" aria-label="Il mare di gioco">
-  <p class="visuallyhidden">Vista dall'alto del Mare dell'Internet: la tua nave, le isole-sito
-  e le navi degli altri corsari. Lo stato che conta — vita, oro, missione, eventi, approdi —
-  è annunciato dai pannelli dell'interfaccia. I comandi sono nel Manuale del Corsaro (bottone
-  «Manuale» in alto) e si possono rimappare nelle Impostazioni di bordo.</p>
+<main id="stage" data-i18n-aria="stage.aria" aria-label="Il mare di gioco">
+  <p class="visuallyhidden" data-i18n="stage.descrizione">Vista dall'alto del Mare dell'Internet.</p>
 </main>
 
 <header id="topbar">
@@ -22,8 +19,8 @@
     <button type="submit" data-i18n="course.submit">🧭 Traccia la rotta</button>
   </form>
   <div id="gold">🪙 <span class="visuallyhidden" data-i18n="gold.aria">monete d'oro: </span><b id="goldVal">0</b></div>
-  <button id="gazzettaBtn" aria-label="Diario del Capitano" title="Il Diario del Capitano — imprese, bacheca e cronache del mare">📖<span id="gazzettaBadge" class="hidden" aria-hidden="true"></span></button>
-  <button id="alleanzaBtn" aria-label="Alleanze temporanee" title="Le Alleanze temporanee — unisci le vele per un dungeon ostico">🤝<span id="alleanzaBadge" class="hidden" aria-hidden="true"></span></button>
+  <button id="gazzettaBtn" data-i18n-aria="diario.aria" data-i18n-title="diario.title" aria-label="Diario del Capitano" title="Il Diario del Capitano — imprese, bacheca e cronache del mare">📖<span id="gazzettaBadge" class="hidden" aria-hidden="true"></span></button>
+  <button id="alleanzaBtn" data-i18n-aria="alleanza.aria" data-i18n-title="alleanza.title" aria-label="Alleanze temporanee" title="Le Alleanze temporanee — unisci le vele per un dungeon ostico">🤝<span id="alleanzaBadge" class="hidden" aria-hidden="true"></span></button>
   <button id="registroBtn" data-i18n-aria="registro.aria" data-i18n-title="registro.title" aria-label="Registro delle Collezioni" title="Il Registro delle Collezioni — ciò che hai conquistato">🏆</button>
   <button id="helpBtn" data-i18n-aria="help.aria" data-i18n-title="help.title" aria-label="Manuale del Corsaro" title="Il Manuale del Corsaro — come funziona Maremagnum">📜</button>
   <button id="settingsBtn" data-i18n-aria="settings.aria" data-i18n-title="settings.title" aria-label="Impostazioni di bordo" title="Impostazioni di bordo">⚙</button>
@@ -32,33 +29,33 @@
 <div id="dockbar" class="hidden">
   <span id="dockInfo">⚓</span>
   <span id="dockNav">
-    <button id="navBack" class="secondary" aria-label="Indietro nel sito" title="Indietro">←</button><button id="navFwd" class="secondary" aria-label="Avanti nel sito" title="Avanti">→</button><button id="navReload" class="secondary" aria-label="Ricarica il sito" title="Ricarica">↺</button>
+    <button id="navBack" class="secondary" data-i18n-aria="dock.indietro.aria" data-i18n-title="dock.indietro" aria-label="Indietro nel sito" title="Indietro">←</button><button id="navFwd" class="secondary" data-i18n-aria="dock.avanti.aria" data-i18n-title="dock.avanti" aria-label="Avanti nel sito" title="Avanti">→</button><button id="navReload" class="secondary" data-i18n-aria="dock.ricarica.aria" data-i18n-title="dock.ricarica" aria-label="Ricarica il sito" title="Ricarica">↺</button>
   </span>
   <span id="dockUrl"></span>
   <span id="guardInfo" data-i18n-title="guard.title" title="Parassiti respinti dalla Ciurma di Guardia (tracker e pubblicità bloccati)">🛡 0</span>
-  <button id="favBtn" aria-label="Segna come approdo preferito" aria-pressed="false" title="Approdo preferito: al prossimo varo potrai salpare da qui">☆</button>
-  <button id="openExt" class="secondary" aria-label="Apri il sito nel browser di sistema" title="Apri nel browser di sistema">🗗</button>
-  <button id="setSailBtn">⛵ Salpa</button>
+  <button id="favBtn" data-i18n-aria="dock.preferito.aria" data-i18n-title="dock.preferito.title" aria-label="Segna come approdo preferito" aria-pressed="false" title="Approdo preferito: al prossimo varo potrai salpare da qui">☆</button>
+  <button id="openExt" class="secondary" data-i18n-aria="dock.esterno.aria" data-i18n-title="dock.esterno" aria-label="Apri il sito nel browser di sistema" title="Apri nel browser di sistema">🗗</button>
+  <button id="setSailBtn" data-i18n="azione.salpa">⛵ Salpa</button>
 </div>
 
 <div id="assedioHud" class="hidden"></div>
 
 <div id="hud">
   <div id="shipName"></div>
-  <div id="hpWrap" role="progressbar" aria-label="Integrità della nave" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="hpBar"></div><span id="hpText"></span></div>
-  <div id="reloads" role="group" aria-label="Ricarica di cannoni e abilità (le barre si riempiono quando sono pronti)">
+  <div id="hpWrap" role="progressbar" data-i18n-aria="hud.vita.aria" aria-label="Integrità della nave" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="hpBar"></div><span id="hpText"></span></div>
+  <div id="reloads" role="group" data-i18n-aria="hud.ricariche.aria" aria-label="Ricarica di cannoni e abilità (le barre si riempiono quando sono pronti)">
     <div class="rl"><span id="rlKeyLeft">Q ◀</span><div class="rlWrap" aria-hidden="true"><div id="rlLeft" class="rlBar"></div></div></div>
     <div class="rl"><span id="rlKeyRight">E ▶</span><div class="rlWrap" aria-hidden="true"><div id="rlRight" class="rlBar"></div></div></div>
     <div class="rl hidden" id="rlAxialRow"><span id="rlKeyAxial">␣ ⇅</span><div class="rlWrap" aria-hidden="true"><div id="rlAxial" class="rlBar"></div></div></div>
     <div class="rl hidden" id="abilityRow"><span id="abilityKey">R ✦</span><div class="rlWrap" aria-hidden="true"><div id="abilityBar" class="rlBar"></div></div></div>
   </div>
-  <div id="munizioneRow" role="status" aria-label="Munizione caricata"><span id="munizioneKey">X</span> <b id="munizioneVal">⚫ Palle piene</b></div>
+  <div id="munizioneRow" role="status" data-i18n-aria="hud.munizione.aria" aria-label="Munizione caricata"><span id="munizioneKey">X</span> <b id="munizioneVal">⚫ Palle piene</b></div>
   <div id="dockHint" role="status"></div>
 </div>
 
-<div id="hint">Vela <b>W A S D</b> · Bordata sin. <b>Q</b> / des. <b>E</b> · Prua/Poppa <b>SPAZIO</b> · Abilità <b>R</b> · Attracca <b>F</b> · Zoom <b>Z</b> · Classifica <b>TAB</b></div>
-<canvas id="minimap" width="230" height="230" role="img" aria-label="Minimappa del mare: isole e navi in vista"></canvas>
-<div id="ventoHud" class="hidden" role="img" aria-label="Rosa dei venti">
+<div id="hint" data-i18n-html="hud.hint">…</div>
+<canvas id="minimap" width="230" height="230" role="img" data-i18n-aria="hud.minimappa.aria" aria-label="Minimappa del mare: isole e navi in vista"></canvas>
+<div id="ventoHud" class="hidden" role="img" data-i18n-aria="hud.vento.aria" aria-label="Rosa dei venti">
   <div id="ventoRosa" aria-hidden="true">
     <span class="ventoCard ventoN">N</span><span class="ventoCard ventoE">E</span>
     <span class="ventoCard ventoS">S</span><span class="ventoCard ventoO">O</span>
@@ -66,161 +63,161 @@
   </div>
   <span id="ventoNome"></span>
 </div>
-<div id="killfeed" role="log" aria-label="Diario di bordo"></div>
+<div id="killfeed" role="log" data-i18n-aria="hud.killfeed.aria" aria-label="Diario di bordo"></div>
 <div id="toast" class="hidden" role="status"></div>
 <div id="dannoFlash" aria-hidden="true"></div>
 
 <div id="board" class="hidden">
-  <h3 id="boardTitle">☠ Registro dei Corsari</h3>
+  <h3 id="boardTitle" data-i18n="board.titolo">☠ Registro dei Corsari</h3>
   <table id="boardTable" aria-labelledby="boardTitle"></table>
 </div>
 
 <div id="mapOverlay" class="overlay hidden">
-  <div class="mapWrap" role="dialog" aria-modal="true" aria-label="Mappa del tesoro: la rotta è tracciata">
+  <div class="mapWrap" role="dialog" aria-modal="true" data-i18n-aria="map.aria" aria-label="Mappa del tesoro: la rotta è tracciata">
     <canvas id="mapCanvas"></canvas>
-    <button id="sailBtn">⛵ Salpa!</button>
+    <button id="sailBtn" data-i18n="azione.salpaEscl">⛵ Salpa!</button>
   </div>
 </div>
 
 <div id="shopOverlay" class="overlay hidden">
   <div class="panel wide" role="dialog" aria-modal="true" aria-labelledby="titoloCantiere">
-    <h2 id="titoloCantiere">🛠 Cantiere del Porto Franco</h2>
-    <p class="sub">Scafo rattoppato e stive piene. Crediti a bordo: <b id="shopGold"></b> 🪙</p>
+    <h2 id="titoloCantiere" data-i18n="shop.titolo">🛠 Cantiere del Porto Franco</h2>
+    <p class="sub" data-i18n-html="shop.sub">Crediti a bordo: <b id="shopGold"></b> 🪙</p>
     <div id="shopConsiglio" class="hidden" role="status"></div>
-    <div id="shopTabs" role="group" aria-label="Le sezioni del Cantiere">
-      <button id="tabNave" aria-pressed="true">⛵ Nave</button>
-      <button id="tabVaro" aria-pressed="false">⚓ Varo</button>
-      <button id="tabArmi" aria-pressed="false">⚔ Armamenti</button>
-      <button id="tabLivree" aria-pressed="false">🎨 Livree</button>
+    <div id="shopTabs" role="group" data-i18n-aria="shop.tabs.aria" aria-label="Le sezioni del Cantiere">
+      <button id="tabNave" aria-pressed="true" data-i18n="shop.tab.nave">⛵ Nave</button>
+      <button id="tabVaro" aria-pressed="false" data-i18n="shop.tab.varo">⚓ Varo</button>
+      <button id="tabArmi" aria-pressed="false" data-i18n="shop.tab.armi">⚔ Armamenti</button>
+      <button id="tabLivree" aria-pressed="false" data-i18n="shop.tab.livree">🎨 Livree</button>
     </div>
     <div id="shopShip"></div>
     <div id="shopVaro" class="hidden"></div>
     <div id="shopWeapons" class="hidden"></div>
     <div id="shopLivree" class="hidden"></div>
     <div class="row azioni">
-      <button id="assedioOpen">⚔ Bacheca degli Assedi</button>
-      <button id="gildaOpen">🏴 Fratellanze</button>
-      <button id="shopClose">⛵ Salpa</button>
+      <button id="assedioOpen" data-i18n="shop.assedi">⚔ Bacheca degli Assedi</button>
+      <button id="gildaOpen" data-i18n="shop.fratellanze">🏴 Fratellanze</button>
+      <button id="shopClose" data-i18n="azione.salpa">⛵ Salpa</button>
     </div>
   </div>
 </div>
 
 <div id="assedioOverlay" class="overlay hidden">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloAssedi">
-    <h2 id="titoloAssedi">⚔ Bacheca degli Assedi</h2>
+    <h2 id="titoloAssedi" data-i18n="assedio.titolo">⚔ Bacheca degli Assedi</h2>
     <p class="sub" id="assedioInfo"></p>
-    <p class="ruoli">🏴 I Corridori forzano il blocco della fortezza — ⚓ i Bloccatori lo difendono</p>
+    <p class="ruoli" data-i18n="assedio.ruoli">🏴 I Corridori forzano il blocco della fortezza — ⚓ i Bloccatori lo difendono</p>
     <div id="assedioTeams" class="teams"></div>
     <div class="row">
-      <button id="joinCorr">🏴 Corridori</button>
-      <button id="joinBlocc">⚓ Bloccatori</button>
+      <button id="joinCorr" data-i18n="assedio.corridori">🏴 Corridori</button>
+      <button id="joinBlocc" data-i18n="assedio.bloccatori">⚓ Bloccatori</button>
     </div>
-    <button id="assedioClose" class="linkish">Chiudi</button>
+    <button id="assedioClose" class="linkish" data-i18n="azione.chiudi">Chiudi</button>
   </div>
 </div>
 
 <div id="searchOverlay" class="overlay hidden">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloOracolo">
-    <h2 id="titoloOracolo">🔭 Il Faro dell'Oracolo</h2>
-    <p class="sub">Chiedi, e l'Oracolo indicherà la rotta fra i sette mari.</p>
+    <h2 id="titoloOracolo" data-i18n="oracolo.titolo">🔭 Il Faro dell'Oracolo</h2>
+    <p class="sub" data-i18n="oracolo.sub">Chiedi, e l'Oracolo indicherà la rotta fra i sette mari.</p>
     <form id="searchForm">
-      <input id="searchInput" aria-label="Cosa cerchi" placeholder="Cosa cerchi, capitano?" autocomplete="off">
-      <button type="submit">Chiedi</button>
+      <input id="searchInput" data-i18n-aria="oracolo.cerca.aria" data-i18n-ph="oracolo.cerca.ph" aria-label="Cosa cerchi" placeholder="Cosa cerchi, capitano?" autocomplete="off">
+      <button type="submit" data-i18n="oracolo.chiedi">Chiedi</button>
     </form>
-    <button id="searchClose" class="linkish">⛵ Salpa senza chiedere</button>
+    <button id="searchClose" class="linkish" data-i18n="oracolo.salta">⛵ Salpa senza chiedere</button>
   </div>
 </div>
 
 <div id="siteOverlay" class="overlay hidden">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="siteTitle">
-    <h2 id="siteTitle">⚓ Attraccato</h2>
-    <p class="sub">Nel guscio browser il sito si apre qui dentro; nel prototipo web si apre in una nuova scheda.</p>
-    <a id="siteLink" href="#" target="_blank" rel="noreferrer noopener"><button>🗺 Apri il sito in una nuova scheda</button></a>
+    <h2 id="siteTitle" data-i18n="sito.titolo">⚓ Attraccato</h2>
+    <p class="sub" data-i18n="sito.sub">Nel guscio browser il sito si apre qui dentro; nel prototipo web si apre in una nuova scheda.</p>
+    <a id="siteLink" href="#" target="_blank" rel="noreferrer noopener"><button data-i18n="sito.apri">🗺 Apri il sito in una nuova scheda</button></a>
     <div class="row">
-      <button id="favBtnSito" class="linkish" aria-pressed="false">☆ Segna come approdo preferito</button>
-      <button id="siteClose" class="secondary">⛵ Salpa</button>
+      <button id="favBtnSito" class="linkish" aria-pressed="false" data-i18n="sito.preferito">☆ Segna come approdo preferito</button>
+      <button id="siteClose" class="secondary" data-i18n="azione.salpa">⛵ Salpa</button>
     </div>
   </div>
 </div>
 
 <div id="deathOverlay" class="overlay hidden">
   <div class="panel death" role="alertdialog" aria-modal="true" aria-labelledby="titoloAffondato">
-    <h2 id="titoloAffondato">☠️ La tua nave è affondata!</h2>
+    <h2 id="titoloAffondato" data-i18n="morte.titolo">☠️ La tua nave è affondata!</h2>
     <p id="deathConto" class="deathConto"></p>
     <p id="deathConsiglio" class="sub hidden"></p>
-    <p class="sub">I flutti ti riportano al Porto Franco per le riparazioni…</p>
+    <p class="sub" data-i18n="morte.ritorno">I flutti ti riportano al Porto Franco per le riparazioni…</p>
     <div id="deathCount">6</div>
   </div>
 </div>
 
 <div id="settingsOverlay" class="overlay hidden">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloImpostazioni">
-    <h2 id="titoloImpostazioni">⚙ Impostazioni di bordo</h2>
+    <h2 id="titoloImpostazioni" data-i18n="imp.titolo">⚙ Impostazioni di bordo</h2>
     <div class="setRow vol"><label for="setLang">🌐 Lingua / Language</label>
       <select id="setLang"><option value="it">Italiano</option><option value="en">English</option></select></div>
-    <label class="setRow"><input type="checkbox" id="setMusic" checked> 🎵 Musica del mare</label>
-    <label class="setRow"><input type="checkbox" id="setSfx" checked> 🔊 Effetti sonori</label>
-    <label class="setRow"><input type="checkbox" id="setGuard" checked> 🛡 Ciurma di Guardia — respinge spie e pubblicità</label>
-    <label class="setRow vol">🔉 Volume <input type="range" id="setVol" min="0" max="100" value="80" aria-label="Volume di musica ed effetti"></label>
-    <label class="setRow"><input type="checkbox" id="setCalma"> 🌊 Mare calmo — riduci scosse e movimenti di contorno</label>
-    <label class="setRow"><input type="checkbox" id="setNotte"> 🌙 Notte chiara — più luce nelle ore buie</label>
+    <label class="setRow"><input type="checkbox" id="setMusic" checked> <span data-i18n="imp.musica">🎵 Musica del mare</span></label>
+    <label class="setRow"><input type="checkbox" id="setSfx" checked> <span data-i18n="imp.sfx">🔊 Effetti sonori</span></label>
+    <label class="setRow"><input type="checkbox" id="setGuard" checked> <span data-i18n="imp.guardia">🛡 Ciurma di Guardia — respinge spie e pubblicità</span></label>
+    <label class="setRow vol"><span data-i18n="imp.volume">🔉 Volume</span> <input type="range" id="setVol" min="0" max="100" value="80" data-i18n-aria="imp.volume.aria" aria-label="Volume di musica ed effetti"></label>
+    <label class="setRow"><input type="checkbox" id="setCalma"> <span data-i18n="imp.calma">🌊 Mare calmo — riduci scosse e movimenti di contorno</span></label>
+    <label class="setRow"><input type="checkbox" id="setNotte"> <span data-i18n="imp.notte">🌙 Notte chiara — più luce nelle ore buie</span></label>
     <div id="timoneria">
-      <h3 class="shopSection">⌨ La timoneria — rimappa i tasti</h3>
-      <p class="ruoli">Scegli tu i tasti del timone. Le frecce governano sempre, ESC chiude sempre.</p>
+      <h3 class="shopSection" data-i18n="imp.timoneria">⌨ La timoneria — rimappa i tasti</h3>
+      <p class="ruoli" data-i18n="imp.timoneria.sub">Scegli tu i tasti del timone. Le frecce governano sempre, ESC chiude sempre.</p>
       <div id="tastiRows"></div>
     </div>
     <div id="ancoraSez">
-      <h3 class="shopSection">⚓ Ancoraggio del profilo</h3>
-      <p class="sub" id="ancoraStato">Il tuo bottino vive solo su questa nave. Getta l'ancora per salvarlo in mare aperto.</p>
+      <h3 class="shopSection" data-i18n="imp.ancora">⚓ Ancoraggio del profilo</h3>
+      <p class="sub" id="ancoraStato" data-i18n="imp.ancora.stato">Il tuo bottino vive solo su questa nave. Getta l'ancora per salvarlo in mare aperto.</p>
       <div id="ancoraForm">
-        <input id="ancoraHandle" aria-label="Nome dell'ancoraggio" placeholder="nome o mail — non la verifichiamo" autocomplete="username">
+        <input id="ancoraHandle" data-i18n-aria="imp.ancora.nome.aria" data-i18n-ph="imp.ancora.nome.ph" aria-label="Nome dell'ancoraggio" placeholder="nome o mail — non la verifichiamo" autocomplete="username">
         <div class="row">
-          <button id="ancoraCrea">⚓ Getta l'ancora</button>
-          <button id="ancoraEntraBtn" class="linkish">Ho già un ancoraggio</button>
+          <button id="ancoraCrea" data-i18n="imp.ancora.getta">⚓ Getta l'ancora</button>
+          <button id="ancoraEntraBtn" class="linkish" data-i18n="benvenuto.holancora">Ho già un ancoraggio</button>
         </div>
       </div>
       <div id="ancoraQr" class="hidden">
         <canvas id="ancoraQrCanvas" width="168" height="168" role="img" aria-label="Codice QR per l'app di autenticazione (in alternativa usa la chiave manuale qui sotto)"></canvas>
-        <p class="sub">Inquadra con la tua app di autenticazione,<br>o inserisci la chiave a mano: <code id="ancoraSegreto"></code></p>
+        <p class="sub" data-i18n-html="imp.ancora.qr">…<code id="ancoraSegreto"></code></p>
       </div>
       <form id="ancoraCodiceForm" class="hidden">
-        <input id="ancoraCodice" aria-label="Codice a 6 cifre dall'app di autenticazione" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
-        <button type="submit">Conferma</button>
+        <input id="ancoraCodice" data-i18n-aria="ancora.codice.aria" data-i18n-ph="ancora.codice.ph" aria-label="Codice a 6 cifre dall'app di autenticazione" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+        <button type="submit" data-i18n="azione.conferma">Conferma</button>
       </form>
-      <p class="ruoli">Niente password, niente email di conferma. Se perdi il generatore perdi il forziere;<br>dopo 30 giorni senza entrare, il mare si riprende tutto.</p>
+      <p class="ruoli" data-i18n-html="imp.ancora.regole">…</p>
     </div>
     <p class="credits">♪ Musiche: Kevin MacLeod (incompetech.com) — CC BY 3.0<br>"Netherworld Shanty" · "Bushwick Tarantella" · "Stoneworld Battle"</p>
-    <button id="settingsClose" class="linkish">Chiudi</button>
+    <button id="settingsClose" class="linkish" data-i18n="azione.chiudi">Chiudi</button>
   </div>
 </div>
 
 <div id="helpOverlay" class="overlay hidden">
   <div class="panel wide" role="dialog" aria-modal="true" aria-labelledby="titoloManuale">
-    <h2 id="titoloManuale">📜 Il Manuale del Corsaro</h2>
-    <p class="sub">L'internet è un mare magnum. Questo è un browser che lo prende alla lettera.</p>
+    <h2 id="titoloManuale" data-i18n="man.titolo">📜 Il Manuale del Corsaro</h2>
+    <p class="sub" data-i18n="man.sub">L'internet è un mare magnum. Questo è un browser che lo prende alla lettera.</p>
 
     <div class="manuale">
-      <h3 class="shopSection">🧭 Navigare È navigare</h3>
-      <p>Scrivi un indirizzo o una ricerca nella barra di rotta: la destinazione diventa
+      <h3 class="shopSection" data-i18n="man.nav.t">🧭 Navigare È navigare</h3>
+      <p data-i18n-html="man.nav.p1">Scrivi un indirizzo o una ricerca nella barra di rotta: la destinazione diventa
       un'<b>isola</b> e la tua nave salpa. Arrivato sotto costa, premi <b>F</b> per attraccare:
       il sito si apre davvero. Ogni dominio ha la sua isola, sempre nello stesso punto del mare.</p>
 
-      <h3 class="shopSection">🏝 Le isole crescono con gli approdi</h3>
-      <p>L'<b>Atlante comunitario</b> conta gli approdi di tutti i capitani: più un'isola è
+      <h3 class="shopSection" data-i18n="man.isole.t">🏝 Le isole crescono con gli approdi</h3>
+      <p data-i18n-html="man.isole.p1">L'<b>Atlante comunitario</b> conta gli approdi di tutti i capitani: più un'isola è
       visitata, più diventa grande sulla mappa. Un'isola entra nell'Atlante pubblico solo
       quando è meta condivisa (almeno 3 approdi): il tuo primo sbarco resta affar tuo.</p>
-      <p>E accostandoti parecchio a un'isola, dal centro spunta il suo <b>Cartellone</b>:
+      <p data-i18n-html="man.isole.p2">E accostandoti parecchio a un'isola, dal centro spunta il suo <b>Cartellone</b>:
       l'anteprima del sito (titolo, due righe e l'immagine di copertina) senza bisogno di
       attraccare. Le fortezze non fanno pubblicità.</p>
 
-      <h3 class="shopSection">🏰 Le fortezze proibite</h3>
-      <p>I siti della lista nera (tracker, trappole e acque malfamate) sono <b>fortezze</b>:
+      <h3 class="shopSection" data-i18n="man.fortezze.t">🏰 Le fortezze proibite</h3>
+      <p data-i18n-html="man.fortezze.p1">I siti della lista nera (tracker, trappole e acque malfamate) sono <b>fortezze</b>:
       torri e bastioni ne sbarrano l'approdo. Vuoi passare lo stesso? Abbatti <b>tutte</b> le
       difese e la fortezza è espugnata — per te, per sempre. Oppure unisciti a un
       <b>Assedio</b> dalla bacheca del Porto Franco.</p>
 
-      <h3 class="shopSection">⛵ La tua nave</h3>
-      <p>Si parte <b>sloop</b>. Al Cantiere del Porto Franco lo scafo ti fa <b>brigantino</b>
+      <h3 class="shopSection" data-i18n="man.nave.t">⛵ La tua nave</h3>
+      <p data-i18n-html="man.nave.p1">Si parte <b>sloop</b>. Al Cantiere del Porto Franco lo scafo ti fa <b>brigantino</b>
       (scafo 2), <b>galeone</b> (scafo 4) e — con anche le vele al massimo — <b>Galeone
       Dorato</b>, la regina dei mari. La scala delle armi sale per tutti fino al
       mortaio: colubrina, cannone, carronata, mortaio — e in cima l'<b>esclusiva
@@ -230,8 +227,8 @@
       naufragio). Ogni gradino costa il doppio del precedente: arricchirsi è un
       mestiere, non un incidente.</p>
 
-      <h3 class="shopSection">⚫ Munizioni e rastrellata</h3>
-      <p>Ogni bocca da fuoco spara tre proiettili, a scelta col tasto delle
+      <h3 class="shopSection" data-i18n="man.munizioni.t">⚫ Munizioni e rastrellata</h3>
+      <p data-i18n-html="man.munizioni.p1">Ogni bocca da fuoco spara tre proiettili, a scelta col tasto delle
       <b>munizioni</b> (X, si rimappa in Timoneria): le <b>palle piene</b> ⚫ fanno
       il danno pieno; le <b>palle incatenate</b> ⛓ volano corte e mordono poco, ma
       <b>tagliano le vele</b> (il bersaglio arranca per qualche istante — ottime
@@ -241,8 +238,8 @@
       E occhio alla <b>rastrellata</b>: un colpo diretto che entra dal <b>settore di
       poppa</b> morde una volta e mezza — la manovra paga, e il sopravvento pure.</p>
 
-      <h3 class="shopSection">🚢 Prede, rese e convogli</h3>
-      <p>I <b>mercantili</b> mal ridotti <b>ammainano bandiera</b> 🏳: chi li
+      <h3 class="shopSection" data-i18n="man.prede.t">🚢 Prede, rese e convogli</h3>
+      <p data-i18n-html="man.prede.p1">I <b>mercantili</b> mal ridotti <b>ammainano bandiera</b> 🏳: chi li
       <b>tocca</b> li saccheggia (bottino pieno, e la nave si salva); chi
       preferisce li affonda lo stesso — scelta tua. E ogni tanto salpa un
       <b>convoglio scortato</b>: rotta annunciata dalla Gazzetta, stive piene e
@@ -250,12 +247,12 @@
       Preda ricca, rischio ricco. E più raro di tutti, il <b>👑 Galeone del
       Tesoro</b>: corazzato, guardia serrata, e il suo oro si prende solo col
       <b>tocco</b> — chi lo affonda lo manda negli abissi col carico.</p>
-      <p>Ma l'infamia ha un prezzo: ogni tre prede una <b>taglia</b> pende sulla
+      <p data-i18n-html="man.prede.p2">Ma l'infamia ha un prezzo: ogni tre prede una <b>taglia</b> pende sulla
       tua testa, e un <b>⚔ Cacciatore di Taglie</b> ti braccherà per quattro
       minuti. Semina lui, o affondalo: la sua testa paga bene e compra la pace.</p>
 
-      <h3 class="shopSection">🐉 I mostri degli abissi</h3>
-      <p>Tre bestie ENORMI percorrono il fondo del mare, ognuna col suo mestiere:
+      <h3 class="shopSection" data-i18n="man.mostri.t">🐉 I mostri degli abissi</h3>
+      <p data-i18n-html="man.mostri.p1">Tre bestie ENORMI percorrono il fondo del mare, ognuna col suo mestiere:
       il <b>Drago di Mare</b> tiene la distanza e sputa <b>raffiche di fuoco a
       ventaglio</b>; il <b>Kraken</b> apre la caccia sputando un <b>getto
       d'inchiostro</b> — nero, lento, si può schivare — che se ti coglie
@@ -271,8 +268,8 @@
       chi le riscuote — e abbattere un mostro non è pirateria: nessun Cacciatore
       verrà a cercarti.</p>
 
-      <h3 class="shopSection">⛈ Burrasche e la notte</h3>
-      <p>Due <b>burrasche</b> vagano il mare (la minimappa le segna): dentro,
+      <h3 class="shopSection" data-i18n="man.meteo.t">⛈ Burrasche e la notte</h3>
+      <p data-i18n-html="man.meteo.p1">Due <b>burrasche</b> vagano il mare (la minimappa le segna): dentro,
       il vento morde a <b>forza piena</b> e le palle volano <b>corte</b> — la
       rosa dei venti lo urla. E di <b>notte</b> il mare cambia pelle: i
       <b>nomi lontani</b> si perdono nel buio (le lanterne però tradiscono le
@@ -280,8 +277,8 @@
       ma il <b>bottino delle rese rende una volta e mezza</b>. La notte è dei
       coraggiosi.</p>
 
-      <h3 class="shopSection">⚓ Il varo: quattro tipi di nave</h3>
-      <p>Al Cantiere si sceglie un'identità: la <b>Goletta</b> (veloce e fragile, Timone
+      <h3 class="shopSection" data-i18n="man.varo.t">⚓ Il varo: quattro tipi di nave</h3>
+      <p data-i18n-html="man.varo.p1">Al Cantiere si sceglie un'identità: la <b>Goletta</b> (veloce e fragile, Timone
       a metà prezzo, esclusiva la <i>Colubrina Lunga</i> che punge da lontano), il
       <b>Brigantino da Guerra</b> (equilibrato, Ciurma a metà prezzo, esclusiva la
       <i>Carronata Pesante</i> che sfonda da vicino), il <b>Galeone</b> (lento e corazzato,
@@ -291,14 +288,14 @@
       monete e ogni cambio successivo il doppio del precedente; le esclusive dell'altro
       tipo vengono <b>riscattate al prezzo pieno</b> pagato. Chi possedeva già l'Organo
       è Galeone d'ufficio: nessuno perde ciò che ha pagato.</p>
-      <p>Ma <b>non tutto sta su tutto</b>: goletta e sciabecco non reggono la carronata
+      <p data-i18n-html="man.varo.p2">Ma <b>non tutto sta su tutto</b>: goletta e sciabecco non reggono la carronata
       (la loro scala la salta), il galeone rinuncia ai cannoni di prua e di poppa per
       fiancate a <b>sei</b> bocche, la goletta e lo sciabecco pungono con <b>tre</b>
       slot assiali. Se una regola nuova ti toglie un'arma o uno slot già pagati, il
       Cantiere te li <b>riscatta per intero</b>: mai confische. E la carriera si vede
       da fuori: con scafo e vele al massimo la nave diventa <b>veterana</b> — castello
       in più e pomi d'oro in testa d'albero.</p>
-      <p>Ogni tipo ha anche la sua <b>abilità</b> (tasto <b>R</b>, si ricarica lenta):
+      <p data-i18n-html="man.varo.p3">Ogni tipo ha anche la sua <b>abilità</b> (tasto <b>R</b>, si ricarica lenta):
       lo <b>Speronamento</b> della Goletta (una carica a vele spiegate: chi tocchi
       incassa la prua, tu paghi un pegno di legno), il <b>Fumogeno</b> del Brigantino
       da Guerra (una nuvola che nasconde tutti ai fantasmi e alle fortezze — ma i
@@ -307,8 +304,8 @@
       <b>Colpo di Vento</b> dello Sciabecco (una raffica in poppa: si entra — o si
       esce — da un duello, vele o non vele).</p>
 
-      <h3 class="shopSection">📖 Il Diario del Capitano</h3>
-      <p>Un solo posto per la tua rotta: il bottone 📖 lassù. La scheda
+      <h3 class="shopSection" data-i18n="man.diario.t">📖 Il Diario del Capitano</h3>
+      <p data-i18n-html="man.diario.p1">Un solo posto per la tua rotta: il bottone 📖 lassù. La scheda
       <b>Imprese</b> raccoglie la campagna della settimana e il dungeon del giorno del
       Mastro, la <b>bacheca</b> delle missioni da <b>accettare</b> o rifiutare, e quelle
       in corso col progresso. La scheda <b>Cronache</b> è l'albo delle notizie del
@@ -316,8 +313,8 @@
       mare</i>. Il pallino conta le novità perse mentre eri a terra. Tutto vive
       <b>solo in gioco</b>: niente email, niente notifiche fuori dal mare.</p>
 
-      <h3 class="shopSection">🎨 Il Negozio delle Livree e il Registro</h3>
-      <p>Al Cantiere, la scheda <b>Livree</b>: vesti la nave di colori — vele nere,
+      <h3 class="shopSection" data-i18n="man.livree.t">🎨 Il Negozio delle Livree e il Registro</h3>
+      <p data-i18n-html="man.livree.p1">Al Cantiere, la scheda <b>Livree</b>: vesti la nave di colori — vele nere,
       scarlatte, verderame — o compra una <b>scia</b> che colora la spuma dietro la
       poppa. Regola d'oro del Maremagnum: <b>pay to show, mai pay to win</b> — le
       livree sono SOLO estetica, zero vantaggi, prezzi in chiaro e niente casse
@@ -328,16 +325,16 @@
       il <b>Registro delle Collezioni</b>: fortezze espugnate, arsenale, guardaroba
       — la tua leggenda, agli atti.</p>
 
-      <h3 class="shopSection">🏴 Le Fratellanze</h3>
-      <p>Le gilde del Maremagnum. Si fondano al Porto Franco (costano care), hanno
+      <h3 class="shopSection" data-i18n="man.gilde.t">🏴 Le Fratellanze</h3>
+      <p data-i18n-html="man.gilde.p1">Le gilde del Maremagnum. Si fondano al Porto Franco (costano care), hanno
       categoria, motto e una <b>bandiera composta al Cantiere</b> — campi, tagli ed
       emblemi, mai immagini caricate. Il rito d'ingresso è tutto corsaro: per chiedere
       di entrare devi prima <b>bloccare</b> una nave di quella Fratellanza (il diritto
       vale 7 giorni). Porte aperte = dentro subito; porte chiuse = decidono capitano e
       ufficiali. Serve l'Ancoraggio: le Fratellanze sono fatte di nomi veri.</p>
 
-      <h3 class="shopSection">🤝 Le Alleanze temporanee</h3>
-      <p>Un dungeon troppo ostico per una nave sola? Il bottone 🤝 lassù apre le
+      <h3 class="shopSection" data-i18n="man.alleanze.t">🤝 Le Alleanze temporanee</h3>
+      <p data-i18n-html="man.alleanze.p1">Un dungeon troppo ostico per una nave sola? Il bottone 🤝 lassù apre le
       <b>Alleanze temporanee</b>: inviti un capitano presente (c'è la ricerca per nome)
       o issi la <b>bandiera aperta</b>, e chi vuole si unisce — fino a 4 vele. Quando le
       difese cadono, <b>chi le ha battute si spartisce l'esito</b>: una quota a testa
@@ -346,15 +343,15 @@
       si sbarca. Niente ruoli, niente ancoraggio richiesto — e occhio: il fuoco amico
       resta acceso, il tradimento è parte del mestiere.</p>
 
-      <h3 class="shopSection">⚔ Il Mastro di Rotte</h3>
-      <p>Il Mastro di Rotte traccia i <b>dungeon</b> del Maremagnum: la <b>campagna
+      <h3 class="shopSection" data-i18n="man.mastro.t">⚔ Il Mastro di Rotte</h3>
+      <p data-i18n-html="man.mastro.p1">Il Mastro di Rotte traccia i <b>dungeon</b> del Maremagnum: la <b>campagna
       della settimana</b> (tre tappe in crescendo, chiusura sull'isola difesa) e il
       <b>dungeon del giorno</b>, con un bersaglio reale da assaltare abbattendone le
       difese. Li trovi nel <b>Diario</b> (📖), scheda Imprese, col segno sulle tappe
       già battute. Chi compie finisce agli atti, coi complimenti del Mastro.</p>
 
-      <h3 class="shopSection">🪙 La legge del mare</h3>
-      <p><b>Vita a zero fra capitani = nave BLOCCATA, non affondata.</b> Il vincitore
+      <h3 class="shopSection" data-i18n="man.legge.t">🪙 La legge del mare</h3>
+      <p data-i18n-html="man.legge.p1"><b>Vita a zero fra capitani = nave BLOCCATA, non affondata.</b> Il vincitore
       incassa subito un <b>quarto del forziere in gioco</b>; se entro il tempo limite
       <b>tocca</b> la nave bloccata, l'arrembaggio gli consegna il resto. Se non osa,
       la vittima si svincola con i <b>tre quarti</b>, mezza vita e un'immunità per
@@ -362,32 +359,32 @@
       (10% a punto): spendere in nave è la banca del corsaro, i punti non affondano mai.
       Le prede PvE (mercantili e Corsari Fantasma) affondano come sempre e pagano
       taglie magre e fisse — i veri tesori navigano sotto bandiera altrui.</p>
-      <p><b>La tassa del codardo:</b> chi è in battaglia con un altro capitano resta
+      <p data-i18n-html="man.legge.p2"><b>La tassa del codardo:</b> chi è in battaglia con un altro capitano resta
       <b>ingaggiato</b> per qualche istante dopo ogni colpo. Se in quel mentre
       <b>stacca la spina</b> — refresh o chiusura della pagina — <b>metà del suo
       forziere resta A MARE</b>, in un barilotto galleggiante che il primo che passa
       ripesca col tocco. E la Gazzetta canta il nome del fuggiasco. (Vale solo fra
       capitani: mercantili, mostri e dungeon non ingaggiano nessuno.)</p>
 
-      <h3 class="shopSection">⚓ L'Ancoraggio</h3>
-      <p>Il conto del Maremagnum: un nome e un codice a 6 cifre dalla tua app di
+      <h3 class="shopSection" data-i18n="man.ancoraggio.t">⚓ L'Ancoraggio</h3>
+      <p data-i18n-html="man.ancoraggio.p1">Il conto del Maremagnum: un nome e un codice a 6 cifre dalla tua app di
       autenticazione. <b>Niente password, niente email</b>, niente conferme. Se non entri
       per 30 giorni, il mare si riprende il forziere.</p>
 
-      <h3 class="shopSection">🛡 La Ciurma di Guardia</h3>
-      <p>Nell'app da scrivania, mentre leggi un sito la ciurma respinge tracker e pubblicità
+      <h3 class="shopSection" data-i18n="man.guardia.t">🛡 La Ciurma di Guardia</h3>
+      <p data-i18n-html="man.guardia.p1">Nell'app da scrivania, mentre leggi un sito la ciurma respinge tracker e pubblicità
       (liste EasyList/EasyPrivacy/uBlock), issa il segnale <i>Global Privacy Control</i> e
       preferisce sempre le rotte cifrate (HTTPS). Il contatore 🛡 tiene il conto dei
       parassiti respinti.</p>
 
-      <h3 class="shopSection">🎛 I comandi</h3>
-      <p class="comandi"><b>W A S D</b> (o le frecce) vela e timone · <b>Q</b>/<b>E</b> bordata sinistra/destra ·
+      <h3 class="shopSection" data-i18n="man.comandi.t">🎛 I comandi</h3>
+      <p class="comandi" data-i18n-html="man.comandi.p1"><b>W A S D</b> (o le frecce) vela e timone · <b>Q</b>/<b>E</b> bordata sinistra/destra ·
       <b>SPAZIO</b> prua e poppa · <b>R</b> abilità del tipo · <b>F</b> attracca/salpa · <b>Z</b> o rotella cannocchiale ·
       <b>C</b> classifica · <b>TAB</b> naviga l'interfaccia · <b>ESC</b> chiudi/salpa.
       Ogni tasto d'azione si cambia dalla <b>Timoneria</b>, nelle Impostazioni di bordo.</p>
 
-      <h3 class="shopSection">♿ Un mare per tutti</h3>
-      <p>Maremagnum punta alla conformità <b>WCAG 2.2 AA</b>: tasti rimappabili, interfaccia
+      <h3 class="shopSection" data-i18n="man.a11y.t">♿ Un mare per tutti</h3>
+      <p data-i18n-html="man.a11y.p1">Maremagnum punta alla conformità <b>WCAG 2.2 AA</b>: tasti rimappabili, interfaccia
       tutta navigabile da tastiera (TAB per muoversi, ESC per chiudere), stato di gioco
       annunciato agli screen reader (vita, oro, missioni, diario di bordo, approdi),
       contrasti verificati e codici d'accesso incollabili dall'app di autenticazione.
@@ -395,98 +392,95 @@
       Il mondo dipinto è la scena: lo stato essenziale per giocare passa dai pannelli
       accessibili dell'interfaccia.</p>
 
-      <h3 class="shopSection">👑 Riscatta la tua isola</h3>
-      <p>Sei il capitano del sito vero? Presto potrai <b>riscattare la tua isola</b>:
+      <h3 class="shopSection" data-i18n="man.riscatto.t">👑 Riscatta la tua isola</h3>
+      <p data-i18n-html="man.riscatto.p1">Sei il capitano del sito vero? Presto potrai <b>riscattare la tua isola</b>:
       diventarne proprietario e ridisegnarla con l'<b>Editor dell'Isola</b> — colori,
       edifici, vessilli, fino a farne la tua insegna sul mare. L'editor è in cantiere:
       lascia un segnale e ti chiameremo quando la banchina apre.</p>
       <form id="riscattoForm">
-        <input id="riscattoDominio" aria-label="Dominio della tua isola" placeholder="iltuosito.it" autocomplete="off" spellcheck="false">
-        <input id="riscattoContatto" aria-label="Recapito: email o nome d'ancoraggio" placeholder="come ti raggiungiamo (mail o ancoraggio)" autocomplete="email">
-        <button type="submit">👑 Prenota il riscatto</button>
+        <input id="riscattoDominio" data-i18n-aria="riscatto.dominio.aria" aria-label="Dominio della tua isola" placeholder="iltuosito.it" autocomplete="off" spellcheck="false">
+        <input id="riscattoContatto" data-i18n-aria="riscatto.contatto.aria" data-i18n-ph="riscatto.contatto.ph" aria-label="Recapito: email o nome d'ancoraggio" placeholder="come ti raggiungiamo (mail o ancoraggio)" autocomplete="email">
+        <button type="submit" data-i18n="riscatto.prenota">👑 Prenota il riscatto</button>
       </form>
       <p class="ruoli" id="riscattoEsito" role="status"></p>
     </div>
 
-    <button id="helpClose" class="linkish">Chiudi</button>
+    <button id="helpClose" class="linkish" data-i18n="azione.chiudi">Chiudi</button>
   </div>
 </div>
 
 <div id="gildaOverlay" class="overlay hidden">
   <div class="panel wide" role="dialog" aria-modal="true" aria-labelledby="titoloGilda">
-    <h2 id="titoloGilda">🏴 Le Fratellanze</h2>
+    <h2 id="titoloGilda" data-i18n="gilda.titolo">🏴 Le Fratellanze</h2>
     <div id="gildaMia" class="hidden"></div>
     <div id="gildaSenza" class="hidden">
-      <p class="sub">Il rito è tutto corsaro: per chiedere l'ingresso devi prima <b>bloccare</b> una nave
-      della Fratellanza. Il diritto conquistato vale 7 giorni. Serve l'Ancoraggio.</p>
+      <p class="sub" data-i18n-html="gilda.rito">…</p>
       <div id="gildaElencoBox"></div>
-      <h3 class="shopSection">⚓ Fonda la tua Fratellanza</h3>
+      <h3 class="shopSection" data-i18n="gilda.fonda.titolo">⚓ Fonda la tua Fratellanza</h3>
       <form id="gildaFondaForm">
         <div class="gfRow">
-          <input id="gfNome" placeholder="nome (3-24)" maxlength="24" aria-label="Nome della Fratellanza">
-          <input id="gfTag" placeholder="TAG" maxlength="5" size="6" aria-label="Tag della Fratellanza (2-5 lettere)">
+          <input id="gfNome" data-i18n-ph="gilda.nome.ph" data-i18n-aria="gilda.nome.aria" placeholder="nome (3-24)" maxlength="24" aria-label="Nome della Fratellanza">
+          <input id="gfTag" placeholder="TAG" maxlength="5" size="6" data-i18n-aria="gilda.tag.aria" aria-label="Tag della Fratellanza (2-5 lettere)">
         </div>
         <div class="gfRow">
-          <input id="gfMotto" placeholder="motto (facoltativo)" maxlength="60" aria-label="Motto della Fratellanza">
+          <input id="gfMotto" data-i18n-ph="gilda.motto.ph" data-i18n-aria="gilda.motto.aria" placeholder="motto (facoltativo)" maxlength="60" aria-label="Motto della Fratellanza">
         </div>
         <div class="gfRow">
-          <label>Categoria <select id="gfCategoria" aria-label="Categoria della Fratellanza"></select></label>
-          <label class="setRow"><input type="checkbox" id="gfAperta"> Porte aperte (ammissione automatica)</label>
+          <label><span data-i18n="gilda.categoria">Categoria</span> <select id="gfCategoria" data-i18n-aria="gilda.categoria.aria" aria-label="Categoria della Fratellanza"></select></label>
+          <label class="setRow"><input type="checkbox" id="gfAperta"> <span data-i18n="gilda.aperta">Porte aperte (ammissione automatica)</span></label>
         </div>
         <div class="gfRow" id="gfEditor">
-          <canvas id="gfBandiera" width="150" height="100" role="img" aria-label="Anteprima della bandiera"></canvas>
+          <canvas id="gfBandiera" width="150" height="100" role="img" data-i18n-aria="gilda.bandiera.aria" aria-label="Anteprima della bandiera"></canvas>
           <div id="gfScelte"></div>
         </div>
-        <button type="submit" id="gfFonda">🏴 Fonda la Fratellanza</button>
+        <button type="submit" id="gfFonda" data-i18n="gilda.fonda">🏴 Fonda la Fratellanza</button>
       </form>
     </div>
-    <button id="gildaClose" class="linkish">Chiudi</button>
+    <button id="gildaClose" class="linkish" data-i18n="azione.chiudi">Chiudi</button>
   </div>
 </div>
 
 <!-- id legacy gazzettaOverlay/gazzettaBtn/gazzettaClose per riuso del plumbing overlay -->
 <div id="gazzettaOverlay" class="overlay hidden">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloDiario">
-    <h2 id="titoloDiario">📖 Diario del Capitano</h2>
-    <div id="diarioTabs" role="tablist" aria-label="Sezioni del Diario">
-      <button id="tabImprese" class="diarioTab" role="tab" aria-selected="true">⚔ Imprese</button>
-      <button id="tabCronache" class="diarioTab" role="tab" aria-selected="false">🗞 Cronache</button>
+    <h2 id="titoloDiario" data-i18n="diario.titolo">📖 Diario del Capitano</h2>
+    <div id="diarioTabs" role="tablist" data-i18n-aria="diario.tabs.aria" aria-label="Sezioni del Diario">
+      <button id="tabImprese" class="diarioTab" role="tab" aria-selected="true" data-i18n="diario.imprese">⚔ Imprese</button>
+      <button id="tabCronache" class="diarioTab" role="tab" aria-selected="false" data-i18n="diario.cronache">🗞 Cronache</button>
     </div>
     <div id="diarioImprese" class="diarioPanel" role="tabpanel"></div>
     <div id="diarioCronache" class="diarioPanel hidden" role="tabpanel"></div>
-    <button id="gazzettaClose" class="linkish">Chiudi</button>
+    <button id="gazzettaClose" class="linkish" data-i18n="azione.chiudi">Chiudi</button>
   </div>
 </div>
 
 <div id="alleanzaOverlay" class="overlay hidden">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloAlleanza">
-    <h2 id="titoloAlleanza">🤝 Le Alleanze temporanee</h2>
-    <p class="sub">Unisci le vele con altri corsari per un dungeon ostico: quando le difese cadono,
-    la <b>squadra si spartisce il bottino</b>. L'alleanza dura la sessione — chi sbarca ne è fuori.
-    E la polvere non guarda in faccia nessuno: <b>anche i colpi degli alleati feriscono</b>.</p>
+    <h2 id="titoloAlleanza" data-i18n="alleanza.titolo">🤝 Le Alleanze temporanee</h2>
+    <p class="sub" data-i18n-html="alleanza.sub">…</p>
     <div id="alleanzaMia"></div>
     <div id="alleanzaInviti"></div>
     <div id="alleanzaBandiere"></div>
-    <h3 class="shopSection">⚓ Capitani in mare</h3>
-    <input id="alleanzaCerca" aria-label="Cerca un capitano per nome" placeholder="cerca un capitano per nome…" autocomplete="off" spellcheck="false">
+    <h3 class="shopSection" data-i18n="alleanza.presenti">⚓ Capitani in mare</h3>
+    <input id="alleanzaCerca" data-i18n-aria="alleanza.cerca.aria" data-i18n-ph="alleanza.cerca.ph" aria-label="Cerca un capitano per nome" placeholder="cerca un capitano per nome…" autocomplete="off" spellcheck="false">
     <div id="alleanzaPresentiBox"></div>
-    <button id="alleanzaClose" class="linkish">Chiudi</button>
+    <button id="alleanzaClose" class="linkish" data-i18n="azione.chiudi">Chiudi</button>
   </div>
 </div>
 
 <div id="registroOverlay" class="overlay hidden">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloRegistro">
-    <h2 id="titoloRegistro">🏆 Il Registro delle Collezioni</h2>
-    <p class="sub">Ciò che hai conquistato, scoperto e collezionato — la tua leggenda, agli atti.</p>
+    <h2 id="titoloRegistro" data-i18n="registro.titolo">🏆 Il Registro delle Collezioni</h2>
+    <p class="sub" data-i18n="registro.sub">Ciò che hai conquistato, scoperto e collezionato — la tua leggenda, agli atti.</p>
     <div id="registroVoci"></div>
-    <button id="registroClose" class="linkish">Chiudi</button>
+    <button id="registroClose" class="linkish" data-i18n="azione.chiudi">Chiudi</button>
   </div>
 </div>
 
 <div id="salpaOverlay" class="overlay hidden">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloSalpa">
-    <h2 id="titoloSalpa">⛵ Da dove salpiamo, capitano?</h2>
-    <p class="sub">I tuoi approdi preferiti ti aspettano.</p>
+    <h2 id="titoloSalpa" data-i18n="salpa.titolo">⛵ Da dove salpiamo, capitano?</h2>
+    <p class="sub" data-i18n="salpa.sub">I tuoi approdi preferiti ti aspettano.</p>
     <div id="salpaScelte"></div>
   </div>
 </div>
@@ -495,34 +489,32 @@
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="titoloBenvenuto">
     <h2 id="titoloBenvenuto">⚓ Maremagnum</h2>
     <div id="benvenutoNome">
-      <p class="sub">L'internet è un mare magnum: vasto, profondo e infestato di corsari.<br>Con che nome solcherai le onde?</p>
+      <p class="sub" data-i18n-html="benvenuto.sub">…</p>
       <form id="nameForm">
-        <input id="nameInput" aria-label="Il tuo nome di corsaro" maxlength="18" autocomplete="nickname">
-        <button type="submit">⛵ Salpa!</button>
+        <input id="nameInput" data-i18n-aria="benvenuto.nome.aria" aria-label="Il tuo nome di corsaro" maxlength="18" autocomplete="nickname">
+        <button type="submit" data-i18n="azione.salpaEscl">⛵ Salpa!</button>
       </form>
-      <button id="benvenutoLogin" class="linkish">Ho già un ancoraggio</button>
-      <p class="sub gesto">Là sopra c'è la barra della rotta: scrivi un sito qualsiasi<br>e diventa un'isola da raggiungere — navigare È navigare.</p>
+      <button id="benvenutoLogin" class="linkish" data-i18n="benvenuto.holancora">Ho già un ancoraggio</button>
+      <p class="sub gesto" data-i18n-html="benvenuto.gesto">…</p>
     </div>
     <div id="benvenutoAncora" class="hidden">
-      <p class="sub">Il tuo ancoraggio è <b id="benvenutoHandle"></b>.<br>
-        Inquadralo con la tua app di autenticazione (Google Authenticator, Aegis, 1Password…):<br>
-        il codice a 6 cifre ti farà rientrare nelle prossime sessioni.</p>
+      <p class="sub" data-i18n-html="benvenuto.qr">…<b id="benvenutoHandle"></b></p>
       <canvas id="benvenutoQr" width="168" height="168" role="img" aria-label="Codice QR per l'app di autenticazione (in alternativa usa la chiave manuale qui sotto)"></canvas>
-      <p class="sub">Chiave manuale: <code id="benvenutoSegreto"></code></p>
+      <p class="sub" data-i18n-html="benvenuto.chiave">…<code id="benvenutoSegreto"></code></p>
       <form id="benvenutoConfermaForm">
-        <input id="benvenutoCodice" aria-label="Codice a 6 cifre dall'app di autenticazione" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
-        <button type="submit">⚓ Getta l'ancora e salpa</button>
+        <input id="benvenutoCodice" data-i18n-aria="ancora.codice.aria" data-i18n-ph="ancora.codice.ph" aria-label="Codice a 6 cifre dall'app di autenticazione" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+        <button type="submit" data-i18n="benvenuto.gettaesalpa">⚓ Getta l'ancora e salpa</button>
       </form>
-      <button id="benvenutoSalta" class="linkish">Salpa senza ancora — il bottino resterà solo su questa nave</button>
+      <button id="benvenutoSalta" class="linkish" data-i18n="benvenuto.salta">Salpa senza ancora — il bottino resterà solo su questa nave</button>
     </div>
     <div id="benvenutoEntra" class="hidden">
-      <p class="sub">Bentornato, capitano. Nome d'ancoraggio e codice dalla tua app.</p>
+      <p class="sub" data-i18n="benvenuto.entra.sub">Bentornato, capitano. Nome d'ancoraggio e codice dalla tua app.</p>
       <form id="benvenutoEntraForm">
-        <input id="benvenutoEntraHandle" aria-label="Nome d'ancoraggio" placeholder="nome d'ancoraggio" autocomplete="username">
-        <input id="benvenutoEntraCodice" aria-label="Codice a 6 cifre dall'app di autenticazione" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
-        <button type="submit">⛵ Entra</button>
+        <input id="benvenutoEntraHandle" data-i18n-aria="ancora.nome.aria" data-i18n-ph="ancora.nome.ph" aria-label="Nome d'ancoraggio" placeholder="nome d'ancoraggio" autocomplete="username">
+        <input id="benvenutoEntraCodice" data-i18n-aria="ancora.codice.aria" data-i18n-ph="ancora.codice.ph" aria-label="Codice a 6 cifre dall'app di autenticazione" placeholder="codice a 6 cifre" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+        <button type="submit" data-i18n="benvenuto.entra">⛵ Entra</button>
       </form>
-      <button id="benvenutoIndietro" class="linkish">Sono nuovo da queste acque</button>
+      <button id="benvenutoIndietro" class="linkish" data-i18n="benvenuto.nuovo">Sono nuovo da queste acque</button>
     </div>
   </div>
 </div>

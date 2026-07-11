@@ -1,10 +1,12 @@
-// I dizionari it/en (issue #33). Crescono componente per componente insieme
-// all'audit #32: qui c'è ciò che è già stato estratto (a parità di stringa IT).
-// Registrazione per effetto: importare './dict.js' popola i18n.
-//
-// Componenti coperti finora: plancia (topbar) + selettore lingua.
+// I dizionari it/en (issue #33). Registrazione per effetto: importare
+// './dict.js' popola i18n con TUTTE le voci — qui la plancia storica, in
+// dict-pagina.js il telaio di index.html, in dict-manuale.js il Manuale,
+// in dict-bordo.js le stringhe dinamiche di ui.js/main.js (fetta 1).
 
 import { addDict } from './i18n.js';
+import './dict-pagina.js';
+import './dict-manuale.js';
+import './dict-bordo.js';
 
 const it = {
   // --- plancia (topbar) ---

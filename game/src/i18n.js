@@ -27,12 +27,13 @@ export function t(key, params) {
   return s;
 }
 
-// default: profilo → ?lang= → navigator.language → italiano
+// default: profilo → ?lang= → INGLESE (ordine del capitano, i18n fetta 1:
+// si punta all'utenza larga; l'italiano si sceglie col toggle e resta
+// ricordato nel profilo come le altre preferenze di bordo)
 export function initLang(profileLang) {
   const q = new URLSearchParams(location.search).get('lang');
-  const nav = (navigator.language || 'it').slice(0, 2).toLowerCase();
-  const scelta = profileLang || q || (nav === 'en' ? 'en' : 'it');
-  lang = scelta === 'en' ? 'en' : 'it';
+  const scelta = profileLang || q || 'en';
+  lang = scelta === 'it' ? 'it' : 'en';
   document.documentElement.lang = lang;
 }
 
@@ -46,8 +47,11 @@ export function setLang(l) {
 export function onLang(fn) { listeners.add(fn); }
 
 // applica i marcatori del DOM statico: testo, aria-label, title, placeholder
+// e — per i paragrafi del Manuale coi grassetti — html (SOLO stringhe dei
+// dizionari: mai contenuto utente dentro data-i18n-html)
 export function applyI18n(root = document) {
   for (const el of root.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const el of root.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
   for (const el of root.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
   for (const el of root.querySelectorAll('[data-i18n-title]')) el.setAttribute('title', t(el.dataset.i18nTitle));
   for (const el of root.querySelectorAll('[data-i18n-ph]')) el.setAttribute('placeholder', t(el.dataset.i18nPh));

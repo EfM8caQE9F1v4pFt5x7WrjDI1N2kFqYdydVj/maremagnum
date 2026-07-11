@@ -11,7 +11,7 @@ import { music } from './music.js';
 import { lerp, anglerp, pirateName } from './util.js';
 import { setNotteChiara } from './daycycle.js';
 import QRCode from 'qrcode';
-import { initLang, applyI18n, setLang, getLang, onLang } from './i18n.js';
+import { initLang, applyI18n, setLang, getLang, onLang, t } from './i18n.js';
 import './dict.js'; // registra le stringhe estratte (issue #33)
 
 const INTERP_DELAY = 120; // ms nel passato: si naviga fra due snapshot certi
@@ -123,7 +123,8 @@ function bindLang() {
   if (!sel) return;
   sel.value = getLang();
   sel.addEventListener('change', () => setLang(sel.value));
-  onLang((l) => { sel.value = l; state.profile.lang = l; saveProfile(); });
+  onLang((l) => { sel.value = l; state.profile.lang = l; saveProfile(); document.title = t('pagina.titolo'); state._ventoChiave = ''; });
+  document.title = t('pagina.titolo');
 }
 
 async function boot() {
@@ -287,7 +288,7 @@ function scegliSpawn() {
     box.innerHTML = '';
     const scegli = (d) => { ui.hide('salpaOverlay'); resolve(d); };
     const porto = document.createElement('button');
-    porto.textContent = '⚓ Porto Franco';
+    porto.textContent = '⚓ ' + t('nome.portofranco');
     porto.addEventListener('click', () => scegli(null));
     box.appendChild(porto);
     for (const d of prefs.slice(0, 8)) {
@@ -411,7 +412,7 @@ function toggleFav() {
   if (!d) return;
   const list = state.profile.preferiti || [];
   const on = !list.includes(d);
-  if (on && list.length >= 8) { ui.toast('⭐ Hai già 8 approdi preferiti: togline uno prima'); return; }
+  if (on && list.length >= 8) { ui.toast(t('toast.preferiti8')); return; }
   net.send({ t: 'preferisci', dominio: d, on });
   state.profile.preferiti = on ? [...list, d] : list.filter(x => x !== d);
   saveProfile();
@@ -480,7 +481,7 @@ function benvenuto() {
       }).catch(() => ({ errore: 'mare irraggiungibile' }));
       if (r.errore) { ui.toast('⚓ ' + r.errore); return; }
       state.profile.ancora = { token: r.token, uid: r.uid };
-      ui.toast('⚓ Ancora gettata: il bottino è al sicuro in mare aperto.', 4000);
+      ui.toast(t('toast.ancorata'), 4000);
       fine(nomeScelto);
     });
     $id('benvenutoSalta').addEventListener('click', () => {
@@ -501,7 +502,7 @@ function benvenuto() {
       if (r.errore) { ui.toast('⚓ ' + r.errore); return; }
       state.profile.ancora = { token: r.token, uid: r.uid };
       if (r.profilo) Object.assign(state.profile, r.profilo);
-      ui.toast('⚓ Bentornato a bordo, capitano.', 3000);
+      ui.toast(t('toast.bentornato'), 3000);
       fine((r.profilo && r.profilo.name) || r.uid);
     });
 
@@ -563,7 +564,7 @@ function wireAncora() {
   });
   $id('ancoraEntraBtn').addEventListener('click', () => {
     const handle = $id('ancoraHandle').value.trim();
-    if (!handle) { ui.toast('Scrivi il nome del tuo ancoraggio, poi il codice.'); return; }
+    if (!handle) { ui.toast(t('toast.scriviancora')); return; }
     ancoraModo = 'entra';
     state._ancoraHandle = handle;
     $id('ancoraQr').classList.add('hidden');
@@ -612,8 +613,8 @@ function applySettings({ music: m, sfx: s, guard: g, calma: c, notte: n, volume:
 // SOFFIA: prua allineata = vento in poppa.
 // ?forcevento=dir,forza (sviluppo): radianti e 0..1, per foto deterministiche.
 
-const PUNTE = ['E', 'SE', 'S', 'SO', 'O', 'NO', 'N', 'NE'];
-const PUNTE_ARIA = ['est', 'sud-est', 'sud', 'sud-ovest', 'ovest', 'nord-ovest', 'nord', 'nord-est'];
+const PUNTE = () => t('vento.punte').split(',');
+const PUNTE_ARIA = () => t('vento.punte.aria').split(',');
 
 function setVento(dir, forza) {
   const forced = devParams.get('forcevento');
@@ -641,7 +642,7 @@ function setVento(dir, forza) {
   // dove arriva, la freccia indica dove spinge
   const da = (dir + Math.PI) % (2 * Math.PI);
   const punta = Math.round(da / (Math.PI / 4)) % 8;
-  const forzaNome = forza < 0.65 ? 'brezza' : forza < 0.85 ? 'vento teso' : 'burrasca';
+  const forzaNome = forza < 0.65 ? t('vento.brezza') : forza < 0.85 ? t('vento.teso') : t('vento.burrasca');
   // dentro una burrasca vagante (fetta 5) la rosa lo urla: vento pieno,
   // palle corte — l'informazione tattica sta dove già guardi il meteo
   const me = latestMe();
@@ -650,13 +651,13 @@ function setVento(dir, forza) {
   if (state._ventoChiave !== chiave) { // il testo cambia di rado, il DOM pure
     state._ventoChiave = chiave;
     document.getElementById('ventoNome').textContent = tempesta
-      ? `⛈ burrasca! · da ${PUNTE[punta]}` : `da ${PUNTE[punta]} · ${forzaNome}`;
+      ? t('vento.tempesta.nome', { p: PUNTE()[punta] }) : t('vento.nome', { p: PUNTE()[punta], forza: forzaNome });
     hud.setAttribute('aria-label', tempesta
-      ? `Sei in una burrasca: vento pieno da ${PUNTE_ARIA[punta]}, gittata ridotta`
-      : `Vento da ${PUNTE_ARIA[punta]}, ${forzaNome}`);
+      ? t('vento.tempesta.aria', { p: PUNTE_ARIA()[punta] })
+      : t('vento.aria', { p: PUNTE_ARIA()[punta], forza: forzaNome }));
     hud.title = tempesta
-      ? `Burrasca! Il vento morde a forza piena e le palle volano corte: esci dalla pioggia o approfittane`
-      : `Il vento tira da ${PUNTE_ARIA[punta]} (${forzaNome}); la freccia indica dove spinge: in poppa corri, di bolina freni`;
+      ? t('vento.tempesta.title')
+      : t('vento.title', { p: PUNTE_ARIA()[punta], forza: forzaNome });
   }
 }
 
@@ -690,7 +691,7 @@ function captureRebind(e) {
   state.rebind = null;
   if (e.code !== 'Escape') {
     if (TASTI_RISERVATI.includes(e.code)) {
-      ui.toast('Quel tasto serve alla navigazione: scegline un altro.');
+      ui.toast(t('toast.tastoriservato'));
     } else {
       const occupato = AZIONI.find(([a]) => a !== azione && state.keymap[a] === e.code);
       if (occupato) ui.toast(`«${keyLabel(e.code)}» è già il tasto di ${occupato[1]}.`);
@@ -761,7 +762,7 @@ function wireNet() {
     // lì l'uid esce SOLO dal token verificato dai Conti
     uid: devParams.get('uid') || undefined,
   }));
-  net.on('_close', () => ui.toast('⚠ Il mare si è chiuso: connessione perduta. Ricarica per salpare di nuovo.', 60000));
+  net.on('_close', () => ui.toast(t('toast.connessione'), 60000));
 
   net.on('welcome', (m) => {
     state.meId = m.id;
@@ -782,7 +783,7 @@ function wireNet() {
     ui.setMunizione('palle', state.arsenal && state.arsenal.munizioni);
     const munForzata = devParams.get('munizione');
     if (munForzata) net.send({ t: 'munizione', tipo: munForzata });
-    ui.toast('⚓ Attracca al Porto Franco (tasto F) per il Cantiere e la Bacheca degli Assedi', 6000);
+    ui.toast(t('toast.portofranco'), 6000);
   });
 
   // l'ack della munizione: lo stato vero è quello del mare
@@ -836,8 +837,8 @@ function wireNet() {
       state._hpPrima = io.sunk ? null : io.hp;
       // il colpo che menoma si annuncia (#41 fetta 2): toast al debuff
       // fresco, poi il glifo sopra il nome fa da promemoria
-      if (io.vt && !state._vtPrima) ui.toast('⛓ Vele tagliate: la nave arranca!', 3500);
-      if (io.cf && !state._cfPrima) ui.toast('☠ Ciurma falcidiata: si ricarica piano!', 3500);
+      if (io.vt && !state._vtPrima) ui.toast(t('toast.veletagliate'), 3500);
+      if (io.cf && !state._cfPrima) ui.toast(t('toast.falcidiata'), 3500);
       state._vtPrima = !!io.vt;
       state._cfPrima = !!io.cf;
     }
@@ -863,8 +864,8 @@ function wireNet() {
     renderer.setDest(m.island);
     const me = latestMe();
     ui.showTreasureMap(me || state.port, m.island, m.url);
-    if (m.island.fortress) ui.toast('⚠ Quelle acque sono difese da una Fortezza quasi inespugnabile!', 5000);
-    else if (m.island.dungeon) ui.toast('⚔ Il Mastro ha steso un dungeon qui: abbatti le difese per il bottino!', 5000);
+    if (m.island.fortress) ui.toast(t('toast.fortezza'), 5000);
+    else if (m.island.dungeon) ui.toast(t('toast.dungeon'), 5000);
   });
 
   net.on('docked', (m) => {
@@ -924,7 +925,7 @@ function wireNet() {
     state.profile.conquered = m.list;
     saveProfile();
     renderer.markConquered(m.island);
-    ui.toast('🏰 FORTEZZA ESPUGNATA! Il blocco è caduto per te, per sempre.', 7000);
+    ui.toast(t('toast.espugnata'), 7000);
   });
 
   net.on('fortFall', (m) => { renderer.addShake(10); });
@@ -969,7 +970,7 @@ function wireNet() {
     sfx.sink();
     battleUntil = performance.now() + 3000;
   });
-  net.on('respawned', () => { ui.hideDeath(); ui.toast('Nave riparata a nuovo. Il mare ti aspetta.'); });
+  net.on('respawned', () => { ui.hideDeath(); ui.toast(t('toast.riparata')); });
   net.on('board', (m) => ui.setBoard(m.rows));
   net.on('gilda', (m) => {
     state.gildaMia = m.mia || null;
@@ -1033,7 +1034,7 @@ function wireShell() {
   if (!shell) return;
   shell.onNavRequest(({ url }) => {
     ui.setCourseInput(url);
-    ui.toast('🧭 Nuova rotta richiesta: si salpa!');
+    ui.toast(t('toast.nuovarotta'));
     if (state.docked) undock();
     setCourse(url);
   });
@@ -1120,7 +1121,7 @@ function wireInput() {
         if (state.docked) return;
         // R senza varo non è più muto (#41 fetta 2-bis): spiega la strada
         if (!state.profile.tipo) {
-          ui.toast('✦ L\'abilità arriva col varo: Cantiere del Porto Franco (tasto F)', 3500);
+          ui.toast(t('toast.abilitavaro'), 3500);
           return;
         }
         net.send({ t: 'abilita' });
