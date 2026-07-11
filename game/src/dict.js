@@ -7,6 +7,7 @@ import { addDict } from './i18n.js';
 import './dict-pagina.js';
 import './dict-manuale.js';
 import './dict-bordo.js';
+import './dict-mare.js';
 
 const it = {
   // --- plancia (topbar) ---

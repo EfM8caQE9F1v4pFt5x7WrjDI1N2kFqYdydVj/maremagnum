@@ -154,8 +154,8 @@ class Missions {
       if (m.progress >= m.n) {
         m.fatta = true;
         ship.gold += m.reward;
-        this.game.sendGold(ship, m.reward, `Missione del giorno compiuta: ${m.desc}`);
-        this.game.broadcast({ t: 'feed', msg: `📜 ${ship.name} ha compiuto una missione del giorno (+${m.reward} 🪙)` });
+        this.game.sendGold(ship, m.reward, 'oro.missione', { desc: m.desc });
+        this.game.feedK('feed.missione', { nome: ship.name, oro: m.reward });
       }
     }
     if (mutata && ship.giornaliere.every(m => m.fatta)) this.pagaTris(ship);
@@ -172,15 +172,15 @@ class Missions {
     ship.strike = st;
     const bonus = PREMI.tris + PREMI.strike * Math.min(st.n, PREMI.strikeCap);
     ship.gold += bonus;
-    this.game.sendGold(ship, bonus, `Tris del giorno! (strike di ${st.n} ${st.n === 1 ? 'giorno' : 'giorni'})`);
-    this.game.broadcast({ t: 'feed', msg: `🌟 ${ship.name} ha compiuto il tris del giorno (strike ×${st.n})` });
+    this.game.sendGold(ship, bonus, st.n === 1 ? 'oro.tris1' : 'oro.tris', { n: st.n });
+    this.game.feedK('feed.tris', { nome: ship.name, n: st.n });
     const sett = Math.floor(oggi / 7);
     if (!ship.settimana || ship.settimana.periodo !== sett) ship.settimana = { periodo: sett, pieni: 0 };
     ship.settimana.pieni = Math.min(7, ship.settimana.pieni + 1);
     if (ship.settimana.pieni === 7) {
       ship.gold += PREMI.settimana;
-      this.game.sendGold(ship, PREMI.settimana, 'Settimana piena: il tris tutti i giorni!');
-      this.game.broadcast({ t: 'feed', msg: `👑 ${ship.name} ha compiuto la settimana piena (+${PREMI.settimana} 🪙)` });
+      this.game.sendGold(ship, PREMI.settimana, 'oro.settimana');
+      this.game.feedK('feed.settimana', { nome: ship.name, oro: PREMI.settimana });
     }
   }
 
@@ -210,7 +210,7 @@ class Missions {
         corridori: new Set(), bloccatori: new Set(),
         tPhase: 0,
       };
-      this.game.broadcast({ t: 'feed', msg: `⚔️ ${ship.name} ha bandito un Assedio! Presentarsi alla Bacheca del Porto.` });
+      this.game.feedK('feed.assedio', { nome: ship.name });
     }
     const a = this.assedio;
     if (a.phase === 'running') { this.game.sendTo(ship, { t: 'toast', msg: "L'assedio è già in corso." }); return; }

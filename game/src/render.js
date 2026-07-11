@@ -4,6 +4,7 @@
 
 import { Application, Container, Graphics, Text, Sprite, Texture, TilingSprite, Assets, Rectangle, MeshRope, Point } from 'pixi.js';
 import { mulberry32, clamp } from './util.js';
+import { nomeIsola, nomeNave } from './dict-mare.js';
 import { Water } from './water.js';
 import { CanvasWater } from './water-canvas.js';
 import { lightNow } from './daycycle.js';
@@ -1054,7 +1055,7 @@ export class Renderer {
     this.islandLayer.addChild(c);
 
     const label = new Text({
-      text: island.name,
+      text: nomeIsola(island),
       style: {
         fontFamily: 'Pirata One, Georgia, serif', fontSize: 18,
         fill: island.fortress ? 0xd98873 : 0xe9dcbc,
@@ -1404,7 +1405,7 @@ export class Renderer {
       // la targhetta del nome (issue #20): fondino scuro + orlo, leggibile
       // anche sopra le vele bianche; il Fantasma si annuncia in tinta ostile
       const label = new Text({
-        text: s.name,
+        text: nomeNave(s),
         style: {
           fontFamily: 'Atkinson Hyperlegible Next, sans-serif', fontSize: 13,
           fill: s.id === selfId ? 0xbfe8a8 : (s.k === 'g' ? 0xf0937b : s.k === 'm' ? 0xcfd6d9 : s.k === 'x' ? 0xc9a0e8 : 0xffc9b0),
@@ -1498,7 +1499,10 @@ export class Renderer {
       if (c.tag && c.fondino) {
         // il 🤝 degli alleati (issue #37): si riconoscono in mezzo alla battaglia
         const alleato = this.alleati && this.alleati.has(s.id) && s.id !== selfId;
-        const testo = (alleato ? '🤝 ' : '') + (s.gt ? '[' + s.gt + '] ' : '') + s.name;
+        // il nome nella lingua corrente (i18n fetta 2): gli NPC per chiave —
+        // e siccome si ricompone a ogni frame, il cambio lingua rinfresca
+        // le targhette da solo
+        const testo = (alleato ? '🤝 ' : '') + (s.gt ? '[' + s.gt + '] ' : '') + nomeNave(s);
         const bfKey = (!s.gt && Array.isArray(s.bf)) ? s.bf.join('.') : '';
         if (c.label.text !== testo || c.tagBf !== bfKey) {
           c.label.text = testo;

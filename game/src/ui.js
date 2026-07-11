@@ -2,6 +2,7 @@
 
 import { drawTreasureMap } from './mapgen.js';
 import { t as tr } from './i18n.js';
+import { tMsg, nomeIsola } from './dict-mare.js';
 import { disegnaBandiera, TINTE, TAGLI, EMBLEMI } from './bandiera.js';
 
 const CATEGORIE_GILDA = ['corsari', 'mercanti', 'esploratori', 'accademici', 'guardiani'];
@@ -286,7 +287,9 @@ export class UI {
   // la munizione caricata (#41 fetta 2): emoji + nome dal catalogo del welcome
   setMunizione(tipo, catalogo) {
     const m = (catalogo && catalogo[tipo]) || { emoji: '⚫', name: 'Palle piene' };
-    $('munizioneVal').textContent = `${m.emoji} ${m.name}`;
+    const k = 'munizione.' + tipo;
+    const nome = tr(k) === k ? m.name : tr(k);
+    $('munizioneVal').textContent = `${m.emoji} ${nome}`;
   }
 
   // l'abilità in corso (#41 fetta 2-bis): la barra R arde finché dura
@@ -303,11 +306,20 @@ export class UI {
     $('rlKeyAxial').textContent = `${l.pruaPoppa === 'SPAZIO' ? '␣' : l.pruaPoppa} ⇅`;
     if (this._abilityEmoji) $('abilityKey').textContent = `${l.abilita} ${this._abilityEmoji}`;
     $('munizioneKey').textContent = l.munizione;
-    $('hint').innerHTML =
-      `Vela <b>${esc(l.su)} ${esc(l.sinistra)} ${esc(l.giu)} ${esc(l.destra)}</b> · ` +
-      `Bordata sin. <b>${esc(l.bordataSin)}</b> / des. <b>${esc(l.bordataDes)}</b> · ` +
-      `Prua/Poppa <b>${esc(l.pruaPoppa)}</b> · Munizioni <b>${esc(l.munizione)}</b> · Abilità <b>${esc(l.abilita)}</b> · ` +
-      `Attracca <b>${esc(l.attracca)}</b> · Zoom <b>${esc(l.zoom)}</b> · Classifica <b>${esc(l.classifica)}</b>`;
+    $('hint').innerHTML = tr('hud.hint.tasti', {
+      su: esc(l.su), sinistra: esc(l.sinistra), giu: esc(l.giu), destra: esc(l.destra),
+      bs: esc(l.bordataSin), bd: esc(l.bordataDes), pp: esc(l.pruaPoppa),
+      mun: esc(l.munizione), ab: esc(l.abilita), att: esc(l.attracca),
+      zoom: esc(l.zoom), cla: esc(l.classifica),
+    });
+  }
+
+  // il nome di un'arma nella lingua corrente: per id, col nome del
+  // server come fallback (i18n fetta 2)
+  nomeArma(tipo, fallback) {
+    const k = 'arma.' + tipo;
+    const v = tr(k);
+    return v === k ? fallback : v;
   }
 
   groupLabel(g) {
@@ -446,7 +458,7 @@ export class UI {
     const w = Math.min(1060, innerWidth * 0.82);
     canvas.width = w; canvas.height = Math.round(w * 0.62);
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', tr('map.verso.aria', { nome: island.name }));
+    canvas.setAttribute('aria-label', tr('map.verso.aria', { nome: nomeIsola(island) }));
     drawTreasureMap(canvas, { from, island });
     this.show('mapOverlay');
     // niente auto-chiusura: la pergamena resta finché il capitano non salpa
@@ -482,8 +494,8 @@ export class UI {
     }
     for (const [g, data] of Object.entries(m.groups)) {
       for (const s of data.slots) {
-        if (s.upCost !== null) candidati.push({ testo: tr('consiglio.potenzia', { arma: s.name, gruppo: this.groupLabel(g) }), costo: s.upCost, fk: `up-${g}-${s.slot}`, scheda: 'armi' });
-        else if (s.replace) candidati.push({ testo: tr('consiglio.passa', { arma: s.replace.name, gruppo: this.groupLabel(g) }), costo: s.replace.cost, fk: `rep-${g}-${s.slot}`, scheda: 'armi' });
+        if (s.upCost !== null) candidati.push({ testo: tr('consiglio.potenzia', { arma: this.nomeArma(s.type, s.name), gruppo: this.groupLabel(g) }), costo: s.upCost, fk: `up-${g}-${s.slot}`, scheda: 'armi' });
+        else if (s.replace) candidati.push({ testo: tr('consiglio.passa', { arma: this.nomeArma(s.replace.type, s.replace.name), gruppo: this.groupLabel(g) }), costo: s.replace.cost, fk: `rep-${g}-${s.slot}`, scheda: 'armi' });
       }
       if (data.nextSlotCost !== null) candidati.push({ testo: tr('consiglio.slot', { gruppo: this.groupLabel(g) }), costo: data.nextSlotCost, fk: `slot-${g}`, scheda: 'armi' });
     }
@@ -533,16 +545,16 @@ export class UI {
     if (tuoTipo) {
       // la scala visiva del tipo (issue #11): scafo e vele al massimo = veterana
       const pieno = h >= 4 && v >= 4;
-      const nome = !pieno ? esc(tuoTipo.nome)
-        : m.varo.tipo === 'galeone' ? 'Galeone Dorato'
-          : m.varo.tipo === 'goletta' ? 'Goletta Veterana'
-            : m.varo.tipo === 'guerra' ? 'Brigantino Veterano' : esc(tuoTipo.nome);
-      banner.innerHTML = tr('shop.nave.banner', { nome, sotto: esc(tuoTipo.motto) });
+      const nome = !pieno ? esc(tr('tipo.' + m.varo.tipo))
+        : m.varo.tipo === 'galeone' ? tr('classe.dorato')
+          : m.varo.tipo === 'goletta' ? tr('classe.golettavet')
+            : m.varo.tipo === 'guerra' ? tr('classe.guerravet') : esc(tr('tipo.' + m.varo.tipo));
+      banner.innerHTML = tr('shop.nave.banner', { nome, sotto: esc(tr('motto.' + m.varo.tipo)) });
     } else {
-      const classe = h >= 4 ? (v >= 4 ? 'Galeone Dorato' : 'Galeone') : h >= 2 ? 'Brigantino' : 'Sloop';
+      const classe = h >= 4 ? (v >= 4 ? tr('classe.dorato') : tr('classe.galeone')) : h >= 2 ? tr('classe.brigantino') : tr('classe.sloop');
       const prossima = h >= 4
-        ? (v >= 4 ? 'la regina dei mari: non c\'è legno migliore' : 'con Vele 4 diventa <b>Galeone Dorato</b>')
-        : h >= 2 ? 'con Scafo 4 diventa <b>Galeone</b>' : 'con Scafo 2 diventa <b>Brigantino</b>';
+        ? (v >= 4 ? tr('classe.regina') : tr('classe.versoDorato'))
+        : h >= 2 ? tr('classe.versoGaleone') : tr('classe.versoBrigantino');
       banner.innerHTML = tr('shop.nave.banner', { nome: classe, sotto: prossima });
     }
     ship.appendChild(banner);
@@ -577,8 +589,10 @@ export class UI {
     const mioTipo = m.varo && m.varo.tipo && m.varo.tipi && m.varo.tipi[m.varo.tipo];
     if (mioTipo && mioTipo.abilitaInfo) {
       const i = mioTipo.abilitaInfo;
-      const effetto = /[.!?]$/.test(i.effetto.trim()) ? i.effetto.trim() : i.effetto.trim() + '.';
-      abBox.innerHTML = tr('armi.r.mia', { emo: EMOJI_AB[m.varo.tipo] || '✦', nome: esc(i.nome), effetto: esc(effetto), cd: i.cd, tipo: esc(mioTipo.nome) });
+      const nomeAb = tr('abilita.' + m.varo.tipo + '.nome');
+      const effettoRaw = i.ap ? tr('abilita.' + m.varo.tipo + '.effetto', i.ap) : i.effetto;
+      const effetto = /[.!?]$/.test(effettoRaw.trim()) ? effettoRaw.trim() : effettoRaw.trim() + '.';
+      abBox.innerHTML = tr('armi.r.mia', { emo: EMOJI_AB[m.varo.tipo] || '✦', nome: esc(nomeAb), effetto: esc(effetto), cd: i.cd, tipo: esc(tr('tipo.' + m.varo.tipo)) });
     } else {
       abBox.innerHTML = tr('armi.r.nessuna');
     }
@@ -592,7 +606,7 @@ export class UI {
     if (m.varo && m.varo.tipi) {
       const altre = Object.entries(m.varo.tipi)
         .filter(([k]) => k !== m.varo.tipo)
-        .map(([k, t]) => `${EMOJI_AB[k] || '✦'} ${(t.abilitaInfo && t.abilitaInfo.nome) || t.abilita} (${t.nome})`)
+        .map(([k]) => `${EMOJI_AB[k] || '✦'} ${tr('abilita.' + k + '.nome')} (${tr('tipo.' + k)})`)
         .join(' · ');
       if (altre) {
         const notaAb = document.createElement('p');
@@ -623,7 +637,7 @@ export class UI {
         // la scheda dell'arma (audit Cantiere): i numeri del livello attuale
         const statRiga = s.stats
           ? `<span class="wstat">${tr('armi.stats', { dmg: s.stats.dmg, range: s.stats.range, reload: s.stats.reload })}</span>` : '';
-        row.innerHTML = `<div class="wname"><b>${esc(s.name)}</b> <span class="tier">${tr('armi.tier', { r: ROMAN[s.tier - 1] })}</span><span class="pips">${pips}</span>${statRiga}</div>`;
+        row.innerHTML = `<div class="wname"><b>${esc(this.nomeArma(s.type, s.name))}</b> <span class="tier">${tr('armi.tier', { r: ROMAN[s.tier - 1] })}</span><span class="pips">${pips}</span>${statRiga}</div>`;
         // la colonna delle azioni (audit Cantiere 2): potenzia/sostituisci
         // E il ripensamento ⇄ delle esclusive convivono, impilati
         const azioni = document.createElement('div');
@@ -631,7 +645,7 @@ export class UI {
         if (s.upCost !== null) {
           const b = document.createElement('button');
           b.textContent = tr('armi.potenzia', { costo: s.upCost });
-          b.setAttribute('aria-label', tr('armi.potenzia.aria', { nome: s.name, gruppo: this.groupLabel(g), costo: s.upCost }));
+          b.setAttribute('aria-label', tr('armi.potenzia.aria', { nome: this.nomeArma(s.type, s.name), gruppo: this.groupLabel(g), costo: s.upCost }));
           b.dataset.fk = `up-${g}-${s.slot}`;
           b.disabled = m.gold < s.upCost;
           if (b.disabled) b.title = tr('costo.mancano', { costo: s.upCost, oro: m.gold });
@@ -641,7 +655,7 @@ export class UI {
           const b = document.createElement('button');
           b.className = 'tierUp';
           const gratis = s.replace.posseduta;
-          b.textContent = gratis ? tr('armi.giatua', { nome: s.replace.name }) : tr('armi.sostituisci', { nome: s.replace.name, costo: s.replace.cost });
+          b.textContent = gratis ? tr('armi.giatua', { nome: this.nomeArma(s.replace.type, s.replace.name) }) : tr('armi.sostituisci', { nome: this.nomeArma(s.replace.type, s.replace.name), costo: s.replace.cost });
           const conStats = s.replace.stats
             ? ` (${tr('armi.stats.brevi', { dmg: s.replace.stats.dmg, range: s.replace.stats.range, reload: s.replace.stats.reload })})` : '';
           b.setAttribute('aria-label', gratis
@@ -662,7 +676,7 @@ export class UI {
         }
         if (s.indietro) {
           const b = document.createElement('button');
-          b.textContent = tr('armi.indietro', { nome: s.indietro.name });
+          b.textContent = tr('armi.indietro', { nome: this.nomeArma('mortaio', s.indietro.name) });
           b.setAttribute('aria-label', tr('armi.indietro.aria', { a: s.indietro.name, da: s.name }));
           b.dataset.fk = `giu-${g}-${s.slot}`;
           b.title = tr('armi.indietro.title');
@@ -719,18 +733,21 @@ export class UI {
       // quanto torna — e l'esclusiva coi suoi numeri, non solo il nome
       const ab = t.abilitaInfo;
       const es = t.esclusivaInfo;
+      const nomeAbil = ab ? tr('abilita.' + key + '.nome') : (t.abilita || '—');
+      const effettoAbil = ab ? (ab.ap ? tr('abilita.' + key + '.effetto', ab.ap) : ab.effetto) : '';
+      const nomeEscl = t.esclusivaId ? this.nomeArma(t.esclusivaId, t.esclusiva) : t.esclusiva;
       const righeExtra = ab
-        ? `<span class="effetti abilitaRiga">${tr('varo.abilita.riga', { nome: esc(ab.nome), cd: ab.cd, effetto: esc(ab.effetto) })}</span>
-           <span class="effetti esclusivaRiga">${tr('varo.esclusiva.riga', { nome: esc(t.esclusiva) })}${es ? ` — ${tr('armi.stats', { dmg: es.dmg, range: es.range, reload: es.reload })}` : ''}</span>`
-        : `<span class="effetti">${tr('varo.riga.breve', { abilita: esc(t.abilita || '—'), esclusiva: esc(t.esclusiva) })}</span>`;
-      row.innerHTML = `<div class="shopInfo"><b>${EMOJI[key] || '⚓'} ${esc(t.nome)}</b><span>${esc(t.motto)}</span>
+        ? `<span class="effetti abilitaRiga">${tr('varo.abilita.riga', { nome: esc(nomeAbil), cd: ab.cd, effetto: esc(effettoAbil) })}</span>
+           <span class="effetti esclusivaRiga">${tr('varo.esclusiva.riga', { nome: esc(nomeEscl) })}${es ? ` — ${tr('armi.stats', { dmg: es.dmg, range: es.range, reload: es.reload })}` : ''}</span>`
+        : `<span class="effetti">${tr('varo.riga.breve', { abilita: esc(nomeAbil), esclusiva: esc(nomeEscl) })}</span>`;
+      row.innerHTML = `<div class="shopInfo"><b>${EMOJI[key] || '⚓'} ${esc(tr('tipo.' + key))}</b><span>${esc(tr('motto.' + key))}</span>
         <span class="effetti">${esc(eff.join(' · '))}</span>${righeExtra}</div>`;
       const btn = document.createElement('button');
       btn.dataset.fk = `varo-${key}`;
       if (varo.tipo === key) { btn.textContent = tr('varo.tuanave'); btn.disabled = true; }
       else {
         btn.textContent = tr('varo.vara', { costo: varo.cost });
-        btn.setAttribute('aria-label', tr('varo.vara.aria', { nome: t.nome, costo: varo.cost }));
+        btn.setAttribute('aria-label', tr('varo.vara.aria', { nome: tr('tipo.' + key), costo: varo.cost }));
         btn.disabled = gold < varo.cost;
         if (btn.disabled) btn.title = tr('costo.mancano', { costo: varo.cost, oro: gold });
         btn.addEventListener('click', () => this.h.onVaro(key));
@@ -946,13 +963,13 @@ export class UI {
   showSearch() { this.show('searchOverlay'); $('searchInput').value = ''; $('searchInput').focus(); }
 
   showSiteFallback(island, url) {
-    $('siteTitle').textContent = tr('sito.attraccato', { nome: island.name });
+    $('siteTitle').textContent = tr('sito.attraccato', { nome: nomeIsola(island) });
     $('siteLink').href = url;
     this.show('siteOverlay');
   }
 
   showDockbar(island, url) {
-    $('dockInfo').textContent = `⚓ ${island.name}`;
+    $('dockInfo').textContent = `⚓ ${nomeIsola(island)}`;
     $('dockUrl').textContent = url;
     this.show('dockbar');
     document.body.classList.add('attraccato'); // le pillole HUD scendono
@@ -1335,7 +1352,7 @@ export class UI {
   _cardMissione(m) {
     const c = document.createElement('div');
     c.className = 'impresaCard' + (m.fatta ? ' fatta' : '');
-    const h = document.createElement('h4'); h.textContent = (m.fatta ? '✓ ' : '') + m.desc;
+    const h = document.createElement('h4'); h.textContent = (m.fatta ? '✓ ' : '') + (m.key ? tMsg('missione.' + m.key, { tld: m.tld, n: m.n }) : m.desc);
     const r = document.createElement('span'); r.className = 'reward';
     r.textContent = m.fatta ? tr('diario.incassati', { r: m.reward }) : `+${m.reward} 🪙`;
     c.append(h, r);
@@ -1439,7 +1456,7 @@ export class UI {
       quando.textContent = faTempo(v.t);
       quando.dateTime = new Date(v.t).toISOString();
       const testo = document.createElement('p');
-      testo.textContent = v.testo;
+      testo.textContent = v.k ? tMsg(v.k, v.p) : v.testo;
       riga.append(quando, testo);
       box.appendChild(riga);
     }

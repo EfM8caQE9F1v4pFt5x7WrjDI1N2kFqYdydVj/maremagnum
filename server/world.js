@@ -54,6 +54,17 @@ function islandName(domain, fortress) {
   return `${TLD_KIND[tld] || 'Isola'} di ${pretty}`;
 }
 
+// il battesimo A CHIAVE (i18n fetta 2): nk è la chiave del genere d'isola
+// (isola.<nk> nei dizionari), nd il nome proprio che riempie {d} — il
+// client compone il toponimo nella SUA lingua
+function islandNameKey(domain, fortress) {
+  const parts = domain.split('.');
+  const tld = parts[parts.length - 1];
+  const base = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
+  const pretty = base.charAt(0).toUpperCase() + base.slice(1);
+  return { nk: fortress ? 'fortezza' : 'k.' + (TLD_KIND[tld] ? tld : 'com'), nd: pretty };
+}
+
 // Interpreta cosa ha scritto l'utente nella barra della rotta.
 function parseCourse(q) {
   q = String(q || '').trim().slice(0, 200);
@@ -109,11 +120,11 @@ class Archipelago {
   constructor() {
     this.islands = new Map(); // id -> island
     this._addFixed({
-      id: 'porto', kind: 'porto', domain: null, name: 'Porto Franco',
+      id: 'porto', kind: 'porto', domain: null, name: 'Porto Franco', nk: 'porto',
       x: PORT.x, y: PORT.y, r: 130, seed: 42, fortress: false,
     });
     this._addFixed({
-      id: 'oracolo', kind: 'oracolo', domain: null, name: "Faro dell'Oracolo",
+      id: 'oracolo', kind: 'oracolo', domain: null, name: "Faro dell'Oracolo", nk: 'oracolo',
       x: PORT.x + 560, y: PORT.y - 420, r: 85, seed: 1337, fortress: false,
     });
   }
@@ -144,7 +155,7 @@ class Archipelago {
       if (x < 300 || y < 300 || x > WORLD.W - 300 || y > WORLD.H - 300) continue;
       placed = this.list().every(o => Math.hypot(o.x - x, o.y - y) > o.r + r + 260);
     }
-    const island = { id: domain, kind: 'site', domain, name: islandName(domain, fortress), x, y, r, seed, fortress };
+    const island = { id: domain, kind: 'site', domain, name: islandName(domain, fortress), ...islandNameKey(domain, fortress), x, y, r, seed, fortress };
     if (fortress) {
       island.defs = [];
       island.fallenUntil = 0;
@@ -201,7 +212,7 @@ class Archipelago {
 
 // Versione dell'isola sicura da mandare ai client (senza stato interno delle difese).
 function publicIsland(i) {
-  return { id: i.id, kind: i.kind, domain: i.domain, name: i.name, x: i.x, y: i.y, r: i.r, seed: i.seed, fortress: i.fortress, dungeon: !!i.dungeon };
+  return { id: i.id, kind: i.kind, domain: i.domain, name: i.name, nk: i.nk, nd: i.nd, x: i.x, y: i.y, r: i.r, seed: i.seed, fortress: i.fortress, dungeon: !!i.dungeon };
 }
 
 module.exports = { WORLD, PORT, FORT, hashStr, mulberry32, parseCourse, Archipelago, publicIsland };

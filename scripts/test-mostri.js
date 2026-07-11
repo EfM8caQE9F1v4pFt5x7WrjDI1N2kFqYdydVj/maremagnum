@@ -70,6 +70,7 @@ game.now = kraken.emersioneA;
 game.steerMostro(kraken);
 assert(!kraken.sommerso, 'ombra piena: il Kraken è FUORI');
 assert(etere.some(m => m.t === 'feed' && /EMERGE dagli abissi sotto Ammazzadraghi/.test(m.msg || '')), 'l\'emersione è pubblica');
+assert(etere.some(m => m.t === 'feed' && m.k === 'mostro.emerge' && m.p && m.p.mostro_k === 'mostro.kraken'), 'e viaggia A CHIAVE (i18n fetta 2)');
 assert(game.fxQueue.some(f => f.k === 'emersione'), 'e si vede (fx)');
 ok('agguato: telegrafo di 2.5s (ombra che si gonfia), poi emersione pubblica');
 
@@ -224,6 +225,7 @@ game.sendSnapshot();
 const snap = [...etere].reverse().find(m => m.t === 'snap');
 const sm = snap.ships.find(s => s.id === serpente.id);
 assert(sm && sm.k === 'x' && sm.mo === 'serpente', 'k=x e specie nello snap');
+assert.strictEqual(sm.nk, 'mostro.serpente', 'il nome a chiave (nk) viaggia nello snap');
 assert(sm.so > 0.3 && sm.so < 0.8, `so frazionario mentre emerge (${sm.so})`);
 const sp = snap.ships.find(s => s.id === P.id);
 assert(sp && sp.mo === undefined, 'niente campi mostro sui capitani');

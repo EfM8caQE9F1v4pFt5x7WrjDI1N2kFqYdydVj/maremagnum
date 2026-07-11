@@ -6,6 +6,7 @@ const W = require('./weapons');
 const { Missions } = require('./missions');
 const atlante = require('./atlante-core');
 const gazzetta = require('./gazzetta-core');
+const lingua = require('./lingua-mare');
 const campagna = require('./campagna-core');
 const gilde = require('./gilde-core');
 const livree = require('./livree');
@@ -46,19 +47,11 @@ const CAROVANE = {
     nome: 'Mercantile di Convoglio', scortaNome: 'Scorta del Convoglio',
     scorte: 2, stazza: 2, bottino: 400, ogni: 300, primo: 90, lvlScorta: 2,
     vel: 42, scali: 2, sosta: 45,
-    annuncio: (da, a, via) => `🚢 Un convoglio scortato è salpato: da ${da} verso ${a}${via ? ` con scalo a ${via}` : ''}, stive piene!`,
-    scalo: (qui, poi) => `⚓ Il convoglio fa scalo a ${qui}: riparte a breve verso ${poi}.`,
-    arrivo: (a) => `⚓ Il convoglio è giunto sano e salvo a ${a}.`,
-    perduto: '🌊 Il mercantile di convoglio è perduto: la scorta, orfana, dà la caccia ai colpevoli.',
   },
   tesoro: {
     nome: 'Galeone del Tesoro', scortaNome: 'Guardia del Tesoro',
     scorte: 3, stazza: 3, bottino: 1000, ogni: 1800, primo: 600, lvlScorta: 3,
     vel: 35, scali: 2, sosta: 45,
-    annuncio: (da, a, via) => `👑 IL GALEONE DEL TESORO è salpato: da ${da} verso ${a}${via ? ` con scalo a ${via}` : ''} — scorta serrata, stive d'oro!`,
-    scalo: (qui, poi) => `👑 Il Galeone del Tesoro fa scalo a ${qui}: riparte a breve verso ${poi}.`,
-    arrivo: (a) => `👑 Il Galeone del Tesoro è giunto al sicuro a ${a}: l'oro è sbarcato.`,
-    perduto: '🌊 Il Galeone del Tesoro è negli abissi col suo oro: la Guardia, orfana, cerca vendetta.',
   },
 };
 const MINACCIA_TTL = 30; // il mutuo soccorso ricorda l'aggressore per 30s
@@ -250,8 +243,12 @@ const TIPI_PUB = Object.fromEntries(Object.entries(TIPI).map(([k, t]) => {
     nome: t.nome, motto: t.motto, sconto: t.sconto,
     hpMul: t.hpMul, speedMul: t.speedMul, turnMul: t.turnMul,
     esclusiva: W.TYPES[W.EXCLUSIVES[k]].name,
+    esclusivaId: W.EXCLUSIVES[k],
     abilita: a.nome,
-    abilitaInfo: { nome: a.nome, cd: a.cd, durata: a.durata, effetto: ABILITA_EFFETTO[k](a) },
+    abilitaInfo: {
+      nome: a.nome, cd: a.cd, durata: a.durata, effetto: ABILITA_EFFETTO[k](a),
+      ap: { durata: a.durata, dmg: a.dmg, autodanno: a.autodanno, spinta: a.spinta },
+    },
     esclusivaInfo: { dmg: es.dmg, range: es.range, reload: es.reload },
   }];
 }));
@@ -535,7 +532,7 @@ class Game {
     });
     if (ship.riscattoAlJoin && ship.riscattoAlJoin.riscatto) {
       const { riscatto, tolte } = ship.riscattoAlJoin;
-      this.sendGold(ship, riscatto, `Il Cantiere ha riscattato: ${[...new Set(tolte)].join(', ')}`);
+      this.sendGold(ship, riscatto, 'oro.riscatto', { armi: [...new Set(tolte)].join(', ') });
     }
     delete ship.riscattoAlJoin;
     // le Fratellanze (issue #5): l'identità è l'uid dell'Ancoraggio.
@@ -577,7 +574,7 @@ class Game {
     this.missions.broadcastState();
     // le alleanze temporanee (#37): il nuovo arrivato vede le bandiere aperte
     this.sendTo(ship, { t: 'alleanzeAperte', bandiere: this.alleanze.bandiereAperte() });
-    this.broadcast({ t: 'feed', msg: `⚓ ${name} è salpato nel Mare dell'Internet` });
+    this.feedK('feed.salpato', { nome: name });
     return ship;
   }
 
@@ -618,13 +615,13 @@ class Game {
         ship.gold -= perso;
         const id = 'b' + this.nextId++;
         this.bottini.set(id, { id, x: r1(ship.x), y: r1(ship.y), oro: perso, fino: this.now + INGAGGIO.ttlBottino });
-        this.annuncia('fuga', `💰 ${ship.name} è FUGGITO dalla battaglia staccando la spina: ${perso} 🪙 galleggiano dove ammainava!`);
+        this.annuncia('fuga', 'fuga.annuncio', { nome: ship.name, oro: perso });
       }
     }
     this.alleanze.leave(ship); // chi sbarca esce dall'alleanza (#37)
     this.missions.leave(ship);
     this.ships.delete(ship.id);
-    this.broadcast({ t: 'feed', msg: `${ship.name} è tornato sulla terraferma` });
+    this.feedK('feed.terraferma', { nome: ship.name });
   }
 
   // i forzieri dei fuggiaschi: galleggiano, scadono, e il primo capitano
@@ -637,8 +634,8 @@ class Game {
         if (p.npc || p.docked || this.isSunk(p)) continue;
         if (Math.hypot(p.x - b.x, p.y - b.y) >= INGAGGIO.tocco) continue;
         p.gold += b.oro;
-        this.sendGold(p, b.oro, 'Bottino del fuggiasco ripescato!');
-        this.broadcast({ t: 'feed', msg: `💰 ${p.name} ha ripescato il bottino del fuggiasco (+${b.oro} 🪙)` });
+        this.sendGold(p, b.oro, 'oro.ripescato');
+        this.feedK('feed.ripescato', { nome: p.name, oro: b.oro });
         this.bottini.delete(b.id);
         break;
       }
@@ -658,9 +655,37 @@ class Game {
   // La Gazzetta del Corsaro (issue #4): le notizie degne di storia vanno
   // nell'albo persistente E sul filo dei presenti. SOLO in gioco: la
   // consegna è il WebSocket, la persistenza il GazzettaDO (via hook).
-  annuncia(tipo, testo) {
-    const voce = gazzetta.pubblica(tipo, testo);
-    this.broadcast({ t: 'feed', msg: voce.testo }); // il diario, per chi c'è
+  // i18n fetta 2: il server compone l'italiano (msg/testo, la lingua dei
+  // test e dell'albo) e spedisce ANCHE chiave+parametri — il client compone
+  // nella sua lingua. feedK per il diario di bordo, annuncia per la Gazzetta.
+  feedK(chiave, p) {
+    this.broadcast({ t: 'feed', msg: lingua.componi(chiave, p), k: chiave, ...(p ? { p } : {}) });
+  }
+
+  // i parametri-isola ({X} nel template): chiave del genere + nome proprio
+  pIsola(prefix, i) {
+    const o = {};
+    o[prefix + '_k'] = 'isola.' + (i.nk || 'k.com');
+    if (i.nd != null) o[prefix + '_d'] = i.nd;
+    return o;
+  }
+
+  // la chiave-nome di una nave NPC (null per i capitani veri)
+  nkNave(s) {
+    return s.mostro ? 'mostro.' + s.mostro
+      : s.caccia ? 'npc.cacciatore'
+        : s.convoglio ? 'npc.' + s.convoglio.tipo + '.' + s.convoglio.ruolo
+          : s.npc === 'merc' ? 'npc.merc' : s.npc === 'ghost' ? 'npc.ghost' : null;
+  }
+
+  pNave(prefix, s) {
+    const k = s.npc ? this.nkNave(s) : null;
+    return k ? { [prefix + '_k']: k } : { [prefix]: s.name };
+  }
+
+  annuncia(tipo, chiave, p) {
+    const voce = gazzetta.pubblica(tipo, lingua.componi(chiave, p), chiave, p);
+    this.broadcast({ t: 'feed', msg: voce.testo, k: chiave, ...(p ? { p } : {}) }); // il diario, per chi c'è
     this.broadcast({ t: 'notifica', voce });        // l'albo, per chi verrà
     if (this.onGazzetta) this.onGazzetta(voce);
   }
@@ -758,10 +783,10 @@ class Game {
         }));
         if (!r) break;
         ship.gold -= gilde.FONDAZIONE;
-        this.sendGold(ship, -gilde.FONDAZIONE, `La Fratellanza «${r.gilda.nome}» è fondata`);
+        this.sendGold(ship, -gilde.FONDAZIONE, 'oro.fondata', { gnome: r.gilda.nome });
         this.salvaGilda(r.gilda);
         this.aggiornaGilda(ship);
-        this.annuncia('gilda', `🏴 ${ship.name} ha fondato la Fratellanza «${r.gilda.nome}» [${r.gilda.tag}] (${r.gilda.categoria})`);
+        this.annuncia('gilda', 'gilda.fondata', { nome: ship.name, gnome: r.gilda.nome, tag: r.gilda.tag, cat: r.gilda.categoria });
         break;
       }
       case 'gildaRichiesta': {
@@ -777,7 +802,7 @@ class Game {
         if (r.ammesso) {
           delete ship.sfide[g.id];
           this.aggiornaGilda(ship);
-          this.annuncia('gilda', `⛵ ${ship.name} è entrato nella Fratellanza «${g.nome}» [${g.tag}]`);
+          this.annuncia('gilda', 'gilda.entrato', { nome: ship.name, gnome: g.nome, tag: g.tag });
         } else {
           this.sendTo(ship, { t: 'toast', msg: `✉ Richiesta in rada: capitano e ufficiali di «${g.nome}» decideranno` });
           this.rinfrescaGilda(g.id); // gli ufficiali online vedono la richiesta
@@ -794,7 +819,7 @@ class Game {
         if (!r) break;
         this.salvaGilda(r.gilda);
         if (r.ammesso) {
-          this.annuncia('gilda', `⛵ ${r.ammesso.nome} è stato ammesso nella Fratellanza «${mia.nome}» [${mia.tag}]`);
+          this.annuncia('gilda', 'gilda.ammesso', { nome: r.ammesso.nome, gnome: mia.nome, tag: mia.tag });
           for (const s of this.ships.values()) if (s.uid === uidR && s.sfide) delete s.sfide[mia.id];
         }
         this.rinfrescaGilda(mia.id);
@@ -807,7 +832,7 @@ class Game {
         if (!r) break;
         if (r.sciolta) {
           this.salvaGilda(mia, true);
-          this.annuncia('gilda', `🌊 La Fratellanza «${mia.nome}» [${mia.tag}] è stata sciolta`);
+          this.annuncia('gilda', 'gilda.sciolta', { gnome: mia.nome, tag: mia.tag });
         } else {
           this.salvaGilda(r.gilda);
         }
@@ -846,8 +871,8 @@ class Game {
       if (st.tappa >= c.tappe.length) {
         st.completata = true;
         ship.gold += c.premio;
-        this.sendGold(ship, c.premio, `Campagna "${c.nome}" compiuta!`);
-        this.annuncia('campagna', `⚔ ${ship.name} ha compiuto la campagna "${c.nome}"! (+${c.premio} 🪙)`);
+        this.sendGold(ship, c.premio, 'oro.campagna', { cnome: c.nome });
+        this.annuncia('campagna', 'campagna.compiuta', { nome: ship.name, cnome: c.nome, oro: c.premio });
         // l'edizione-impresa (issue #25): la livrea che non si compra
         if (!ship.livree.has('ombre')) {
           ship.livree.add('ombre');
@@ -1044,7 +1069,7 @@ class Game {
       if (firstVisit) {
         ship.visited.add(best.id);
         ship.gold += DISCOVERY_GOLD;
-        this.sendGold(ship, DISCOVERY_GOLD, 'Terra scoperta!');
+        this.sendGold(ship, DISCOVERY_GOLD, 'oro.scoperta');
         this.avanzaCampagna(ship, 'scoperte');
       }
       this.sendTo(ship, { t: 'docked', island: publicIsland(best) });
@@ -1153,7 +1178,7 @@ class Game {
     // Lo slot lo detta il GENERE del catalogo, mai un fallback (era la
     // trappola livree/vele: client e server collassavano in slot opposti)
     ship[l.genere] = id;
-    this.annuncia('livrea', `🎨 ${ship.name} sfoggia una livrea nuova: "${l.nome}"!`);
+    this.annuncia('livrea', 'livrea.sfoggio', { nome: ship.name, lnome: l.nome });
     this.sendShop(ship);
   }
 
@@ -1249,13 +1274,13 @@ class Game {
     this.syncReady(ship);
     if (riscatto) {
       ship.gold += riscatto;
-      this.sendGold(ship, riscatto, `Il Cantiere ha riscattato: ${[...new Set(tolte)].join(', ')}`);
+      this.sendGold(ship, riscatto, 'oro.riscatto', { armi: [...new Set(tolte)].join(', ') });
     }
     if (Object.keys(ship.esclusive).length) {
       this.sendTo(ship, { t: 'toast', msg: 'Le esclusive smontate restano nel tuo arsenale: si rimontano gratis.' });
     }
     ship.hp = shipStats(ship).maxHp; // il varo esce dal bacino a scafo asciutto
-    this.broadcast({ t: 'feed', msg: `⚓ ${ship.name} ha varato: ora naviga su un ${TIPI[tipo].nome}!` });
+    this.feedK('feed.varato', { nome: ship.name, tipo_k: 'tipo.' + tipo });
     this.sendShop(ship);
   }
 
@@ -1379,8 +1404,9 @@ class Game {
     }
   }
 
-  sendGold(ship, delta, reason) {
-    if (!ship.npc) this.sendTo(ship, { t: 'gold', gold: ship.gold, delta, reason });
+  sendGold(ship, delta, chiave, p) {
+    const reason = lingua.componi(chiave, p);
+    if (!ship.npc) this.sendTo(ship, { t: 'gold', gold: ship.gold, delta, reason, rk: chiave, ...(p ? { rp: p } : {}) });
   }
 
   isSunk(ship) { return ship.sunkUntil > this.now; }
@@ -1609,11 +1635,13 @@ class Game {
     }
     this.carovane[tipo] = {
       capo: capo.id, scorte, minaccia: null,
-      meta: { x: a.x, y: a.y, r: a.r, nome: a.name }, // la destinazione FINALE
-      tappe: tappe.map(i => ({ x: i.x, y: i.y, r: i.r, nome: i.name })),
+      meta: { x: a.x, y: a.y, r: a.r, nome: a.name, nk: a.nk, nd: a.nd }, // la destinazione FINALE
+      tappe: tappe.map(i => ({ x: i.x, y: i.y, r: i.r, nome: i.name, nk: i.nk, nd: i.nd })),
       tappa: 0, sostaFino: 0,
     };
-    this.annuncia('convoglio', cfg.annuncio(da.name, a.name, tappe.length > 1 ? tappe[0].name : null));
+    this.annuncia('convoglio',
+      tappe.length > 1 ? `carovana.${tipo}.salpatoVia` : `carovana.${tipo}.salpato`,
+      { ...this.pIsola('da', da), ...this.pIsola('a', a), ...(tappe.length > 1 ? this.pIsola('via', tappe[0]) : {}) });
   }
 
   // fine corsa: all'ARRIVO tutti a terra (spariscono in porto); se il capo
@@ -1630,7 +1658,7 @@ class Game {
     }
     this.carovane[tipo] = null;
     this.prossimaCarovana[tipo] = this.now + CAROVANE[tipo].ogni;
-    if (motivo) this.broadcast({ t: 'feed', msg: motivo });
+    if (motivo) this.feedK(motivo.k, motivo.p);
   }
 
   tickCarovane() {
@@ -1643,19 +1671,19 @@ class Game {
       const capo = this.ships.get(c.capo);
       if (!capo) { this.sciogliCarovana(tipo, null); continue; }
       if (this.isSunk(capo)) {
-        this.sciogliCarovana(tipo, CAROVANE[tipo].perduto, false);
+        this.sciogliCarovana(tipo, { k: `carovana.${tipo}.perduto` }, false);
         continue;
       }
       // la tappa corrente: gli scali si toccano e si riparte, la META scioglie
       const t = c.tappe[c.tappa] || c.meta;
       if (Math.hypot(capo.x - t.x, capo.y - t.y) < t.r + 170) {
         if (c.tappa >= c.tappe.length - 1) {
-          this.sciogliCarovana(tipo, CAROVANE[tipo].arrivo(c.meta.nome), true);
+          this.sciogliCarovana(tipo, { k: `carovana.${tipo}.arrivo`, p: this.pIsola('a', c.meta) }, true);
         } else if (c.sostaFino <= this.now) {
           // appena arrivato allo scalo: sosta breve, poi la prossima gamba
           c.tappa++;
           c.sostaFino = this.now + CAROVANE[tipo].sosta;
-          this.annuncia('convoglio', CAROVANE[tipo].scalo(t.nome, c.tappe[c.tappa].nome));
+          this.annuncia('convoglio', `carovana.${tipo}.scalo`, { ...this.pIsola('qui', t), ...this.pIsola('poi', c.tappe[c.tappa]) });
         }
       }
     }
@@ -1683,7 +1711,7 @@ class Game {
     h.y = Math.max(200, Math.min(WORLD.H - 200, pirata.y + Math.sin(ang) * 900));
     h.caccia = { bersaglio: pirata.id, fino: this.now + CACCIA.ttl };
     this.cacciatori++;
-    this.broadcast({ t: 'feed', msg: `⚔ Una taglia pende su ${pirata.name}: un Cacciatore gli dà la caccia!` });
+    this.feedK('feed.taglia', { nome: pirata.name });
   }
 
   // il mandato scade, il bersaglio sparisce o attracca: il Cacciatore molla.
@@ -1697,7 +1725,7 @@ class Game {
       if (preda && this.now <= ship.caccia.fino && !this.isSunk(preda)) {
         if (preda.docked || this.inSmoke(preda)) { ship.input.up = false; return; }
       }
-      this.congedaCacciatore(ship, preda ? `⚔ Il Cacciatore rinuncia: ${preda.name} l'ha fatta franca.` : null);
+      this.congedaCacciatore(ship, preda ? { k: 'caccia.rinuncia', p: { nome: preda.name } } : null);
       return;
     }
     this.attacca(ship, preda);
@@ -1710,7 +1738,7 @@ class Game {
     ship.caccia = null;
     this.cacciatori = Math.max(0, this.cacciatori - 1);
     this.ships.delete(ship.id);
-    if (motivo) this.broadcast({ t: 'feed', msg: motivo });
+    if (motivo) this.feedK(motivo.k, motivo.p);
   }
 
   // --- i mostri marini (audit 2) ---
@@ -1750,7 +1778,7 @@ class Game {
         ship.predaId = null;
         ship.agguatoDorme = this.now + 20; // digerisce la delusione
         this.fxQueue.push({ k: 'tuffo', x: r1(ship.x), y: r1(ship.y) });
-        this.broadcast({ t: 'feed', msg: `🌊 ${ship.name} si rituffa negli abissi.` });
+        this.feedK('mostro.rituffa', { mostro_k: 'mostro.' + ship.mostro });
         return;
       }
       // le distanze d'attacco si misurano dalla BOCCA (audit 5): il serpente
@@ -1823,7 +1851,7 @@ class Game {
         // il feed canta solo il PRIMO assalto (le riemersioni del Serpente
         // sono il suo mestiere: l'ombra che si gonfia basta e avanza)
         if (ship.emersioneDurata >= MOSTRO.emersione) {
-          this.broadcast({ t: 'feed', msg: `🌊 ${ship.name} EMERGE dagli abissi sotto ${preda.name}!` });
+          this.feedK('mostro.emerge', { mostro_k: 'mostro.' + ship.mostro, preda: preda.name });
         }
         ship.emersioneA = 0;
         return;
@@ -1839,7 +1867,7 @@ class Game {
       if (persa) {
         ship.predaId = null;
         ship.agguatoDorme = this.now + 20;
-        this.broadcast({ t: 'feed', msg: `🌊 ${ship.name} fa perdere le proprie tracce negli abissi.` });
+        this.feedK('mostro.tracce', { mostro_k: 'mostro.' + ship.mostro });
         return;
       }
       const bx = preda.x - Math.cos(preda.rot) * MOSTRO.spalle;
@@ -1866,7 +1894,7 @@ class Game {
       ship.predaId = p.id;
       ship.emersioneA = this.now + MOSTRO.emersione;
       ship.emersioneDurata = MOSTRO.emersione;
-      this.broadcast({ t: 'feed', msg: `🌊 Un'ombra enorme si gonfia sotto la chiglia di ${p.name}...` });
+      this.feedK('mostro.ombra', { preda: p.name });
       break;
     }
   }
@@ -1886,9 +1914,9 @@ class Game {
         ship.resaCooldownUntil = this.now + RESA.cooldown;
         ship.hp = Math.max(ship.hp, this.npcMaxHp(ship) * RESA.hpRitorno);
         p.gold += bottino;
-        this.sendGold(p, bottino, `Hai saccheggiato ${ship.name} senza colpo ferire!`);
-        this.broadcast({ t: 'feed', msg: `⚓ ${p.name} ha saccheggiato ${ship.name} (+${bottino} 🪙)` });
-        if (ship.convoglio) this.annuncia('convoglio', `💰 ${p.name} ha svuotato le stive: ${ship.name} alleggerito!`);
+        this.sendGold(p, bottino, 'oro.saccheggio', this.pNave('preda', ship));
+        this.feedK('feed.saccheggio', { nome: p.name, ...this.pNave('preda', ship), oro: bottino });
+        if (ship.convoglio) this.annuncia('convoglio', 'feed.svuotato', { nome: p.name, ...this.pNave('preda', ship) });
         break;
       }
     }
@@ -2044,12 +2072,12 @@ class Game {
       hero.gold += FORT.conquestBounty;
       hero.conquered.add(island.id);
       hero.kills++;
-      this.sendGold(hero, FORT.conquestBounty, `Hai espugnato ${island.name}!`);
+      this.sendGold(hero, FORT.conquestBounty, 'oro.espugnata', this.pIsola('isola', island));
       this.sendTo(hero, { t: 'conquered', island: island.id, list: [...hero.conquered] });
-      this.annuncia('espugnazione', `🏰⚔️ ${hero.name} ha ESPUGNATO ${island.name}! Il blocco è caduto.`);
+      this.annuncia('espugnazione', 'espugnazione.annuncio', { nome: hero.name, ...this.pIsola('isola', island) });
       this.avanzaCampagna(hero, 'espugnazione');
     } else {
-      this.broadcast({ t: 'feed', msg: `🏰 Le difese di ${island.name} sono cadute!` });
+      this.feedK('feed.difeseFortezza', this.pIsola('isola', island));
     }
     this.broadcast({ t: 'fortFall', island: island.id });
     island.assalitori = null; // l'assalto è chiuso: il registro si azzera (#37)
@@ -2066,7 +2094,7 @@ class Game {
   dungeonFalls(island, hero) {
     const dg = island.dungeon;
     if (!hero || hero.npc) {
-      this.broadcast({ t: 'feed', msg: `⚔ Le difese di ${island.name} sono cadute!` });
+      this.feedK('feed.difeseDungeon', this.pIsola('isola', island));
       return;
     }
     const squadra = this.alleanze.squadra(hero, island);
@@ -2084,16 +2112,16 @@ class Game {
       s.dungeonGiorno = dg.periodo;
       s.gold += quota;
       s.kills++;
-      this.sendGold(s, quota, `Dungeon del giorno espugnato: "${dg.nome}"!`);
+      this.sendGold(s, quota, 'oro.dungeon', { dnome: dg.nome });
       this.sendTo(s, { t: 'dungeon', stato: this.dungeonGiornoPer(s) }); // HUD → incassato
       pagati++;
     }
     if (!pagati) return;
     if (squadra.length > 1) {
       const nomi = squadra.map(s => s.name).join(' + ');
-      this.annuncia('campagna', `⚔ L'alleanza di ${nomi} ha espugnato il dungeon del giorno "${dg.nome}" su ${island.name}! (+${quota} 🪙 a testa)`);
+      this.annuncia('campagna', 'dungeon.alleanza', { nomi, dnome: dg.nome, ...this.pIsola('isola', island), oro: quota });
     } else {
-      this.annuncia('campagna', `⚔ ${hero.name} ha espugnato il dungeon del giorno "${dg.nome}" su ${island.name}! (+${dg.premio} 🪙)`);
+      this.annuncia('campagna', 'dungeon.solo', { nome: hero.name, dnome: dg.nome, ...this.pIsola('isola', island), oro: dg.premio });
     }
   }
 
@@ -2103,10 +2131,10 @@ class Game {
       // il dungeon del Mastro (#38) scade a fine periodo (orologio VERO, non il
       // tempo di gioco): le difese temporanee svaniscono, l'isola torna approdo
       if (island.dungeon && Date.now() >= island.dungeon.scadenza) {
-        const nome = island.name;
+        const pi = this.pIsola('isola', island);
         this.archipelago.clearDungeon(island.domain);
         this.broadcast({ t: 'island', island: publicIsland(island) });
-        this.broadcast({ t: 'feed', msg: `⚓ La marea si ritira da ${nome}: le difese del Mastro svaniscono.` });
+        this.feedK('feed.mareaRitira', pi);
         continue;
       }
       if (island.fallenUntil > this.now) continue;
@@ -2114,7 +2142,7 @@ class Game {
         island.fallenUntil = 0;
         for (const def of island.defs) { def.dead = false; def.hp = def.max; }
         island.assalitori = null; // assedio nuovo, registro nuovo (#37)
-        this.broadcast({ t: 'feed', msg: `🏰 ${island.name} è stata ricostruita. Il blocco è di nuovo attivo.` });
+        this.feedK('feed.ricostruita', this.pIsola('isola', island));
       }
       const volley = [];
       for (const def of island.defs) {
@@ -2197,7 +2225,7 @@ class Game {
         this.now >= ship.resaCooldownUntil && ship.hp <= this.npcMaxHp(ship) * RESA.soglia) {
       ship.resaUntil = this.now + RESA.durata;
       ship.saccheggiato = false;
-      this.broadcast({ t: 'feed', msg: `🏳 ${ship.name} ammaina bandiera: chi lo tocca lo saccheggia!` });
+      this.feedK('feed.resa', this.pNave('preda', ship));
     }
     if (ship.hp <= 0) {
       // fra capitani il colpo di grazia BLOCCA (issue #15); NPC e fortezze
@@ -2229,8 +2257,8 @@ class Game {
     predatore.gold += subito;
     predatore.kills++;
     this.fxQueue.push({ k: 'boom', x: r1(vittima.x), y: r1(vittima.y), r: 30 });
-    this.sendGold(vittima, -subito, 'Bloccato! Un quarto del forziere in gioco è del vincitore');
-    this.sendGold(predatore, subito, `Hai bloccato ${vittima.name}: toccala per l'arrembaggio!`);
+    this.sendGold(vittima, -subito, 'oro.bloccato');
+    this.sendGold(predatore, subito, 'oro.blocco', { preda: vittima.name });
     this.missions.onKill(predatore, vittima);
     this.valutaTaglia(predatore); // l'infamia si conta anche ai blocchi (fetta 4)
     this.broadcast({ t: 'kill', killer: predatore.name, victim: vittima.name, bounty: subito });
@@ -2264,12 +2292,13 @@ class Game {
       vittima.gold = vittima.bloccoSalvo;
       if (predatore) {
         predatore.gold += resto;
-        this.sendGold(predatore, resto, `Arrembaggio! Il forziere di ${vittima.name} è tuo`);
+        this.sendGold(predatore, resto, 'oro.arrembaggio', { preda: vittima.name });
       }
       this.sendGold(vittima, -resto, vittima.bloccoSalvo > 0
-        ? 'Abbordato! Il doppiofondo ha salvato qualcosa' : 'Abbordato! Il forziere è del vincitore');
+        ? 'oro.abbordatoSalvo' : 'oro.abbordato');
     }
-    this.annuncia('arrembaggio', `⚔ ${predatore ? predatore.name : 'Il mare'} ha ABBORDATO ${vittima.name}!${resto ? ` (+${resto} 🪙)` : ''}`);
+    this.annuncia('arrembaggio', resto ? 'arrembaggio.annuncioOro' : 'arrembaggio.annuncio',
+      { ...(predatore ? { chi: predatore.name } : { chi_k: 'nome.ilmare' }), preda: vittima.name, ...(resto ? { oro: resto } : {}) });
     vittima.blockedUntil = 0;
     vittima.blockedBy = null;
     vittima.sunkUntil = this.now + RESPAWN_S;
@@ -2291,7 +2320,7 @@ class Game {
     vittima.hp = Math.round(shipStats(vittima).maxHp * BLOCCO.hpRitorno);
     vittima.immuneUntil = this.now + BLOCCO.immunita;
     this.sendTo(vittima, { t: 'toast', msg: `⛵ Nessuno ha osato abbordarti: sei libero, con ${BLOCCO.immunita}s di immunità` });
-    this.broadcast({ t: 'feed', msg: `⛵ ${vittima.name} si è svincolato dal blocco` });
+    this.feedK('feed.svincolato', { nome: vittima.name });
   }
 
   sink(ship, byId) {
@@ -2321,16 +2350,16 @@ class Game {
         const salvo = Math.round(ship.gold * 0.10 * ship.holdLvl);
         bounty = ship.gold - salvo;
         ship.gold = salvo;
-        this.sendGold(ship, -bounty, salvo > 0 ? 'Il doppiofondo della stiva ha salvato qualcosa' : 'Il forziere è del vincitore');
+        this.sendGold(ship, -bounty, salvo > 0 ? 'oro.doppiofondo' : 'oro.alvincitore');
       }
       killer.gold += bounty;
       killer.kills++;
-      this.sendGold(killer, bounty, `Hai affondato ${ship.name}!`);
+      this.sendGold(killer, bounty, 'oro.affondataDa', this.pNave('preda', ship));
       this.missions.onKill(killer, ship);
       if (ship.npc === 'merc' || ship.npc === 'ghost') this.avanzaCampagna(killer, ship.npc === 'ghost' ? 'fantasmi' : 'mercantili');
       // abbattere un MOSTRO è eroismo, non pirateria: niente Cacciatori
       // addosso, ma la Gazzetta ne parla (audit 2)
-      if (ship.mostro) this.annuncia('mostro', `🐉⚔ ${killer.name} ha abbattuto il ${ship.name}! (+${bounty} 🪙)`);
+      if (ship.mostro) this.annuncia('mostro', 'mostro.abbattuto', { nome: killer.name, mostro_k: 'mostro.' + ship.mostro, oro: bounty });
       else this.valutaTaglia(killer); // l'infamia cresce a ogni preda (fetta 4)
     } else if (killer && killer.npc === 'ghost') {
       killerName = killer.name;
@@ -2344,7 +2373,11 @@ class Game {
       if (preda) preda.tagliaCacciata = preda.kills;
       this.cacciatori = Math.max(0, this.cacciatori - 1);
     }
-    this.broadcast({ t: 'kill', killer: killerName, victim: ship.name, bounty });
+    this.broadcast({
+      t: 'kill', killer: killerName, victim: ship.name, bounty,
+      ...(killer && killer.npc ? { kk: this.nkNave(killer) } : {}),
+      ...(ship.npc ? { vk: this.nkNave(ship) } : {}),
+    });
     // per mano di NPC o fortezze il forziere resta a bordo: si racconta anche
     // questo — il sollievo è metà del racconto (issue #23)
     if (!ship.npc) {
@@ -2419,6 +2452,9 @@ class Game {
         ...(s.presaUntil > this.now ? { pr: r2(s.presaUntil - this.now) } : {}),
         // il capo carovana si vede sulla mappa (audit 2): 1 convoglio, 2 tesoro
         ...(s.convoglio && s.convoglio.ruolo === 'capo' ? { cv: s.convoglio.tipo === 'tesoro' ? 2 : 1 } : {}),
+        // il NOME a chiave degli NPC (i18n fetta 2): il client lo compone
+        // nella sua lingua; i capitani veri restano col loro nome
+        ...(s.npc ? { nk: this.nkNave(s) } : {}),
         // i mostri (audit 2/3): specie e stato, additivi — so=1 sommerso
         // pieno, so∈(0,1) mentre EMERGE (frazione di gonfiarsi che manca:
         // il client scala l'ombra man mano che so scende verso 0)
