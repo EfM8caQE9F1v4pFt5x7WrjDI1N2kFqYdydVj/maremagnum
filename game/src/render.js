@@ -1761,6 +1761,30 @@ export class Renderer {
         g.circle(x, y, 16).fill(0x5a5147).stroke({ width: 3, color: 0x32291f });
         g.circle(x - 3, y - 3, 8).fill(0x241d15).stroke({ width: 2, color: 0x0f0b07 });
         g.rect(x - 14, y + 8, 28, 5).fill(0x6d4c22);
+      } else if (kind === 'c') {
+        // la TORRE CORAZZATA: ferro cupo e rivetti — il piombo leggero
+        // ci rimbalza, si scalfisce solo coi pezzi pesanti
+        g.ellipse(x + 3, y + 5, 16, 8).fill({ color: 0x000000, alpha: 0.2 });
+        g.circle(x, y, 15).fill(0x3d4148).stroke({ width: 3, color: 0x1c1f24 });
+        g.circle(x, y, 9).fill(0x2a2e34).stroke({ width: 1.5, color: 0x14161a });
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2;
+          g.circle(x + Math.cos(a) * 12, y + Math.sin(a) * 12, 1.6).fill(0x6a7078);
+        }
+        g.rect(x - 2, y - 22, 4, 12).fill(0x1c1f24);
+      } else if (kind === 'v') {
+        // la BATTERIA DEI SERVENTI: mezzaluna di sacchi e canne di moschetto
+        // — dietro i parapetti li falcidia solo la mitraglia
+        g.ellipse(x + 2, y + 5, 15, 7).fill({ color: 0x000000, alpha: 0.18 });
+        for (let i = 0; i < 5; i++) {
+          const a = Math.PI * 0.75 + (i / 4) * Math.PI * 0.5;
+          g.ellipse(x + Math.cos(a) * 11, y + Math.sin(a) * 11, 6, 4).fill(0x8a744a).stroke({ width: 1.5, color: 0x54462c });
+        }
+        for (let i = 0; i < 3; i++) {
+          const a = -Math.PI / 4 + (i / 2) * (Math.PI / 2);
+          g.moveTo(x, y).lineTo(x + Math.cos(a) * 14, y + Math.sin(a) * 14).stroke({ width: 1.6, color: 0x2a2a24 });
+        }
+        g.circle(x, y, 4.5).fill(0x54462c);
       } else {
         g.ellipse(x + 3, y + 6, 18, 9).fill({ color: 0x000000, alpha: 0.2 });
         g.circle(x, y, 17).fill(COL.mirror).stroke({ width: 3, color: 0x9c7a1e });
@@ -1860,6 +1884,11 @@ export class Renderer {
     } else if (kind === 'soffio') {
       // la vampa del Drago sul punto mirato: brace che sboccia
       burst(9, { v: 85, life: 0.45, size: 3.5, color: 0xffb03a });
+    } else if (kind === 'clang') {
+      // il rimbalzo sulla corazza: scintille, niente danno — il messaggio
+      // è «serve il pezzo pesante»
+      burst(8, { v: 120, life: 0.3, size: 2, color: 0xffe9a0 });
+      this.rings.push({ x, y, r: 4, maxR: 22, life: 0.25, max: 0.25 });
     } else if (kind === 'presa') {
       // i tentacoli del Kraken INCHIODANO (audit 3): anelli d'inchiostro
       // che si stringono e schiuma violacea

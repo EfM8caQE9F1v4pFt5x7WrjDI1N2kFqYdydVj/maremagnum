@@ -15,6 +15,11 @@ const FORT = {
   torre: { count: 8, hp: 650, dmg: 55, range: 640, reload: 1.5, ringDist: 85 },
   bombarda: { count: 2, hp: 800, dmg: 85, aoe: 90, range: 820, reload: 5.5, speed: 240, ringDist: 40 },
   specchio: { count: 1, hp: 1000, dmg: 12, tick: 0.35, range: 440 },
+  // le difese a vulnerabilità specifica (dungeon tosti): la Corazzata
+  // ignora il piombo leggero (sotto SOGLIA_CORAZZA rimbalza), i Serventi
+  // dietro i parapetti cadono solo sotto la MITRAGLIA
+  corazzata: { hp: 550, dmg: 24, reload: 3.4, range: 340 },
+  serventi: { hp: 260, dmg: 4, reload: 0.55, range: 300 },
   regen: 4, regenAfter: 10, rebuildAfter: 150, rebuildFrac: 0.4,
   fallDuration: 8 * 60, // dopo l'espugnazione resta caduta per tutti per 8 minuti
   conquestBounty: 1500,
@@ -106,6 +111,17 @@ function makeDungeonDefs(x, y, r, spec, seed) {
   for (let k = 0; k < nb; k++) {
     const a = (k / Math.max(1, nb)) * Math.PI * 2 + off + 0.7;
     defs.push(makeDefense('b', x + Math.cos(a) * (r * 0.5 + b.ringDist), y + Math.sin(a) * (r * 0.5 + b.ringDist), b.hp));
+  }
+  // le difese con carattere (feature del capitano): corazzate sull'anello
+  // di costa, serventi appostati un filo più dentro la rada
+  const nc = Math.max(0, spec.corazzate | 0), nv = Math.max(0, spec.serventi | 0);
+  for (let k = 0; k < nc; k++) {
+    const a = (k / Math.max(1, nc)) * Math.PI * 2 + off + 1.3;
+    defs.push(makeDefense('c', x + Math.cos(a) * (r + t.ringDist), y + Math.sin(a) * (r + t.ringDist), FORT.corazzata.hp));
+  }
+  for (let k = 0; k < nv; k++) {
+    const a = (k / Math.max(1, nv)) * Math.PI * 2 + off + 2.1;
+    defs.push(makeDefense('v', x + Math.cos(a) * (r + t.ringDist * 0.6), y + Math.sin(a) * (r + t.ringDist * 0.6), FORT.serventi.hp));
   }
   if (spec.specchio) defs.push(makeDefense('s', x, y, FORT.specchio.hp));
   return defs;
