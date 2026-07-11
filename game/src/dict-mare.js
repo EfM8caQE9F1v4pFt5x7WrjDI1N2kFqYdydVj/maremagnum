@@ -58,6 +58,28 @@ const en = {
   'motto.galeone': 'The fortress that sails',
   'motto.sciabecco': 'The sea has no walls',
 
+  // — the Crew (#16): the fifteen of the roster and how they sign on —
+  'pirata.mozzo': 'Ugo "the Cabin Boy"',
+  'pirata.cuoca': 'Rosa "the Cook"',
+  'pirata.nostromo': 'Bruno "the Bosun"',
+  'pirata.vedetta': 'Lena "the Lookout"',
+  'pirata.mastrodascia': 'Tobia "the Shipwright"',
+  'pirata.bucaniera': 'Morgana "the Buccaneer"',
+  'pirata.gabbiere': 'Ciro "the Topman"',
+  'pirata.polena': 'Dante "Figurehead"',
+  'pirata.mezzamiccia': 'Bice "Short Fuse"',
+  'pirata.timoniere': 'Salvo "the Helmsman"',
+  'pirata.filodifumo': 'Filippo "Wisp of Smoke"',
+  'pirata.sergente': 'Ada "the Sergeant"',
+  'pirata.ammiraglia': 'Bianca "the Flagship"',
+  'pirata.corsaro': 'Tariq "the Corsair"',
+  'pirata.senzanome': 'The Nameless Captain',
+  'pirata.via.base': 'Founding crew',
+  'pirata.via.scafo': 'Signs on at Hull {lvl}',
+  'pirata.via.ciurma': 'Signs on with Crew point {lvl}',
+  'pirata.via.varo': 'Signs on when you launch: {tipo}',
+  'pirata.via.campagna': "Earned by completing a Pathmaster campaign",
+
   // — il feed di bordo —
   'feed.salpato': '⚓ {nome} has set sail on the Sea of the Internet',
   'feed.terraferma': '{nome} has gone ashore',

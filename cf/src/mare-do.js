@@ -278,6 +278,10 @@ export class MareDO {
       vari: ship.vari,
       mounts: ship.mounts,
       esclusive: { ...(ship.esclusive || {}) }, // l'arsenale (audit Cantiere 2)
+      // la Ciurma (#16): arruolati, prescelto e tipi varati in carriera
+      ciurma: [...(ship.ciurma || [])],
+      pirata: ship.pirata || null,
+      varati: [...(ship.varati || [])],
       conquered: [...(ship.conquered || [])],
       preferiti: [...(ship.preferiti || [])],
       livree: [...(ship.livree || [])],

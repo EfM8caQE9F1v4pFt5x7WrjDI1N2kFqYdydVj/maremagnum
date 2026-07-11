@@ -65,6 +65,28 @@ const IT = {
   'motto.galeone': 'La fortezza che naviga',
   'motto.sciabecco': 'Il mare non ha muri',
 
+  // — la Ciurma (#16): i quindici del roster e le vie d'arruolo —
+  'pirata.mozzo': 'Ugo «il Mozzo»',
+  'pirata.cuoca': 'Rosa «la Cuoca»',
+  'pirata.nostromo': 'Bruno «il Nostromo»',
+  'pirata.vedetta': 'Lena «la Vedetta»',
+  'pirata.mastrodascia': "Tobia «Mastro d'Ascia»",
+  'pirata.bucaniera': 'Morgana «la Bucaniera»',
+  'pirata.gabbiere': 'Ciro «il Gabbiere»',
+  'pirata.polena': 'Dante «Polena»',
+  'pirata.mezzamiccia': 'Bice «Mezzamiccia»',
+  'pirata.timoniere': 'Salvo «il Timoniere»',
+  'pirata.filodifumo': 'Filippo «Filo di Fumo»',
+  'pirata.sergente': 'Ada «la Sergente»',
+  'pirata.ammiraglia': "Bianca «l'Ammiraglia»",
+  'pirata.corsaro': 'Tariq «il Corsaro»',
+  'pirata.senzanome': 'Il Capitano Senzanome',
+  'pirata.via.base': 'Ciurma di partenza',
+  'pirata.via.scafo': 'Si arruola a Scafo {lvl}',
+  'pirata.via.ciurma': 'Si arruola col punto Ciurma {lvl}',
+  'pirata.via.varo': 'Si arruola varando: {tipo}',
+  'pirata.via.campagna': 'Si guadagna compiendo una campagna del Mastro',
+
   // — il feed di bordo —
   'feed.salpato': "⚓ {nome} è salpato nel Mare dell'Internet",
   'feed.terraferma': '{nome} è tornato sulla terraferma',

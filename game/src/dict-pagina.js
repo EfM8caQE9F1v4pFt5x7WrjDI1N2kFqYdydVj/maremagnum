@@ -53,6 +53,7 @@ const it = {
   'shop.tab.varo': '⚓ Varo',
   'shop.tab.armi': '⚔ Armamenti',
   'shop.tab.livree': '🎨 Livree',
+  'shop.tab.ciurma': '🏴‍☠️ Ciurma',
   'shop.assedi': '⚔ Bacheca degli Assedi',
   'shop.fratellanze': '🏴 Fratellanze',
 
@@ -208,6 +209,7 @@ const en = {
   'shop.tab.varo': '⚓ Launch',
   'shop.tab.armi': '⚔ Armaments',
   'shop.tab.livree': '🎨 Liveries',
+  'shop.tab.ciurma': '🏴‍☠️ Crew',
   'shop.assedi': '⚔ Siege Board',
   'shop.fratellanze': '🏴 Brotherhoods',
 

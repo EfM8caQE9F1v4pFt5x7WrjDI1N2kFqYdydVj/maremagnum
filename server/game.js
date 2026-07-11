@@ -13,6 +13,7 @@ const livree = require('./livree');
 const og = require('./og-core');
 const { Alleanze, quotaAlleanza } = require('./alleanze');
 const vento = require('./vento');
+const pirati = require('./pirati');
 
 const TICK = 1 / 30;          // simulazione a 30Hz
 const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
@@ -382,6 +383,9 @@ class Game {
       // tue per sempre — {tipoArma: livelloMassimoRaggiunto}
       esclusive: {},
       visited: new Set(), conquered: new Set(), preferiti: new Set(),
+      // la Ciurma (#16): pirati arruolati (monotono, mai si restringe),
+      // il prescelto per platform/picchiaduro, i tipi VARATI in carriera
+      ciurma: new Set(), pirata: null, varati: new Set(),
       livree: new Set(), livrea: null, vele: null, scia: null, bandiera: null,
       mission: null, wp: null, fleeUntil: 0,
       alleanzaId: null, // l'alleanza temporanea (#37): effimera, mai nel profilo
@@ -507,6 +511,23 @@ class Game {
     }
     // il guardaroba (issue #25): livree possedute/indossate e bandiera personale
     Object.assign(ship, livree.sanificaGuardaroba(p));
+    // la Ciurma (#16): arruolati e tipi varati dal profilo, sanificati;
+    // il tipo ATTUALE conta come varato (grandfathering: nessuno perde
+    // il pirata della nave che sta già governando)
+    ship.ciurma = new Set();
+    if (Array.isArray(p.ciurma)) {
+      for (const id of p.ciurma.slice(0, 50)) if (pirati.IDS.has(id)) ship.ciurma.add(id);
+    }
+    ship.varati = new Set();
+    if (Array.isArray(p.varati)) {
+      for (const t of p.varati.slice(0, 10)) if (TIPI[t]) ship.varati.add(t);
+    }
+    if (ship.tipo) ship.varati.add(ship.tipo);
+    ship.pirata = pirati.IDS.has(p.pirata) ? p.pirata : null;
+    // la riconciliazione PRIMA del welcome, che così dichiara la ciurma
+    // già al completo: il guardaroba (livrea Ombre = Mastro compiuto,
+    // anche d'archivio) è appena tornato a bordo
+    this.aggiornaCiurma(ship);
     this.syncReady(ship);
     ship.hp = shipStats(ship).maxHp;
     // la scelta del punto di partenza (issue #13, campo ADDITIVO nel join):
@@ -589,6 +610,7 @@ class Game {
       helmLvl: ship.helmLvl, crewLvl: ship.crewLvl, holdLvl: ship.holdLvl,
       tipo: ship.tipo, vari: ship.vari,
       mounts: ship.mounts, esclusive: { ...ship.esclusive }, conquered: [...ship.conquered],
+      ciurma: [...ship.ciurma], pirata: ship.pirata, varati: [...ship.varati],
       preferiti: [...ship.preferiti],
       livree: [...ship.livree], livrea: ship.livrea, vele: ship.vele, scia: ship.scia, bandiera: ship.bandiera,
       gazzettaLetta: ship.gazzettaLetta || 0,
@@ -884,6 +906,8 @@ class Game {
           ship.livree.add('ombre');
           this.sendTo(ship, { t: 'toast', msg: '🎨 Guadagnata la livrea "Mare delle Ombre"! Indossala al Cantiere.' });
         }
+        // …e il leggendario della Ciurma (#16): si guadagna, mai si compra
+        this.aggiornaCiurma(ship);
       } else {
         this.sendTo(ship, { t: 'toast', msg: `⚔ Tappa compiuta! Ora: ${c.tappe[st.tappa].desc}` });
       }
@@ -917,6 +941,7 @@ class Game {
       case 'shop': if (ship.docked === 'porto') this.sendShop(ship); break;
       case 'buyShip': this.buyShip(ship, msg.stat); break;
       case 'varo': this.varo(ship, msg.tipo); break;
+      case 'pirata': this.scegliPirata(ship, msg.id); break;
       case 'abilita': this.abilita(ship); break;
       case 'buySlot': this.buySlot(ship, msg.group); break;
       case 'compraLivrea': this.compraLivrea(ship, msg.id); break;
@@ -1164,6 +1189,9 @@ class Game {
       mounts: ship.mounts,
       groups,
       varo: { tipo: ship.tipo, vari: ship.vari, cost: varoCost(ship), tipi: TIPI_PUB },
+      // la Ciurma (#16): arruolati e prescelto; il catalogo (nomi, sblocchi,
+      // atlante) è fonte unica lato client (server/pirati.js nel bundle)
+      ciurma: { ids: [...ship.ciurma], pirata: ship.pirata, varati: [...ship.varati] },
       negozio: {
         catalogo: livree.publicCatalogo(), possedute: [...ship.livree],
         livrea: ship.livrea, vele: ship.vele, scia: ship.scia, bandiera: ship.bandiera,
@@ -1271,6 +1299,7 @@ class Game {
     if (!this.charge(ship, varoCost(ship))) return;
     ship.vari++;
     ship.tipo = tipo;
+    ship.varati.add(tipo); // il varo arruola l'esclusivo del tipo (#16)
     // la matrice del legno decide cosa il nuovo scafo regge: vietate e
     // gruppi a tetto zero tornano oro pieno; le ESCLUSIVE invece restano
     // nell'arsenale (audit Cantiere 2) — pagate una volta, tue per sempre
@@ -1286,6 +1315,7 @@ class Game {
       this.sendTo(ship, { t: 'toast', msg: 'Le esclusive smontate restano nel tuo arsenale: si rimontano gratis.' });
     }
     ship.hp = shipStats(ship).maxHp; // il varo esce dal bacino a scafo asciutto
+    this.aggiornaCiurma(ship);
     this.feedK('feed.varato', { nome: ship.name, tipo_k: 'tipo.' + tipo });
     this.sendShop(ship);
   }
@@ -1303,7 +1333,46 @@ class Game {
     if (!this.charge(ship, lineCost(ship, field))) return;
     ship[field]++;
     if (stat === 'hull') ship.hp = shipStats(ship).maxHp;
+    // scafo più grande, ciurma più grande (#16): scafo e punti Ciurma
+    // possono portare a bordo facce nuove
+    if (stat === 'hull' || stat === 'crew') this.aggiornaCiurma(ship);
     this.sendShop(ship);
+  }
+
+  // --- la Ciurma (issue #16): il roster che si arruola con la nave ---
+
+  // Confronta il diritto d'arruolo (dallo stato attuale) con gli arruolati:
+  // i nuovi salgono a bordo e restano per sempre (set monotono, come le
+  // esclusive). La campagna vale anche d'archivio: la livrea Ombre è la
+  // traccia durevole di un Mastro compiuto nelle settimane passate.
+  aggiornaCiurma(ship) {
+    if (ship.npc) return;
+    const stato = {
+      hullLvl: ship.hullLvl, crewLvl: ship.crewLvl, varati: ship.varati,
+      campagna: (ship.campagna && ship.campagna.completata) || ship.livree.has('ombre'),
+    };
+    const nuovi = pirati.sbloccati(stato).filter(id => !ship.ciurma.has(id));
+    for (const id of nuovi) ship.ciurma.add(id);
+    if (!ship.pirata || !ship.ciurma.has(ship.pirata)) {
+      ship.pirata = pirati.ROSTER.find(p => ship.ciurma.has(p.id))?.id || null;
+    }
+    // additivo: il client compone il toast d'arruolo nella sua lingua
+    if (nuovi.length) this.sendCiurma(ship, nuovi);
+  }
+
+  sendCiurma(ship, nuovi) {
+    this.sendTo(ship, {
+      t: 'ciurma', ids: [...ship.ciurma], pirata: ship.pirata,
+      varati: [...ship.varati], ...(nuovi && nuovi.length ? { nuovi } : {}),
+    });
+  }
+
+  // La scelta del prescelto: libera ovunque (la si farà nei 30 secondi
+  // prima di platform e picchiaduro), ma solo tra gli arruolati.
+  scegliPirata(ship, id) {
+    if (typeof id !== 'string' || !ship.ciurma.has(id)) return;
+    ship.pirata = id;
+    this.sendCiurma(ship);
   }
 
   buySlot(ship, group) {

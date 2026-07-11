@@ -151,6 +151,7 @@ async function boot() {
     onUndock: undock,
     onBuyShip: (stat) => net.send({ t: 'buyShip', stat }),
     onVaro: (tipo) => net.send({ t: 'varo', tipo }),
+    onPirata: (id) => net.send({ t: 'pirata', id }), // la Ciurma (#16)
     onBuySlot: (group) => net.send({ t: 'buySlot', group }),
     onUpgradeWeapon: (group, slot) => net.send({ t: 'upgradeWeapon', group, slot }),
     onReplaceWeapon: (group, slot) => net.send({ t: 'replaceWeapon', group, slot }),
@@ -352,6 +353,7 @@ function apriRegistro() {
     livree: p.livree || [], livrea: p.livrea, vele: p.vele, scia: p.scia,
     catalogo: state.livreeCatalogo || {},
     campagna: p.campagna,
+    ciurma: p.ciurma || [], pirata: p.pirata || null, // la Ciurma (#16)
   });
 }
 
@@ -747,6 +749,10 @@ function applyYou(you) {
     scia: you.scia !== undefined ? you.scia : state.profile.scia ?? null,
     bandiera: you.bandiera !== undefined ? you.bandiera : state.profile.bandiera ?? null,
     kills: you.kills ?? state.profile.kills, deaths: you.deaths ?? state.profile.deaths,
+    // la Ciurma (#16): arruolati, prescelto e tipi varati in carriera
+    ciurma: you.ciurma ?? state.profile.ciurma ?? [],
+    pirata: you.pirata !== undefined ? you.pirata : state.profile.pirata ?? null,
+    varati: you.varati ?? state.profile.varati ?? [],
   });
   saveProfile();
   ui.setGold(you.gold);
@@ -996,6 +1002,16 @@ function wireNet() {
     state.invitiAlleanza.push({ id: m.da.id, nome: m.da.nome, fino: Date.now() + (m.ttl || 90) * 1000 });
     ui.toast(`🤝 ${m.da.nome} ti propone un'alleanza: decidi dal pannello 🤝 lassù`, 6000);
     aggiornaAlleanze();
+  });
+  // la Ciurma (#16): nuovi arruoli e prescelto — il toast si compone QUI,
+  // nella lingua di chi legge (il server manda solo id)
+  net.on('ciurma', (m) => {
+    Object.assign(state.profile, { ciurma: m.ids || [], pirata: m.pirata ?? null, varati: m.varati || state.profile.varati || [] });
+    saveProfile();
+    if (m.nuovi && m.nuovi.length) {
+      ui.toast(t('ciurma.arruolo', { nomi: m.nuovi.map(id => t('pirata.' + id)).join(', ') }));
+    }
+    ui.setCiurma({ ids: m.ids || [], pirata: m.pirata ?? null });
   });
   net.on('alleanzeAperte', (m) => {
     state.alleanzeAperte = Array.isArray(m.bandiere) ? m.bandiere : [];
@@ -1255,6 +1271,9 @@ if (devParams.get('forceshop')) {
       possedute: ['indaco', 'velenere'], livrea: 'indaco', vele: 'velenere', scia: null,
       bandiera: { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 },
     },
+    // la Ciurma (#16): sette arruolati, coerenti con scafo 2 + Ciurma 2 +
+    // varo guerra del mock — la foto mostra carte vive e silhouette
+    ciurma: { ids: ['mozzo', 'cuoca', 'nostromo', 'vedetta', 'gabbiere', 'polena', 'sergente'], pirata: 'mozzo', varati: ['guerra'] },
     groups: {
       // stats = weaponStats(type, lvl) del server, ricopiati a mano: la foto
       // deve mostrare la scheda coi numeri veri (audit Cantiere)
@@ -1280,7 +1299,7 @@ if (devParams.get('forceshop')) {
       document.body.classList.remove('benvenuto');
       ui.hide('nameOverlay'); // la foto headless vuole il Cantiere, non il benvenuto
       ui.showShop(mock);
-      const b = document.getElementById({ nave: 'tabNave', armi: 'tabArmi', varo: 'tabVaro', livree: 'tabLivree' }[scheda] || 'tabArmi');
+      const b = document.getElementById({ nave: 'tabNave', armi: 'tabArmi', varo: 'tabVaro', livree: 'tabLivree', ciurma: 'tabCiurma' }[scheda] || 'tabArmi');
       if (b) b.click();
     } catch (e) { console.error('forceshop err:', e && e.message); }
   };
@@ -1383,6 +1402,7 @@ if (devParams.get('forcepanel')) {
         conquered: ['pornhub.com', 'xvideos.com'], preferiti: ['wikipedia.org', 'github.com', 'reddit.com'],
         catalogo: { indaco: { nome: 'Livrea Indaco' }, scarlatta: { nome: 'Livrea Scarlatta' }, ombre: { nome: 'Mare delle Ombre', impresa: true } },
         livree: ['indaco'], livrea: 'indaco', scia: null, campagna: { completata: true },
+        ciurma: ['mozzo', 'cuoca', 'nostromo', 'vedetta', 'sergente'], pirata: 'sergente', // la Ciurma (#16)
       });
     } catch (e) { console.error('forcepanel err:', e && e.message); }
   };
