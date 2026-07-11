@@ -2013,7 +2013,15 @@ class Game {
               }
             }
             if (gone) break;
-            if (Math.hypot(i.x - shot.x, i.y - shot.y) < i.r - 6) {
+            // BUG segnalato dagli utenti: lo Specchio Ustorio sta sul MASTIO
+            // (il centro esatto dell'isola) e ogni palla moriva sulla
+            // spiaggia (thud a i.r-6) cento leghe prima di raggiungerlo —
+            // imbattibile senza mortaio. Finché lo Specchio è VIVO, l'isola
+            // non fa scudo: il cuore difensivo è esposto lassù e le palle
+            // sorvolano le mura. Abbattuto lo specchio, la terra torna a
+            // bloccare come sempre.
+            const specchioVivo = i.defs && i.defs.some(d => d.kind === 's' && !d.dead);
+            if (!specchioVivo && Math.hypot(i.x - shot.x, i.y - shot.y) < i.r - 6) {
               this.fxQueue.push({ k: 'thud', x: r1(shot.x), y: r1(shot.y) });
               gone = true; break;
             }
