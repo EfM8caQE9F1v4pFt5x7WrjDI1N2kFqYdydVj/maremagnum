@@ -699,7 +699,8 @@ class Game {
       ? ship.campagna : { tappa: 0, fatto: 0, completata: false };
     return {
       settimana: c.settimana, nome: c.nome, lore: c.lore, premio: c.premio,
-      tappe: c.tappe.map(t => ({ desc: t.desc, lore: t.lore, n: t.n })),
+      nome_en: c.nome_en, lore_en: c.lore_en,
+      tappe: c.tappe.map(t => ({ desc: t.desc, lore: t.lore, lore_en: t.lore_en, tk: t.tk, tp: t.tp, n: t.n })),
       tappa: st.tappa, fatto: st.fatto, completata: !!st.completata,
     };
   }
@@ -710,7 +711,7 @@ class Game {
     const dg = campagna.getDungeon('giornaliero');
     if (!dg) return null;
     return {
-      periodo: dg.periodo, nome: dg.nome, lore: dg.lore, bersaglio: dg.bersaglio || null,
+      periodo: dg.periodo, nome: dg.nome, lore: dg.lore, nome_en: dg.nome_en, lore_en: dg.lore_en, bersaglio: dg.bersaglio || null,
       premio: dg.premio, difficolta: dg.difficolta, scadenza: dg.scadenza,
       fatto: ship.dungeonGiorno === dg.periodo,
     };

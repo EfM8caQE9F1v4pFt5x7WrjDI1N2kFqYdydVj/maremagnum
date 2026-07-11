@@ -135,6 +135,13 @@ const en = {
   'feed.settimana': '👑 {nome} completed the full week (+{oro} 🪙)',
   'feed.assedio': '⚔️ {nome} called a Siege! Report to the Port board.',
 
+  // — le tappe delle campagne del Mastro —
+  'tappa.mercantili': 'Sink {n} Merchants',
+  'tappa.scoperte': 'Discover {n} never-visited islands',
+  'tappa.fantasmi': 'Sink {n} Ghost Corsairs',
+  'tappa.espugnazione': 'Storm the defences of {b}',
+  'tappa.espugnazioneFortezza': 'Storm a Forbidden Fortress',
+
   // — le missioni del giorno —
   'missione.tld': 'Dock at a .{tld} island',
   'missione.discover': 'Discover {n} never-visited islands',

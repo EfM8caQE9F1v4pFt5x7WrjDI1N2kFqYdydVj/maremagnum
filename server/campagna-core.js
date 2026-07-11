@@ -62,20 +62,20 @@ function difeseValide(spec, difficolta) {
 // le tappe riusano meccaniche esistenti; gli eventi sono quelli che il Game
 // emette già (sink NPC, prima scoperta, espugnazione)
 const TAPPE_APERTURA = [
-  { tipo: 'mercantili', n: 2, desc: (n) => `Affonda ${n} Mercantili` },
-  { tipo: 'scoperte', n: 2, desc: (n) => `Scopri ${n} isole mai visitate` },
+  { tipo: 'mercantili', n: 2, desc: (n) => `Affonda ${n} Mercantili`, tk: 'tappa.mercantili' },
+  { tipo: 'scoperte', n: 2, desc: (n) => `Scopri ${n} isole mai visitate`, tk: 'tappa.scoperte' },
 ];
 const TAPPE_CENTRALI = [
-  { tipo: 'fantasmi', n: 2, desc: (n) => `Affonda ${n} Corsari Fantasma` },
-  { tipo: 'scoperte', n: 3, desc: (n) => `Scopri ${n} isole mai visitate` },
-  { tipo: 'mercantili', n: 3, desc: (n) => `Affonda ${n} Mercantili` },
+  { tipo: 'fantasmi', n: 2, desc: (n) => `Affonda ${n} Corsari Fantasma`, tk: 'tappa.fantasmi' },
+  { tipo: 'scoperte', n: 3, desc: (n) => `Scopri ${n} isole mai visitate`, tk: 'tappa.scoperte' },
+  { tipo: 'mercantili', n: 3, desc: (n) => `Affonda ${n} Mercantili`, tk: 'tappa.mercantili' },
 ];
 // La tappa finale nomina un'isola reale dell'Atlante quando ce n'è una sopra
 // soglia; altrimenti ripiega sulla generica Fortezza Proibita.
 function tappaFinale(bersaglio) {
   return bersaglio
-    ? { tipo: 'espugnazione', n: 1, desc: `Espugna le difese di ${bersaglio}`, bersaglio }
-    : { tipo: 'espugnazione', n: 1, desc: 'Espugna una Fortezza Proibita', bersaglio: null };
+    ? { tipo: 'espugnazione', n: 1, desc: `Espugna le difese di ${bersaglio}`, tk: 'tappa.espugnazione', tp: { b: bersaglio }, bersaglio }
+    : { tipo: 'espugnazione', n: 1, desc: 'Espugna una Fortezza Proibita', tk: 'tappa.espugnazioneFortezza', bersaglio: null };
 }
 
 // Bersagli NOTI: siti reali, famosi e sicuri, SEMPRE nel paniere dei candidati
@@ -124,8 +124,8 @@ function genera(tipo, periodo, isole = []) {
     const t1 = TAPPE_APERTURA[(rng() * TAPPE_APERTURA.length) | 0];
     const t2 = TAPPE_CENTRALI[(rng() * TAPPE_CENTRALI.length) | 0];
     grezze = [
-      { tipo: t1.tipo, n: t1.n, desc: t1.desc(t1.n) },
-      { tipo: t2.tipo, n: t2.n, desc: t2.desc(t2.n) },
+      { tipo: t1.tipo, n: t1.n, desc: t1.desc(t1.n), tk: t1.tk, tp: { n: t1.n } },
+      { tipo: t2.tipo, n: t2.n, desc: t2.desc(t2.n), tk: t2.tk, tp: { n: t2.n } },
       tappaFinale(bersaglio),
     ];
   }
@@ -157,6 +157,9 @@ function applicaVestito(base, vestito, candidati = []) {
   const v = vestito && typeof vestito === 'object' ? vestito : {};
   if (typeof v.nome === 'string' && v.nome.trim()) d.nome = v.nome.trim().slice(0, 60);
   if (typeof v.lore === 'string' && v.lore.trim()) d.lore = v.lore.trim().slice(0, 200);
+  // i18n fetta 3: il Mastro parla anche inglese — stessa chiamata, stessi limiti
+  if (typeof v.nome_en === 'string' && v.nome_en.trim()) d.nome_en = v.nome_en.trim().slice(0, 60);
+  if (typeof v.lore_en === 'string' && v.lore_en.trim()) d.lore_en = v.lore_en.trim().slice(0, 200);
   // difficoltà (design dell'AI) → premio spendibile (blindato dal codice)
   d.difficolta = difficoltaValida(v.difficolta);
   d.premio = premioPer(d.difficolta);
@@ -167,11 +170,18 @@ function applicaVestito(base, vestito, candidati = []) {
   if (fin && fin.tipo === 'espugnazione') {
     fin.bersaglio = d.bersaglio || null;
     fin.desc = d.bersaglio ? `Espugna le difese di ${d.bersaglio}` : 'Espugna una Fortezza Proibita';
+    fin.tk = d.bersaglio ? 'tappa.espugnazione' : 'tappa.espugnazioneFortezza';
+    fin.tp = d.bersaglio ? { b: d.bersaglio } : undefined;
   }
   // narrazione per tappa (solo testo)
   if (Array.isArray(v.tappe)) {
     v.tappe.forEach((l, i) => {
       if (d.tappe[i] && typeof l === 'string' && l.trim()) d.tappe[i].lore = l.trim().slice(0, 120);
+    });
+  }
+  if (Array.isArray(v.tappe_en)) {
+    v.tappe_en.forEach((l, i) => {
+      if (d.tappe[i] && typeof l === 'string' && l.trim()) d.tappe[i].lore_en = l.trim().slice(0, 120);
     });
   }
   // difese: composizione libera dell'AI, ma clampata a range giocabili
