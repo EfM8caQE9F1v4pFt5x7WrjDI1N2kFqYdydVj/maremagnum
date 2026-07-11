@@ -61,7 +61,12 @@ merc.hp = game.npcMaxHp(merc); merc.resaCooldownUntil = 0; // ripulito per dopo
 ok('cooldown: il mare non è un bancomat');
 
 // — 5) il convoglio salpa: capo panciuto, scorte in stazione, Gazzetta avvisata —
-game.spawnCarovana('convoglio');
+// (il pescaggio delle tappe è casuale: ritenta finché la rotta ha uno scalo)
+for (let i = 0; i < 20; i++) {
+  game.spawnCarovana('convoglio');
+  if (game.carovane.convoglio && game.carovane.convoglio.tappe.length >= 2) break;
+  if (game.carovane.convoglio) game.sciogliCarovana('convoglio', null, true);
+}
 assert(game.carovane.convoglio, 'il convoglio esiste');
 const capo = game.ships.get(game.carovane.convoglio.capo);
 const scorte = game.carovane.convoglio.scorte.map(id => game.ships.get(id));
@@ -82,8 +87,37 @@ game.steerScorta(s0);
 assert(s0.input.up, 'la scorta molla la stazione e dà la caccia');
 ok('mutuo soccorso: la scorta caccia chi ha toccato il capo');
 
-// — 7) l'arrivo: tutti a terra, il mare si svuota, il prossimo è in calendario —
-capo.x = game.carovane.convoglio.meta.x; capo.y = game.carovane.convoglio.meta.y;
+// — 7) audit 3: passo da carico e scalo con sosta —
+const c7 = game.carovane.convoglio;
+assert(c7.tappe.length >= 2 && c7.tappa === 0, `rotta a più gambe (${c7.tappe.length}): scali + meta`);
+assert(c7.tappe[c7.tappe.length - 1].nome === c7.meta.nome, 'l\'ultima tappa È la meta');
+// il passo: in acqua libera il capo fila a 42 (carico), non a 75
+let lx = 0, ly = 0;
+cerca: for (let x = 200; x < 5800; x += 137) {
+  for (let y = 200; y < 5800; y += 211) {
+    if (game.archipelago.list().every(i => Math.hypot(x - i.x, y - i.y) > i.r + 300)) { lx = x; ly = y; break cerca; }
+  }
+}
+capo.x = lx; capo.y = ly; capo.vel = 0; capo.rot = 0;
+c7.tappe[0] = { ...c7.tappe[0], x: lx + 3000, y: ly }; // lo scalo dritto a prua
+for (let i = 0; i < 300; i++) { game.steerCapo(capo); game.move(capo, TICK); capo.x = lx; capo.y = ly; }
+assert(Math.abs(capo.vel - 42) < 2, `passo da carico (${capo.vel.toFixed(0)} ≈ 42, non 75)`);
+// lo scalo: toccata la prima tappa → sosta annunciata, poi la gamba due
+capo.x = c7.tappe[0].x; capo.y = c7.tappe[0].y;
+game.tickCarovane();
+assert(game.carovane.convoglio && c7.tappa === 1, 'lo scalo NON scioglie: si passa alla gamba due');
+assert(c7.sostaFino > game.now, 'ancora giù: sosta in rada');
+assert(etere.some(m => m.t === 'feed' && /fa scalo a/.test(m.msg)), 'lo scalo è annunciato');
+game.steerCapo(capo);
+assert(!capo.input.up, 'in sosta le vele sono ferme');
+c7.sostaFino = game.now - 1;
+game.steerCapo(capo);
+assert(capo.input.up, 'sosta finita: si riparte verso la meta');
+ok('audit 3: passo da carico (42), scalo con sosta e annuncio');
+
+// — 8) l'arrivo: tutti a terra, il mare si svuota, il prossimo è in calendario —
+c7.tappa = c7.tappe.length - 1; c7.sostaFino = 0; // saltiamo alle ultime miglia
+capo.x = c7.meta.x; capo.y = c7.meta.y;
 game.tickCarovane();
 assert(!game.carovane.convoglio, 'convoglio sciolto all\'arrivo');
 assert(!game.ships.has(capo.id) && scorte.every(s => !game.ships.has(s.id)), 'capo e scorte a terra');
@@ -91,7 +125,7 @@ assert(game.prossimaCarovana.convoglio > game.now, 'il prossimo è in calendario
 assert(etere.some(m => m.t === 'feed' && /giunto sano e salvo/.test(m.msg)), 'l\'arrivo si festeggia');
 ok('arrivo: convoglio a terra, feed avvisato, calendario aggiornato');
 
-// — 8) capo affondato: le scorte restano (orfane), ma nessuno rispawna —
+// — 9) capo affondato: le scorte restano (orfane), ma nessuno rispawna —
 game.prossimaCarovana.convoglio = 0;
 game.tickCarovane(); // ne salpa un altro
 const c2 = game.carovane.convoglio;

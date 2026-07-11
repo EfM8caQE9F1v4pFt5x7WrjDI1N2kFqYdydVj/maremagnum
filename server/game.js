@@ -37,18 +37,26 @@ const NOTTE = { da: 0.655, a: 0.895, cacciaFantasmi: 650 };
 // rispondono tutti — l'ecologia delle prede di Pirates!. Il convoglio è il
 // pane; il GALEONE DEL TESORO è la festa: raro, corazzato, guardia serrata —
 // e il suo oro si prende col TOCCO: chi lo affonda lo manda negli abissi.
+// Audit 3: i capi carovana navigano a PASSO DA CARICO (vel dedicata, non i
+// 75 del mercantile spensierato) e fanno SCALI intermedi con una breve sosta
+// in rada — misurato in collaudo: a passo pieno su rotte corte la carovana
+// viveva 23-35 secondi, "appariva e spariva da sola".
 const CAROVANE = {
   convoglio: {
     nome: 'Mercantile di Convoglio', scortaNome: 'Scorta del Convoglio',
     scorte: 2, stazza: 2, bottino: 400, ogni: 300, primo: 90, lvlScorta: 2,
-    annuncio: (da, a) => `🚢 Un convoglio scortato è salpato: da ${da} verso ${a}, stive piene!`,
+    vel: 42, scali: 2, sosta: 45,
+    annuncio: (da, a, via) => `🚢 Un convoglio scortato è salpato: da ${da} verso ${a}${via ? ` con scalo a ${via}` : ''}, stive piene!`,
+    scalo: (qui, poi) => `⚓ Il convoglio fa scalo a ${qui}: riparte a breve verso ${poi}.`,
     arrivo: (a) => `⚓ Il convoglio è giunto sano e salvo a ${a}.`,
     perduto: '🌊 Il mercantile di convoglio è perduto: la scorta, orfana, dà la caccia ai colpevoli.',
   },
   tesoro: {
     nome: 'Galeone del Tesoro', scortaNome: 'Guardia del Tesoro',
     scorte: 3, stazza: 3, bottino: 1000, ogni: 1800, primo: 600, lvlScorta: 3,
-    annuncio: (da, a) => `👑 IL GALEONE DEL TESORO è salpato: da ${da} verso ${a} — scorta serrata, stive d'oro!`,
+    vel: 35, scali: 2, sosta: 45,
+    annuncio: (da, a, via) => `👑 IL GALEONE DEL TESORO è salpato: da ${da} verso ${a}${via ? ` con scalo a ${via}` : ''} — scorta serrata, stive d'oro!`,
+    scalo: (qui, poi) => `👑 Il Galeone del Tesoro fa scalo a ${qui}: riparte a breve verso ${poi}.`,
     arrivo: (a) => `👑 Il Galeone del Tesoro è giunto al sicuro a ${a}: l'oro è sbarcato.`,
     perduto: '🌊 Il Galeone del Tesoro è negli abissi col suo oro: la Guardia, orfana, cerca vendetta.',
   },
@@ -1359,7 +1367,11 @@ class Game {
       const fv = vento.fattore(inTempesta ? { dir: this.vento.dir, forza: 1 } : this.vento, ship.rot);
       const mareGrosso = inTempesta ? vento.BURRASCHE.lentezza : 1;
       const taglio = ship.veleTagliateUntil > this.now ? W.MUNIZIONI.catene.taglia.malus : 1;
-      speed = (ship.npc === 'merc' ? 75 : (ship.npc === 'ghost' ? 105 : st.speed)) * fv * taglio * mareGrosso;
+      // il capo carovana è CARICO: passo suo (audit 3), non i 75 del merc
+      const base = ship.npc === 'merc'
+        ? (ship.convoglio ? CAROVANE[ship.convoglio.tipo].vel : 75)
+        : (ship.npc === 'ghost' ? 105 : st.speed);
+      speed = base * fv * taglio * mareGrosso;
     }
     const turn = (ship.input.left ? -1 : 0) + (ship.input.right ? 1 : 0);
     ship.rot += turn * st.turnRate * dt;
@@ -1410,7 +1422,13 @@ class Game {
   steerCapo(ship) {
     const c = ship.convoglio && this.carovane[ship.convoglio.tipo];
     if (!c) { this.steerMerc(ship); return; }
-    this.steerToward(ship, c.meta.x, c.meta.y);
+    // in sosta di scalo: ancora giù, vele ferme (audit 3)
+    if (c.sostaFino > this.now) {
+      ship.input.up = ship.input.left = ship.input.right = false;
+      return;
+    }
+    const t = c.tappe[c.tappa] || c.meta;
+    this.steerToward(ship, t.x, t.y);
   }
 
   // caccia col fianco: insegui la preda, mettila al traverso e fai fuoco —
@@ -1464,18 +1482,27 @@ class Game {
     const isole = this.archipelago.list()
       .filter(i => !i.fortress && !(i.defs && i.defs.some(d => !d.dead)));
     if (!cfg || isole.length < 2) return;
-    let da = null, a = null;
-    for (let tenta = 0; tenta < 12 && !a; tenta++) {
+    // la rotta è una CATENA di tappe (audit 3): porto → scalo/i → meta,
+    // ogni gamba almeno 1800 leghe — la carovana deve VIVERE in mare
+    let da = null, tappe = null;
+    for (let tenta = 0; tenta < 12 && !tappe; tenta++) {
       da = isole[Math.floor(Math.random() * isole.length)];
-      const lontane = isole.filter(i => i !== da && Math.hypot(i.x - da.x, i.y - da.y) > 2200);
-      if (lontane.length) a = lontane[Math.floor(Math.random() * lontane.length)];
+      const catena = [da];
+      for (let gamba = 0; gamba <= (cfg.scali || 0); gamba++) {
+        const qui = catena[catena.length - 1];
+        const lontane = isole.filter(i => !catena.includes(i) && Math.hypot(i.x - qui.x, i.y - qui.y) > 2400);
+        if (!lontane.length) break;
+        catena.push(lontane[Math.floor(Math.random() * lontane.length)]);
+      }
+      if (catena.length >= 2) tappe = catena.slice(1); // anche senza scali: mai a secco
     }
-    if (!a) return;
+    if (!tappe) return;
+    const a = tappe[tappe.length - 1];
     const capo = this.spawnNpc('merc');
     capo.name = cfg.nome;
     capo.stazza = cfg.stazza;
     capo.hp = this.npcMaxHp(capo);
-    const ang = Math.atan2(a.y - da.y, a.x - da.x);
+    const ang = Math.atan2(tappe[0].y - da.y, tappe[0].x - da.x);
     capo.x = da.x + Math.cos(ang) * (da.r + 140);
     capo.y = da.y + Math.sin(ang) * (da.r + 140);
     capo.rot = ang;
@@ -1493,8 +1520,13 @@ class Game {
       s.convoglio = { tipo, ruolo: 'scorta', posto: i };
       scorte.push(s.id);
     }
-    this.carovane[tipo] = { capo: capo.id, scorte, meta: { x: a.x, y: a.y, r: a.r, nome: a.name }, minaccia: null };
-    this.annuncia('convoglio', cfg.annuncio(da.name, a.name));
+    this.carovane[tipo] = {
+      capo: capo.id, scorte, minaccia: null,
+      meta: { x: a.x, y: a.y, r: a.r, nome: a.name }, // la destinazione FINALE
+      tappe: tappe.map(i => ({ x: i.x, y: i.y, r: i.r, nome: i.name })),
+      tappa: 0, sostaFino: 0,
+    };
+    this.annuncia('convoglio', cfg.annuncio(da.name, a.name, tappe.length > 1 ? tappe[0].name : null));
   }
 
   // fine corsa: all'ARRIVO tutti a terra (spariscono in porto); se il capo
@@ -1527,8 +1559,17 @@ class Game {
         this.sciogliCarovana(tipo, CAROVANE[tipo].perduto, false);
         continue;
       }
-      if (Math.hypot(capo.x - c.meta.x, capo.y - c.meta.y) < c.meta.r + 170) {
-        this.sciogliCarovana(tipo, CAROVANE[tipo].arrivo(c.meta.nome), true);
+      // la tappa corrente: gli scali si toccano e si riparte, la META scioglie
+      const t = c.tappe[c.tappa] || c.meta;
+      if (Math.hypot(capo.x - t.x, capo.y - t.y) < t.r + 170) {
+        if (c.tappa >= c.tappe.length - 1) {
+          this.sciogliCarovana(tipo, CAROVANE[tipo].arrivo(c.meta.nome), true);
+        } else if (c.sostaFino <= this.now) {
+          // appena arrivato allo scalo: sosta breve, poi la prossima gamba
+          c.tappa++;
+          c.sostaFino = this.now + CAROVANE[tipo].sosta;
+          this.annuncia('convoglio', CAROVANE[tipo].scalo(t.nome, c.tappe[c.tappa].nome));
+        }
       }
     }
   }
