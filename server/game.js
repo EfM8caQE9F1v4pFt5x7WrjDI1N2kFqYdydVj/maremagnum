@@ -2160,13 +2160,29 @@ class Game {
     if (island.dungeon) {
       this.dungeonFalls(island, hero); // il dungeon del Mastro (#38) ha regole sue
     } else if (hero && !hero.npc) {
-      hero.gold += FORT.conquestBounty;
+      // In alleanza (#37) anche l'assalto alla Fortezza è di SQUADRA: la missione
+      // (campagna d'espugnazione) avanza per ognuno che ha battuto le difese, e la
+      // taglia si spartisce in parti UGUALI fra i partecipanti (divisione secca,
+      // decisa dal capitano — niente bonus alleanza qui: la Fortezza è un premio
+      // fisso una tantum, non un dungeon ripetibile). Da soli resta la taglia piena.
+      // La conquista permanente, invece, la tiene chi pianta la bandiera: il colpo
+      // di grazia se la prende, gli alleati dovranno espugnarsela da sé.
+      const squadra = this.alleanze.squadra(hero, island);
+      const quota = Math.round(FORT.conquestBounty / squadra.length);
+      for (const s of squadra) {
+        s.gold += quota;
+        s.kills++;
+        this.sendGold(s, quota, 'oro.espugnata', this.pIsola('isola', island));
+        this.avanzaCampagna(s, 'espugnazione');
+      }
       hero.conquered.add(island.id);
-      hero.kills++;
-      this.sendGold(hero, FORT.conquestBounty, 'oro.espugnata', this.pIsola('isola', island));
       this.sendTo(hero, { t: 'conquered', island: island.id, list: [...hero.conquered] });
-      this.annuncia('espugnazione', 'espugnazione.annuncio', { nome: hero.name, ...this.pIsola('isola', island) });
-      this.avanzaCampagna(hero, 'espugnazione');
+      if (squadra.length > 1) {
+        const nomi = squadra.map(s => s.name).join(' + ');
+        this.annuncia('espugnazione', 'espugnazione.alleanza', { nomi, ...this.pIsola('isola', island), oro: quota });
+      } else {
+        this.annuncia('espugnazione', 'espugnazione.annuncio', { nome: hero.name, ...this.pIsola('isola', island) });
+      }
     } else {
       this.feedK('feed.difeseFortezza', this.pIsola('isola', island));
     }
