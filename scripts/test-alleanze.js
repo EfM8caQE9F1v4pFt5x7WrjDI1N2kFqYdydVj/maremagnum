@@ -173,23 +173,37 @@ game.leave(C);
 assert(!A.alleanzaId && !game.alleanze.alleanze.has(aFinale.id), 'rimasto solo (senza bandiera), anche l\'ultimo è libero');
 ok('lo sbarco scioglie: il party è di sessione, mai persistito');
 
-// — 9) la Fortezza vera resta winner-take-all: nessuna spartizione —
+// — 9) la Fortezza in ALLEANZA: la taglia si spartisce in parti UGUALI fra i
+// partecipanti all'assalto e la missione avanza per tutti; ma la conquista
+// permanente resta di chi pianta la bandiera (il colpo di grazia) —
 const F = game.join(conn(), { t: 'join', name: 'Foxtrot', profile: { gold: 0 } });
 const G = game.join(conn(), { t: 'join', name: 'Golf', profile: { gold: 0 } });
+const H = game.join(conn(), { t: 'join', name: 'Hotel', profile: { gold: 0 } });
+for (const s of [F, G, H]) s.graceUntil = 0;
 F.invitoAt = 0;
 game.handle(F, { t: 'alleanzaInvita', id: G.id });
 game.handle(G, { t: 'alleanzaAccetta', id: F.id });
 const fortezza = game.archipelago.ensure('fortezza-vera-collaudo.example').island;
 fortezza.fortress = true;
 fortezza.defs = [{ kind: 't', x: fortezza.x, y: fortezza.y, hp: 10, max: 10, dead: false, lastHit: 0, fireAt: 0 }];
-const oroF = F.gold, oroG = G.gold;
-game.damageDefense(fortezza, fortezza.defs[0], 1, G.id); // G partecipa…
-abbatti(game, fortezza, F.id);                            // …ma la Fortezza paga solo F
+const oroF = F.gold, oroG = G.gold, oroH = H.gold;
+const albo = [];
+game.onGazzetta = (voce) => albo.push(voce); // per leggere l'annuncio in coppia
+game.damageDefense(fortezza, fortezza.defs[0], 1, G.id); // G, alleato, partecipa all'assalto
+game.damageDefense(fortezza, fortezza.defs[0], 1, H.id); // H spara ma NON è alleato
+abbatti(game, fortezza, F.id);                            // F dà il colpo di grazia
 const { FORT } = require('../server/world');
-assert.strictEqual(F.gold - oroF, FORT.conquestBounty, 'la Fortezza paga il solo eroe (invariata)');
-assert.strictEqual(G.gold - oroG, 0, 'nessuna spartizione sulle Fortezze Proibite (fuori dal #37)');
-assert(F.conquered.has(fortezza.id) && !G.conquered.has(fortezza.id), 'la conquista permanente resta personale');
-ok('Fortezza Proibita invariata: winner-take-all, conquista personale');
+const quotaFort = Math.round(FORT.conquestBounty / 2); // squadra di 2 (F + G); H resta fuori
+assert.strictEqual(F.gold - oroF, quotaFort, `l'eroe incassa la sua parte (${quotaFort}), non la taglia piena`);
+assert.strictEqual(G.gold - oroG, quotaFort, `l'alleato che ha combattuto incassa la stessa parte (${quotaFort})`);
+assert.strictEqual(H.gold - oroH, 0, 'chi non è alleato non spartisce (fuori dalla squadra come nel dungeon)');
+assert(F.conquered.has(fortezza.id) && !G.conquered.has(fortezza.id), 'la conquista permanente resta di chi pianta la bandiera');
+const annunzio = [...albo].reverse().find(v => v.k === 'espugnazione.alleanza');
+assert(annunzio, 'la Fortezza caduta in alleanza annuncia in coppia (espugnazione.alleanza)');
+assert(annunzio.testo.includes('Foxtrot') && annunzio.testo.includes('Golf'), "l'annuncio nomina entrambi gli alleati");
+assert(annunzio.testo.includes(String(quotaFort)), "l'annuncio riporta la quota a testa");
+game.onGazzetta = null;
+ok('Fortezza in alleanza: taglia divisa fra i partecipanti, missione a tutta la squadra, conquista al solo eroe, annuncio in coppia');
 
 // — 10) lo stato per il client: membri null fuori, elenco dentro —
 const st = game.alleanze.statoPer(D);

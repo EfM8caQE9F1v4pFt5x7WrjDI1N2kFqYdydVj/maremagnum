@@ -132,6 +132,7 @@ const IT = {
   'campagna.compiuta': '⚔ {nome} ha compiuto la campagna "{cnome}"! (+{oro} 🪙)',
   'livrea.sfoggio': '🎨 {nome} sfoggia una livrea nuova: "{lnome}"!',
   'espugnazione.annuncio': '🏰⚔️ {nome} ha ESPUGNATO {isola}! Il blocco è caduto.',
+  'espugnazione.alleanza': '🏰⚔️ L\'alleanza di {nomi} ha ESPUGNATO {isola}! Il blocco è caduto. (+{oro} 🪙 a testa)',
   'dungeon.alleanza': '⚔ L\'alleanza di {nomi} ha espugnato il dungeon del giorno "{dnome}" su {isola}! (+{oro} 🪙 a testa)',
   'dungeon.solo': '⚔ {nome} ha espugnato il dungeon del giorno "{dnome}" su {isola}! (+{oro} 🪙)',
   'arrembaggio.annuncio': '⚔ {chi} ha ABBORDATO {preda}!',

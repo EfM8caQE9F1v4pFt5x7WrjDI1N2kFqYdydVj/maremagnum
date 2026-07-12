@@ -125,6 +125,7 @@ const en = {
   'campagna.compiuta': '⚔ {nome} completed the campaign "{cnome}"! (+{oro} 🪙)',
   'livrea.sfoggio': '🎨 {nome} shows off a new livery: "{lnome}"!',
   'espugnazione.annuncio': '🏰⚔️ {nome} STORMED {isola}! The blockade has fallen.',
+  'espugnazione.alleanza': '🏰⚔️ The alliance of {nomi} STORMED {isola}! The blockade has fallen. (+{oro} 🪙 each)',
   'dungeon.alleanza': '⚔ The alliance of {nomi} stormed the daily dungeon "{dnome}" on {isola}! (+{oro} 🪙 each)',
   'dungeon.solo': '⚔ {nome} stormed the daily dungeon "{dnome}" on {isola}! (+{oro} 🪙)',
   'arrembaggio.annuncio': '⚔ {chi} BOARDED {preda}!',
