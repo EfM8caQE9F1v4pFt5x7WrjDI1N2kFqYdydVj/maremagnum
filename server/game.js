@@ -661,6 +661,17 @@ class Game {
     };
   }
 
+  // Una nave che non esiste più non può lasciare piombo senza padrone nel
+  // mare. Centralizziamo la rimozione per disconnessioni, carovane e
+  // Cacciatori: i colpi delle altre navi (e delle fortezze) restano intatti.
+  rimuoviNave(ship) {
+    if (!ship) return;
+    this.ships.delete(ship.id);
+    for (const [id, shot] of this.shots) {
+      if (shot.owner === ship.id) this.shots.delete(id);
+    }
+  }
+
   leave(ship) {
     // scappare staccando la spina non paga: chi resta vince (issue #15)
     if (ship.blockedUntil > this.now) {
@@ -680,7 +691,7 @@ class Game {
     }
     this.alleanze.leave(ship); // chi sbarca esce dall'alleanza (#37)
     this.missions.leave(ship);
-    this.ships.delete(ship.id);
+    this.rimuoviNave(ship);
     this.feedK('feed.terraferma', { nome: ship.name });
   }
 
@@ -1775,7 +1786,7 @@ class Game {
     for (const id of [c.capo, ...c.scorte]) {
       const s = this.ships.get(id);
       if (!s) continue;
-      if (arrivo && !this.isSunk(s)) this.ships.delete(id);
+      if (arrivo && !this.isSunk(s)) this.rimuoviNave(s);
       // i relitti e le orfane conservano ship.convoglio: al "respawn" si tolgono
     }
     this.carovane[tipo] = null;
@@ -1859,7 +1870,7 @@ class Game {
     if (preda) preda.tagliaCacciata = preda.kills; // il conto riparte da qui
     ship.caccia = null;
     this.cacciatori = Math.max(0, this.cacciatori - 1);
-    this.ships.delete(ship.id);
+    this.rimuoviNave(ship);
     if (motivo) this.feedK(motivo.k, motivo.p);
   }
 
@@ -2546,7 +2557,7 @@ class Game {
   respawn(ship) {
     // membri delle carovane e Cacciatori non rinascono (issue #41, fette
     // 3-4): il relitto ha fatto la sua scena, il mare se lo riprende
-    if (ship.npc && (ship.convoglio || ship.caccia)) { this.ships.delete(ship.id); return; }
+    if (ship.npc && (ship.convoglio || ship.caccia)) { this.rimuoviNave(ship); return; }
     ship.sunkUntil = 0;
     ship.lastHitBy = null;
     ship.blockedUntil = 0; ship.blockedBy = null; ship.bloccoSalvo = 0; ship.bloccoPerso = 0; ship.immuneUntil = 0;
