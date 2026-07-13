@@ -1,6 +1,9 @@
 'use strict';
 
-const { WORLD, PORT, FORT, parseCourse, Archipelago, publicIsland } = require('./world');
+const {
+  WORLD_LEVELS, MAX_SEEDED_ISLANDS, worldForCount, worldForLevel, portForWorld,
+  FORT, parseCourse, Archipelago, publicIsland,
+} = require('./world');
 const { dominioBase } = require('./dominio');
 const W = require('./weapons');
 const { Missions } = require('./missions');
@@ -288,8 +291,22 @@ function varoCost(ship) { return 90 * 2 ** ship.vari; } // ogni cambio di rotta 
 class Game {
   constructor(broadcast) {
     this.broadcast = broadcast;
-    this.archipelago = new Archipelago();
-    this.semina();
+    const dominiSemina = [...new Set([...ISOLE_T0, ...atlante.sopraSoglia()])].slice(0, MAX_SEEDED_ISLANDS);
+    this.world = worldForCount(dominiSemina.length);
+    // Il conteggio sceglie lo scaglione normale. Se però molte isole sono già
+    // cresciute fino a 3×, si ritenta una volta più al largo: mai overlap e
+    // nessuna simulazione costosa nel tick (succede solo al risveglio).
+    for (;;) {
+      this.port = portForWorld(this.world);
+      this.archipelago = new Archipelago(this.world, this.port);
+      try {
+        for (const dominio of dominiSemina) this.archipelago.ensure(dominio);
+        break;
+      } catch (e) {
+        if (!/^Mare saturo/.test(e.message) || this.world.level >= WORLD_LEVELS.length - 1) throw e;
+        this.world = worldForLevel(this.world.level + 1);
+      }
+    }
     this.missions = new Missions(this);
     this.alleanze = new Alleanze(this); // le alleanze temporanee (#37)
     this.ships = new Map();
@@ -330,10 +347,21 @@ class Game {
   // Al risveglio il mare si ricorda delle sue isole: le isole di partenza
   // (T0) e le mete condivise dell'Atlante (≥ soglia) rinascono senza
   // aspettare una nuova rotta, con un tetto per non affollare la mappa.
-  semina(cap = 150) {
-    const domini = [...new Set([...ISOLE_T0, ...atlante.sopraSoglia()])].slice(0, cap);
+  semina(cap = MAX_SEEDED_ISLANDS, pronti = null) {
+    // Se l'Atlante torna disponibile solo a mare già caldo, non allarghiamo e
+    // non ricentriamo il mondo sotto i piedi dei giocatori: seminiamo quanto
+    // entra nello scaglione corrente; il resto arriverà al prossimo risveglio.
+    const capacitaMondo = WORLD_LEVELS[this.world.level].finoA;
+    const domini = (pronti || [...new Set([...ISOLE_T0, ...atlante.sopraSoglia()])])
+      .slice(0, Math.min(cap, capacitaMondo));
     for (const dominio of domini) {
-      const { island, isNew } = this.archipelago.ensure(dominio);
+      let creato;
+      try { creato = this.archipelago.ensure(dominio); }
+      catch (e) {
+        if (/^Mare saturo/.test(e.message)) break; // il resto salpa al prossimo risveglio/scaglione
+        throw e;
+      }
+      const { island, isNew } = creato;
       if (isNew) this.broadcastIsland(island);
     }
   }
@@ -354,7 +382,7 @@ class Game {
   spawnPoint() {
     const a = Math.random() * Math.PI * 2;
     const d = this.archipelago.get('porto').r + 90 + Math.random() * 90;
-    return { x: PORT.x + Math.cos(a) * d, y: PORT.y + Math.sin(a) * d };
+    return { x: this.port.x + Math.cos(a) * d, y: this.port.y + Math.sin(a) * d };
   }
 
   makeShip(id, name, npc) {
@@ -411,8 +439,8 @@ class Game {
   spawnNpc(kind) {
     const id = 'n' + this.nextId++;
     const ship = this.makeShip(id, kind === 'merc' ? 'Mercantile' : 'Corsaro Fantasma', kind);
-    ship.x = 400 + Math.random() * (WORLD.W - 800);
-    ship.y = 400 + Math.random() * (WORLD.H - 800);
+    ship.x = 400 + Math.random() * (this.world.W - 800);
+    ship.y = 400 + Math.random() * (this.world.H - 800);
     if (kind === 'merc') {
       ship.hp = 70; ship.mounts = { left: [], right: [], bow: [], stern: [] };
       ship.ready = { left: [], right: [], bow: [], stern: [] };
@@ -451,8 +479,8 @@ class Game {
     ship.mounts = { left: [], right: [], bow: [], stern: [] };
     ship.ready = { left: [], right: [], bow: [], stern: [] };
     ship.hp = MOSTRI[tipo].hp;
-    ship.x = 400 + Math.random() * (WORLD.W - 800);
-    ship.y = 400 + Math.random() * (WORLD.H - 800);
+    ship.x = 400 + Math.random() * (this.world.W - 800);
+    ship.y = 400 + Math.random() * (this.world.H - 800);
     this.ships.set(id, ship);
     return ship;
   }
@@ -550,7 +578,7 @@ class Game {
     // cui si spawna la si vede comunque, sennò si parte nel vuoto
     const mappa = this.archipelago.list().filter(i => this.stabile(i) || i === isolaSpawn);
     this.sendTo(ship, {
-      t: 'welcome', id, world: WORLD, port: PORT,
+      t: 'welcome', id, world: this.world, port: this.port,
       islands: mappa.map(publicIsland),
       you: this.youFor(ship),
       arsenal: W.publicConfig(),
@@ -1572,8 +1600,8 @@ class Game {
     ship.y += Math.sin(ship.rot) * ship.vel * dt;
     if (ship.x < 60) { ship.x = 60; ship.vel *= 0.5; }
     if (ship.y < 60) { ship.y = 60; ship.vel *= 0.5; }
-    if (ship.x > WORLD.W - 60) { ship.x = WORLD.W - 60; ship.vel *= 0.5; }
-    if (ship.y > WORLD.H - 60) { ship.y = WORLD.H - 60; ship.vel *= 0.5; }
+    if (ship.x > this.world.W - 60) { ship.x = this.world.W - 60; ship.vel *= 0.5; }
+    if (ship.y > this.world.H - 60) { ship.y = this.world.H - 60; ship.vel *= 0.5; }
     for (const i of this.archipelago.list()) {
       const d = Math.hypot(ship.x - i.x, ship.y - i.y);
       // i mostri sono montagne di carne: la loro sagoma non sale in spiaggia
@@ -1598,7 +1626,7 @@ class Game {
 
   steerMerc(ship) {
     if (!ship.wp || Math.hypot(ship.wp.x - ship.x, ship.wp.y - ship.y) < 90) {
-      ship.wp = { x: 500 + Math.random() * (WORLD.W - 1000), y: 500 + Math.random() * (WORLD.H - 1000) };
+      ship.wp = { x: 500 + Math.random() * (this.world.W - 1000), y: 500 + Math.random() * (this.world.H - 1000) };
     }
     this.steerToward(ship, ship.wp.x, ship.wp.y);
   }
@@ -1782,8 +1810,8 @@ class Game {
     h.hp = this.npcMaxHp(h);
     for (const g of ['left', 'right']) h.mounts[g].forEach(w => { w.lvl = 3; });
     const ang = Math.random() * Math.PI * 2;
-    h.x = Math.max(200, Math.min(WORLD.W - 200, pirata.x + Math.cos(ang) * 900));
-    h.y = Math.max(200, Math.min(WORLD.H - 200, pirata.y + Math.sin(ang) * 900));
+    h.x = Math.max(200, Math.min(this.world.W - 200, pirata.x + Math.cos(ang) * 900));
+    h.y = Math.max(200, Math.min(this.world.H - 200, pirata.y + Math.sin(ang) * 900));
     h.caccia = { bersaglio: pirata.id, fino: this.now + CACCIA.ttl };
     this.cacciatori++;
     this.feedK('feed.taglia', { nome: pirata.name });
@@ -1956,7 +1984,7 @@ class Game {
     }
     // 3) deriva pigra tra due acque, orecchie tese all'agguato
     if (!ship.wp || Math.hypot(ship.wp.x - ship.x, ship.wp.y - ship.y) < 90) {
-      ship.wp = { x: 500 + Math.random() * (WORLD.W - 1000), y: 500 + Math.random() * (WORLD.H - 1000) };
+      ship.wp = { x: 500 + Math.random() * (this.world.W - 1000), y: 500 + Math.random() * (this.world.H - 1000) };
     }
     this.steerToward(ship, ship.wp.x, ship.wp.y);
     if (this.now < ship.agguatoDorme) return;
@@ -2504,8 +2532,8 @@ class Game {
     ship.lastHitBy = null;
     ship.blockedUntil = 0; ship.blockedBy = null; ship.bloccoSalvo = 0; ship.bloccoPerso = 0; ship.immuneUntil = 0;
     if (ship.npc) {
-      ship.x = 400 + Math.random() * (WORLD.W - 800);
-      ship.y = 400 + Math.random() * (WORLD.H - 800);
+      ship.x = 400 + Math.random() * (this.world.W - 800);
+      ship.y = 400 + Math.random() * (this.world.H - 800);
       ship.hp = this.npcMaxHp(ship);
       ship.wp = null; ship.fleeUntil = 0;
       // il mostro rinasce SOMMERSO, altrove, senza rancori (audit 2)

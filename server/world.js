@@ -7,8 +7,42 @@ const blocklist = require('./blocklist-core');
 const atlante = require('./atlante-core');
 const { dominioBase } = require('./dominio');
 
-const WORLD = { W: 6000, H: 6000 };
+const WORLD = { W: 6000, H: 6000, level: 0 };
 const PORT = { x: WORLD.W / 2, y: WORLD.H / 2 };
+
+// Issue #14: il mare cresce a scaglioni, ma solo fra un risveglio e l'altro.
+// Ogni scaglione aggiunge un anello concentrico: le isole già note conservano
+// la stessa posizione RELATIVA al Porto, quindi l'espansione non riscrive la
+// geografia. Il welcome porta già le dimensioni al client; nessun messaggio di
+// resize (e nessun salto a mare caldo) è necessario.
+const WORLD_LEVELS = [
+  { finoA: 59, size: 6000, ring: [900, 2800] },
+  { finoA: 219, size: 12000, ring: [3500, 5600] },
+  { finoA: 379, size: 18000, ring: [6300, 8600] },
+  { finoA: 500, size: 24000, ring: [9300, 11600] },
+  // riserva per il caso patologico in cui centinaia di isole siano già tutte
+  // al tetto di crescita 3×: normalmente il livello 3 basta e questo non nasce
+  { finoA: 500, size: 30000, ring: [12300, 14600] },
+];
+const MAX_SEEDED_ISLANDS = 500; // stesso tetto del dump AtlanteDO
+
+function worldForCount(n) {
+  n = Math.max(0, n | 0);
+  let level = WORLD_LEVELS.findIndex(s => n <= s.finoA);
+  if (level < 0) level = WORLD_LEVELS.length - 1;
+  const size = WORLD_LEVELS[level].size;
+  return { W: size, H: size, level };
+}
+
+function worldForLevel(level) {
+  level = Math.max(0, Math.min(WORLD_LEVELS.length - 1, level | 0));
+  const size = WORLD_LEVELS[level].size;
+  return { W: size, H: size, level };
+}
+
+function portForWorld(world) {
+  return { x: world.W / 2, y: world.H / 2 };
+}
 
 // Arsenale delle Fortezze Proibite: esagerato di proposito (vedi docs/GAME-DESIGN.md).
 const FORT = {
@@ -133,15 +167,17 @@ function makeDefense(kind, x, y, hp) {
 }
 
 class Archipelago {
-  constructor() {
+  constructor(world = WORLD, port = portForWorld(world)) {
+    this.world = world;
+    this.port = port;
     this.islands = new Map(); // id -> island
     this._addFixed({
       id: 'porto', kind: 'porto', domain: null, name: 'Porto Franco', nk: 'porto',
-      x: PORT.x, y: PORT.y, r: 130, seed: 42, fortress: false,
+      x: port.x, y: port.y, r: 130, seed: 42, fortress: false,
     });
     this._addFixed({
       id: 'oracolo', kind: 'oracolo', domain: null, name: "Faro dell'Oracolo", nk: 'oracolo',
-      x: PORT.x + 560, y: PORT.y - 420, r: 85, seed: 1337, fortress: false,
+      x: port.x + 560, y: port.y - 420, r: 85, seed: 1337, fortress: false,
     });
   }
 
@@ -162,14 +198,32 @@ class Archipelago {
     // la base è il seme, la crescita è dell'equipaggio: più approdi, più stazza
     const base = fortress ? 120 + rng() * 40 : 65 + rng() * 55;
     const r = Math.round(base * (fortress ? 1 : atlante.crescita(domain)));
-    let x = PORT.x, y = PORT.y, placed = false;
-    for (let i = 0; i < 60 && !placed; i++) {
-      const angle = rng() * Math.PI * 2;
-      const dist = 900 + rng() * 2000;
-      x = PORT.x + Math.cos(angle) * dist;
-      y = PORT.y + Math.sin(angle) * dist;
-      if (x < 300 || y < 300 || x > WORLD.W - 300 || y > WORLD.H - 300) continue;
-      placed = this.list().every(o => Math.hypot(o.x - x, o.y - y) > o.r + r + 260);
+    let x = this.port.x, y = this.port.y, placed = false;
+    // I primi 60 domini restano nell'anello storico; i successivi iniziano
+    // dall'anello nuovo. Se un anello è pieno si prova quello seguente, mai
+    // accettando in silenzio una sovrapposizione come faceva il vecchio
+    // fallback dopo 60 tentativi.
+    const siteIndex = this.list().filter(i => i.kind === 'site').length;
+    const preferito = siteIndex < 60 ? 0 : siteIndex < 220 ? 1 : siteIndex < 380 ? 2 : 3;
+    const maxLevel = Math.min(this.world.level | 0, WORLD_LEVELS.length - 1);
+    const ordine = [];
+    for (let level = Math.min(preferito, maxLevel); level <= maxLevel; level++) ordine.push(level);
+    for (let level = 0; level < Math.min(preferito, maxLevel); level++) ordine.push(level);
+    for (const level of ordine) {
+      const [minDist, maxDist] = WORLD_LEVELS[level].ring;
+      for (let i = 0; i < 240 && !placed; i++) {
+        const angle = rng() * Math.PI * 2;
+        // uniforme per AREA, non per raggio: niente ammasso sul bordo interno
+        const dist = Math.sqrt(minDist ** 2 + rng() * (maxDist ** 2 - minDist ** 2));
+        x = this.port.x + Math.cos(angle) * dist;
+        y = this.port.y + Math.sin(angle) * dist;
+        if (x < 300 || y < 300 || x > this.world.W - 300 || y > this.world.H - 300) continue;
+        placed = this.list().every(o => Math.hypot(o.x - x, o.y - y) > o.r + r + 260);
+      }
+      if (placed) break;
+    }
+    if (!placed) {
+      throw new Error(`Mare saturo al livello ${maxLevel}: impossibile collocare ${domain} senza sovrapposizioni`);
     }
     const island = { id: domain, kind: 'site', domain, name: islandName(domain, fortress), ...islandNameKey(domain, fortress), x, y, r, seed, fortress };
     if (fortress) {
@@ -231,4 +285,7 @@ function publicIsland(i) {
   return { id: i.id, kind: i.kind, domain: i.domain, name: i.name, nk: i.nk, nd: i.nd, x: i.x, y: i.y, r: i.r, seed: i.seed, fortress: i.fortress, dungeon: !!i.dungeon };
 }
 
-module.exports = { WORLD, PORT, FORT, hashStr, mulberry32, parseCourse, Archipelago, publicIsland };
+module.exports = {
+  WORLD, PORT, WORLD_LEVELS, MAX_SEEDED_ISLANDS, worldForCount, worldForLevel, portForWorld,
+  FORT, hashStr, mulberry32, parseCourse, Archipelago, publicIsland,
+};
