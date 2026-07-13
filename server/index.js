@@ -15,7 +15,7 @@ const campagna = require('./campagna-core');
 // vestito procedurale (in produzione li genera il cron del worker, con l'AI a
 // scrivere bersaglio/narrazione/difese). In dev l'Atlante è vuoto → bersaglio
 // generico; le difese vere si vedono in produzione o nei test.
-for (const tipo of ['giornaliero', 'settimanale']) {
+for (const tipo of campagna.TIPI) {
   campagna.setDungeon(tipo, campagna.genera(tipo, campagna.periodoDi(tipo), campagna.bersagli()));
 }
 

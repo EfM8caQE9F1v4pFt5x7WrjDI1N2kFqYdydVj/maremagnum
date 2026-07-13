@@ -90,7 +90,7 @@ reserved for steering, in accordance with WCAG 2.1.4.
 
 - 📖 **The Captain's Journal** combines deeds, daily objectives and personal
   history; the **Corsair Gazette** records public events across the sea.
-- ⚔ **The Pathmaster** creates a three-stage weekly campaign and a daily dungeon
+- ⚔ **The Pathmaster** creates daily PvE, a three-stage weekly PvE campaign, and a monthly PvP tournament
   on a real island with temporary defences. Workers AI writes the target,
   structure and story once per period; code validates the target and bounds all
   spendable rewards. A deterministic fallback keeps the game running if AI is
@@ -131,7 +131,7 @@ SQLite-backed **Durable Objects**:
 - `ContiDO` — anchored profiles and TOTP authentication;
 - `AtlanteDO` — per-domain visit counters;
 - `GazzettaDO` — public news;
-- `CampagneDO` — daily dungeons and weekly campaigns;
+- `CampagneDO` — daily/weekly/monthly dungeons and the Workers AI budget guard;
 - `GildeDO` — Brotherhoods.
 
 `MareDO` stops simulation and save timers as soon as the last connection leaves.

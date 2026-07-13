@@ -29,6 +29,18 @@ const CATALOGO = {
   sciasmeraldo: { nome: 'Scia di Smeraldo', genere: 'scia', prezzo: 5000, scia: 0x39c98e, motto: 'Il mare si accende di verde al tuo passaggio' },
   sciasangue: { nome: 'Scia di Sangue', genere: 'scia', prezzo: 5000, scia: 0xb03030, motto: 'Per chi non lascia domande, solo leggende' },
 };
+
+// Le otto tavolozze del Mastro (#38): il modello inventa nome e leggenda del
+// premio, mentre il codice assegna una tinta già supportata dal renderer. Sono
+// vele puramente cosmetiche, non acquistabili e senza statistiche di gioco.
+const TINTE_MASTRO = [0x6f5bd3, 0x2f8f9d, 0xb04b66, 0xc78b35, 0x4169a8, 0x2e8b57, 0x8b5a9f, 0x59656f];
+TINTE_MASTRO.forEach((tinta, i) => {
+  CATALOGO[`mastro${i}`] = {
+    nome: `Vele del Mastro ${i + 1}`,
+    genere: 'vele', prezzo: null, impresa: 'mastro', tinta, scia: tinta,
+    motto: 'Un trofeo di rotta: si guadagna, non si compra',
+  };
+});
 // i generi indossabili: uno slot ciascuno, mai collassare l'uno nell'altro
 // (client e server DEVONO leggere questa stessa mappa: genere ignoto = no)
 const GENERI = ['livrea', 'vele', 'scia'];

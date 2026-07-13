@@ -208,12 +208,28 @@ class Missions {
       this.assedio = {
         phase: 'lobby', targetId,
         corridori: new Set(), bloccatori: new Set(),
+        gilde: { corridori: null, bloccatori: null },
+        dungeonPeriodo: campagna.getDungeon('mensile')?.periodo ?? null,
         tPhase: 0,
       };
       this.game.feedK('feed.assedio', { nome: ship.name });
     }
     const a = this.assedio;
     if (a.phase === 'running') { this.game.sendTo(ship, { t: 'toast', msg: "L'assedio è già in corso." }); return; }
+    // Torneo fra Fratellanze: una gilda non può dividersi sui due fronti e un
+    // fronte già issato da una gilda resta suo. I corsari senza gilda possono
+    // comunque partecipare, così il PvP non diventa paywall sociale.
+    const altro = role === 'corridori' ? 'bloccatori' : 'corridori';
+    const gid = ship.gilda && ship.gilda.id;
+    if (gid && a.gilde[altro] === gid) {
+      this.game.sendTo(ship, { t: 'toast', msg: 'La tua Fratellanza è già schierata sul fronte opposto.' });
+      return;
+    }
+    if (gid && a.gilde[role] && a.gilde[role] !== gid) {
+      this.game.sendTo(ship, { t: 'toast', msg: 'Quel fronte batte già bandiera di un’altra Fratellanza.' });
+      return;
+    }
+    if (gid) a.gilde[role] = gid;
     a.corridori.delete(ship.id);
     a.bloccatori.delete(ship.id);
     a[role].add(ship.id);
@@ -221,6 +237,12 @@ class Missions {
   }
 
   pickTarget() {
+    const torneo = campagna.getDungeon('mensile');
+    if (torneo && torneo.bersaglio && torneo.scadenza > Date.now()) {
+      const { island, isNew } = this.game.archipelago.ensure(torneo.bersaglio);
+      if (isNew) this.game.broadcastIsland(island);
+      return island.id;
+    }
     // un'isola-sito esistente non fortificata, o una dal registro delle rotte famose
     const sites = this.game.archipelago.list().filter(i => i.kind === 'site' && !i.fortress);
     if (sites.length && Math.random() < 0.5) return sites[(Math.random() * sites.length) | 0].id;
@@ -282,11 +304,31 @@ class Missions {
     const target = this.game.archipelago.get(a.targetId);
     const winners = [...a[winnerRole]];
     const losers = [...a[winnerRole === 'corridori' ? 'bloccatori' : 'corridori']];
+    const torneo = campagna.getDungeon('mensile');
+    const evento = torneo && torneo.periodo === a.dungeonPeriodo && torneo.scadenza > Date.now() ? torneo : null;
     for (const id of winners) {
       const s = this.game.ships.get(id);
-      if (s) { s.gold += ASSEDIO.rewardWin; this.game.sendGold(s, ASSEDIO.rewardWin, 'Assedio vinto!'); }
+      if (!s) continue;
+      if (evento) {
+        // Il torneo paga una sola volta al mese: niente Assedio-farm. La cifra
+        // viene dal listino del core, mai dal testo del modello.
+        if (s.dungeonMese !== evento.periodo) {
+          s.dungeonMese = evento.periodo;
+          s.gold += evento.premio;
+          this.game.sendGold(s, evento.premio, 'Torneo del Mastro vinto!');
+          this.game.premiaBottinoMastro(s, evento);
+          this.game.sendTo(s, { t: 'torneo', stato: this.game.torneoPer(s) });
+        } else {
+          this.game.sendTo(s, { t: 'toast', msg: '⚔ Vittoria! Il bottino di questo mese era già tuo.' });
+        }
+      } else {
+        s.gold += ASSEDIO.rewardWin;
+        this.game.sendGold(s, ASSEDIO.rewardWin, 'Assedio vinto!');
+      }
     }
-    for (const id of losers) {
+    // Nel torneo mensile il premio di partecipazione non si ripete: l'onore è
+    // narrativo. Gli Assedi classici conservano invece la vecchia ricompensa.
+    if (!evento) for (const id of losers) {
       const s = this.game.ships.get(id);
       if (s) { s.gold += ASSEDIO.rewardLose; this.game.sendGold(s, ASSEDIO.rewardLose, 'Assedio perso, ma con onore'); }
     }
@@ -298,13 +340,28 @@ class Missions {
 
   broadcastState() {
     const a = this.assedio;
-    if (!a) { this.game.broadcast({ t: 'assedio', phase: null }); return; }
+    const torneo = campagna.getDungeon('mensile');
+    if (!a) {
+      this.game.broadcast({ t: 'assedio', phase: null, evento: torneo ? {
+        periodo: torneo.periodo, nome: torneo.nome, nome_en: torneo.nome_en,
+        lore: torneo.lore, lore_en: torneo.lore_en, bersaglio: torneo.bersaglio,
+      } : null });
+      return;
+    }
     const target = this.game.archipelago.get(a.targetId);
-    const names = (set) => [...set].map(id => { const s = this.game.ships.get(id); return s ? s.name : '?'; });
+    const names = (set) => [...set].map(id => {
+      const s = this.game.ships.get(id);
+      return s ? `${s.gilda ? `[${s.gilda.tag}] ` : ''}${s.name}` : '?';
+    });
     this.game.broadcast({
       t: 'assedio', phase: a.phase,
       target: target ? { id: target.id, name: target.name } : null,
       corridori: names(a.corridori), bloccatori: names(a.bloccatori),
+      gilde: a.gilde,
+      evento: torneo ? {
+        periodo: torneo.periodo, nome: torneo.nome, nome_en: torneo.nome_en,
+        lore: torneo.lore, lore_en: torneo.lore_en, bersaglio: torneo.bersaglio,
+      } : null,
       timeLeft: a.tPhase ? Math.max(0, Math.round(a.tPhase - this.game.now)) : null,
     });
   }

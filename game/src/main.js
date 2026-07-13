@@ -326,6 +326,7 @@ function diarioState() {
   return {
     campagna: state.campagna || null,
     dungeon: state.dungeon || null,
+    torneo: state.torneo || null,
     giornaliere: state.giornaliere || null,
     gazzetta: state.gazzetta || [],
     cronache: state.cronache || [],
@@ -364,6 +365,7 @@ function apriRegistro() {
     livree: p.livree || [], livrea: p.livrea, vele: p.vele, scia: p.scia,
     catalogo: state.livreeCatalogo || {},
     campagna: p.campagna,
+    ricordiMastro: p.ricordiMastro || [],
     ciurma: p.ciurma || [], pirata: p.pirata || null, // la Ciurma (#16)
   });
 }
@@ -753,6 +755,8 @@ function applyYou(you) {
     // il cursore dei non-letti: vince il più avanti fra locale e Conti
     gazzettaLetta: Math.max(you.gazzettaLetta || 0, state.profile.gazzettaLetta || 0),
     campagna: you.campagna ?? state.profile.campagna ?? null,
+    dungeonMese: you.dungeonMese ?? state.profile.dungeonMese ?? 0,
+    ricordiMastro: you.ricordiMastro ?? state.profile.ricordiMastro ?? [],
     sfide: you.sfide ?? state.profile.sfide ?? {},
     // il guardaroba (issue #25): livrea/scia possono essere legittimamente null
     livree: you.livree ?? state.profile.livree ?? [],
@@ -1028,8 +1032,32 @@ function wireNet() {
     state.alleanzeAperte = Array.isArray(m.bandiere) ? m.bandiere : [];
     aggiornaAlleanze();
   });
-  net.on('campagna', (m) => { state.campagna = m.stato || null; aggiornaDiario(); }); // Imprese del Diario (#36/#39)
-  net.on('dungeon', (m) => { state.dungeon = m.stato || null; aggiornaDiario(); });    // (#38/#39)
+  net.on('campagna', (m) => {
+    state.campagna = m.stato || null;
+    if (m.stato) state.profile.campagna = {
+      settimana: m.stato.settimana, tappa: m.stato.tappa,
+      fatto: m.stato.fatto, completata: !!m.stato.completata,
+    };
+    saveProfile(); aggiornaDiario();
+  }); // Imprese del Diario (#36/#39)
+  net.on('dungeon', (m) => {
+    state.dungeon = m.stato || null;
+    if (m.stato && m.stato.fatto) state.profile.dungeonGiorno = m.stato.periodo;
+    saveProfile(); aggiornaDiario();
+  }); // (#38/#39)
+  net.on('torneo', (m) => {
+    state.torneo = m.stato || null;
+    if (m.stato && m.stato.fatto) state.profile.dungeonMese = m.stato.periodo;
+    saveProfile(); aggiornaDiario();
+  }); // PvP mensile (#38)
+  net.on('bottinoMastro', (m) => {
+    state.profile.ricordiMastro = m.ricordi || [];
+    state.profile.livree = m.livree || state.profile.livree || [];
+    saveProfile();
+    const r = m.ricordo || {};
+    ui.toast(`🏆 ${r.titolo || r.trofeo || 'Bottino del Mastro'} — ${r.livrea || ''}`, 6500);
+    registraCronaca(`🏆 ${r.titolo || ''} · ${r.trofeo || ''}`);
+  });
   net.on('gazzetta', (m) => {
     state.gazzetta = Array.isArray(m.voci) ? m.voci : [];
     ui.setGazzettaBadge(nonLette());

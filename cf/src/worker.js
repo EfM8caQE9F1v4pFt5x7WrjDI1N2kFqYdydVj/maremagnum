@@ -19,7 +19,12 @@ export { MareDO, ContiDO, AtlanteDO, GazzettaDO, CampagneDO, GildeDO };
 // dal LISTINO (no pay-to-win). Se l'LLM manca o sfora, il vestito procedurale
 // del core basta: il dungeon esce comunque (rete di sicurezza + auto-seed #36).
 const MODELLO = '@cf/qwen/qwen3-30b-a3b-fp8';
-const ETICHETTA = { giornaliero: 'del giorno', settimanale: 'della settimana' };
+const AI_RESERVE_NEURONS = 100; // tetto conservativo per una generazione (input + max output)
+const ETICHETTA = {
+  giornaliero: 'del giorno (PvE)',
+  settimanale: 'della settimana (PvE)',
+  mensile: 'del mese (torneo PvP)',
+};
 
 async function generaDungeon(env, tipo = 'settimanale') {
   const periodo = campagna.periodoDi(tipo);
@@ -34,9 +39,26 @@ async function generaDungeon(env, tipo = 'settimanale') {
   // paniere: le isole popolari della gente PIÙ i bersagli noti (sempre non vuoto)
   const candidati = campagna.bersagli(isoleAtlante);
   let c = campagna.genera(tipo, periodo, candidati);
+  const reg = env.CAMPAGNE.get(env.CAMPAGNE.idFromName('campagne'));
   let esitoAI = 'saltata (binding assente)';
   try {
     if (env.AI) {
+      // Guardia hard del piano gratuito: CampagneDO serializza la prenotazione,
+      // impedisce doppioni dello stesso periodo e ferma l'AI a 500 neuroni/dì.
+      const pr = await reg.fetch('https://campagne/ai/prenota', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chiave: `${tipo}:${periodo}`, riserva: AI_RESERVE_NEURONS }),
+      });
+      const budget = pr.ok ? await pr.json() : { ok: false, motivo: 'registro-budget' };
+      if (!budget.ok && budget.motivo === 'gia-generato') {
+        const corrente = await reg.fetch('https://campagne/corrente');
+        const gia = corrente.ok ? (await corrente.json())[tipo] : null;
+        if (gia && gia.periodo === periodo) {
+          gia.__esitoAI = 'già generato per il periodo';
+          return gia;
+        }
+      }
+      if (!budget.ok) throw new Error('guardia AI: ' + (budget.motivo || 'budget'));
       esitoAI = 'vestito procedurale (risposta non usabile)';
       const lista = candidati.slice(0, 15);
       const risposta = await env.AI.run(MODELLO, {
@@ -45,7 +67,8 @@ async function generaDungeon(env, tipo = 'settimanale') {
           content: 'Sei il Mastro di Rotte, narratore BILINGUE di un gioco piratesco dove i siti web sono isole: scrivi in italiano E in inglese. ' +
             `Progetta il dungeon ${ETICHETTA[tipo] || 'della settimana'}. Rispondi SOLO con JSON, senza testo attorno: ` +
             '{"nome":"...","nome_en":"...","lore":"...","lore_en":"...","difficolta":"facile|medio|tosto","bersaglio":"<dominio>","tappe":["..."],"tappe_en":["..."],' +
-            '"difese":{"torri":N,"bombarde":N,"corazzate":N,"serventi":N,"specchio":true|false}}. ' +
+            '"difese":{"torri":N,"bombarde":N,"corazzate":N,"serventi":N,"specchio":true|false},' +
+            '"bottino":{"titolo":"...","titolo_en":"...","trofeo":"...","trofeo_en":"...","livrea":"...","livrea_en":"..."}}. ' +
             '- nome: evocativo, max 5 parole; nome_en: lo STESSO nome reso in inglese. ' +
             '- lore: una riga d\'atmosfera, max 25 parole; lore_en: la stessa riga in inglese. ' +
             (lista.length
@@ -55,6 +78,7 @@ async function generaDungeon(env, tipo = 'settimanale') {
             `- tappe: una riga di lore piratesca in italiano (max 15 parole) per ciascuna di queste ${c.tappe.length} tappe: ` +
             c.tappe.map((t, i) => `${i + 1}) ${t.desc}`).join('; ') + '; tappe_en: le stesse righe in inglese, stesso ordine. ' +
             '- difese: quante torri (3-10), bombarde (0-3), corazzate (0-3: cadono solo coi pezzi pesanti), serventi (0-3: cadono solo sotto la mitraglia) e se c\'è lo Specchio Ustorio sul mastio (si abbatte solo con armi ad arco). ' +
+            '- bottino: inventa nomi brevi bilingui per un titolo, un trofeo di lore e una livrea SOLO cosmetica; nessun effetto o statistica. ' +
             'Niente numeri di premio né dobloni: quelli li mette il porto. Solo design e atmosfera. /think',
         }],
         max_tokens: 2600,
@@ -83,7 +107,6 @@ async function generaDungeon(env, tipo = 'settimanale') {
     console.warn('Mastro di Rotte, vestito AI non disponibile: ' + esitoAI);
   }
 
-  const reg = env.CAMPAGNE.get(env.CAMPAGNE.idFromName('campagne'));
   const { __esitoAI, ...daPersistere } = c;
   await reg.fetch('https://campagne/pubblica', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(daPersistere),
@@ -195,16 +218,25 @@ export default {
     }
 
     // L'Ammiragliato può battere il cron sul tempo (collaudi e prime uscite);
-    // ?tipo=giornaliero|settimanale sceglie quale dungeon rigenerare
+    // ?tipo=giornaliero|settimanale|mensile sceglie quale dungeon generare
     if (url.pathname === '/ammiragliato/mastro' && req.method === 'POST') {
       if (!env.ADMIN_SECRET || req.headers.get('X-Ammiragliato') !== env.ADMIN_SECRET) {
         return new Response('Chi va là?', { status: 401 });
       }
-      const tipo = url.searchParams.get('tipo') === 'giornaliero' ? 'giornaliero' : 'settimanale';
+      const richiesto = url.searchParams.get('tipo');
+      const tipo = campagna.TIPI.includes(richiesto) ? richiesto : 'settimanale';
       const c = await generaDungeon(env, tipo);
       return new Response(JSON.stringify({ ok: true, dungeon: c }), {
         headers: { 'content-type': 'application/json' },
       });
+    }
+
+    if (url.pathname === '/ammiragliato/mastro/budget' && req.method === 'GET') {
+      if (!env.ADMIN_SECRET || req.headers.get('X-Ammiragliato') !== env.ADMIN_SECRET) {
+        return new Response('Chi va là?', { status: 401 });
+      }
+      const reg = env.CAMPAGNE.get(env.CAMPAGNE.idFromName('campagne'));
+      return reg.fetch('https://campagne/ai/budget');
     }
 
     // Ammiragliato: rotte d'amministrazione protette da segreto (mai nel git)
@@ -235,10 +267,11 @@ export default {
     return env.ASSETS.fetch(req);
   },
 
-  // il cron del Mastro di Rotte (#38): il giornaliero (05:00 UTC ogni giorno)
-  // rigenera il dungeon del giorno; il settimanale (lunedì 06:00) la campagna.
+  // Tre cadenze, tre sole chiamate per periodo: PvE quotidiano, PvE settimanale,
+  // torneo PvP mensile. La guardia nel DO impedisce doppioni e sforamenti.
   async scheduled(event, env, ctx) {
-    const tipo = event.cron === '0 5 * * *' ? 'giornaliero' : 'settimanale';
+    const tipo = event.cron === '0 5 * * *' ? 'giornaliero'
+      : event.cron === '0 6 * * 1' ? 'settimanale' : 'mensile';
     ctx.waitUntil(generaDungeon(env, tipo));
   },
 };

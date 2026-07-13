@@ -88,7 +88,7 @@ export class MareDO {
     } catch { /* le notizie arriveranno al prossimo risveglio */ }
   }
 
-  // I dungeon del Mastro (#38: giornaliero e settimanale) tornano a bordo al
+  // I dungeon del Mastro (#38: PvE giornaliero/settimanale e PvP mensile) tornano a bordo al
   // risveglio del mare — e se mancano o sono stantii (deploy fresco, oppure il
   // cron non li ha ancora rinfrescati su questo mare caldo) li si semina al volo
   // col vestito procedurale e li si ripubblica: niente attesa del cron. I
@@ -99,7 +99,7 @@ export class MareDO {
       const reg = this.env.CAMPAGNE.get(this.env.CAMPAGNE.idFromName('campagne'));
       const res = await reg.fetch('https://campagne/corrente');
       const correnti = res.ok ? await res.json() : {};
-      for (const tipo of ['giornaliero', 'settimanale']) {
+      for (const tipo of campagna.TIPI) {
         const { dungeon, daPubblicare } = campagna.assicura(
           correnti[tipo], tipo, campagna.periodoDi(tipo), campagna.bersagli(atlante.sopraSoglia()));
         campagna.setDungeon(tipo, dungeon);
@@ -216,8 +216,8 @@ export class MareDO {
         if (msg.t !== 'join') return;
         // il Mastro a caldo: se è girata la settimana da quando il mare s'è
         // svegliato, rileggi/risemina la campagna prima che il Game la mandi
-        if (campagna.getDungeon('settimanale')?.periodo !== campagna.settimanaDi() ||
-            campagna.getDungeon('giornaliero')?.periodo !== campagna.giornoDi()) {
+        if (campagna.TIPI.some(tipo =>
+          campagna.getDungeon(tipo)?.periodo !== campagna.periodoDi(tipo))) {
           await this.caricaDungeoni();
         }
         // ancoraggio: col token valido il profilo autorevole arriva dai Conti
@@ -293,6 +293,8 @@ export class MareDO {
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
       dungeonGiorno: ship.dungeonGiorno || 0,
+      dungeonMese: ship.dungeonMese || 0,
+      ricordiMastro: ship.ricordiMastro || [],
       giornaliere: {
         giorno: ship.missioniGiorno | 0,
         progressi: (ship.giornaliere || []).map(m => m.progress | 0),

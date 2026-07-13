@@ -1,7 +1,7 @@
 'use strict';
 
 // Il Mastro di Rotte (issue #3 → v2 #38): i dungeon del Maremagnum su calendario
-// rotante — GIORNALIERI e SETTIMANALI. L'AI (nel worker) li scrive liberamente
+// rotante — GIORNALIERI, SETTIMANALI e MENSILI. L'AI (nel worker) li scrive liberamente
 // (bersaglio reale, narrazione, difese, difficoltà): è il divertimento, NON è
 // deterministico. Il codice mette la mano su UNA cosa sola — la ricompensa
 // SPENDIBILE (dobloni), agganciata a un listino fisso: paletto "no pay-to-win",
@@ -36,6 +36,34 @@ const LISTINO = { facile: 400, medio: 700, tosto: 1000 };
 const PREMIO = LISTINO.facile; // compat: il vecchio premio fisso del #3/#36
 function difficoltaValida(d) { return DIFFICOLTA.includes(d) ? d : 'medio'; }
 function premioPer(difficolta) { return LISTINO[difficoltaValida(difficolta)]; }
+
+// Il Mastro può inventare il NOME del bottino non economico. Gli effetti,
+// invece, restano cosmetici e code-owned: otto vele tinte già renderizzabili
+// dal client, nessun asset generato e soprattutto nessun vantaggio in battaglia.
+const LIVREE_MASTRO = 8;
+const TITOLI = ['Cartografo delle Nebbie', 'Flagello delle Rotte', 'Custode degli Abissi', 'Corsaro del Meridiano'];
+const TROFEI = ['Frammento di Rosa dei Venti', 'Sigillo della Marea', 'Scheggia del Mastio', 'Carta delle Acque Perdute'];
+const LIVREE = ['Vele della Marea Nera', 'Vele del Meridiano', 'Vele delle Nebbie', 'Vele dell\'Abisso'];
+
+function testoBreve(v, fallback, max = 60) {
+  return typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : fallback;
+}
+
+function bottinoValido(base, spec) {
+  const b = base && typeof base === 'object' ? base : {};
+  const s = spec && typeof spec === 'object' ? spec : {};
+  const seme = hashStr(`bottino-${b.tipo || ''}-${b.periodo || 0}`);
+  return {
+    titolo: testoBreve(s.titolo, b.titolo || TITOLI[seme % TITOLI.length]),
+    titolo_en: testoBreve(s.titolo_en, b.titolo_en || '', 60),
+    trofeo: testoBreve(s.trofeo, b.trofeo || TROFEI[(seme >>> 3) % TROFEI.length]),
+    trofeo_en: testoBreve(s.trofeo_en, b.trofeo_en || '', 60),
+    livrea: testoBreve(s.livrea, b.livrea || LIVREE[(seme >>> 6) % LIVREE.length]),
+    livrea_en: testoBreve(s.livrea_en, b.livrea_en || '', 60),
+    // L'LLM non sceglie mai un id di catalogo: il periodo determina la tinta.
+    livreaId: `mastro${seme % LIVREE_MASTRO}`,
+  };
+}
 
 // Le difese del dungeon: l'AI ne decide la COMPOSIZIONE (design libero), ma il
 // codice la CLAMPA a range sani — non è economia, è non-rompere-il-gioco (un
@@ -80,6 +108,16 @@ function tappaFinale(bersaglio) {
     : { tipo: 'espugnazione', n: 1, desc: 'Espugna una Fortezza Proibita', tk: 'tappa.espugnazioneFortezza', bersaglio: null };
 }
 
+function tappaPvP(bersaglio) {
+  return {
+    tipo: 'assedio', n: 1,
+    desc: bersaglio ? `Vinci l'Assedio di ${bersaglio}` : 'Vinci un Assedio del Mastro',
+    tk: bersaglio ? 'tappa.assedio' : 'tappa.assedioGenerico',
+    tp: bersaglio ? { b: bersaglio } : undefined,
+    bersaglio: bersaglio || null,
+  };
+}
+
 // Bersagli NOTI: siti reali, famosi e sicuri, SEMPRE nel paniere dei candidati
 // accanto alle isole popolari dell'Atlante. Garantiscono un bersaglio degno anche
 // con una community piccola (poche o zero isole sopra soglia); man mano che il
@@ -102,13 +140,28 @@ const LORE_TAPPA = ['Il mare mormora di vele ostili.', 'Le carte parlano di acqu
   'Un vecchio nostromo giura di averle viste.', 'La taglia è scritta col catrame.',
   'Nessuno è tornato per raccontarlo.', 'Il vento porta odore di polvere da sparo.'];
 
-// --- il calendario rotante (#38): giornaliero e settimanale ---
+// --- il calendario rotante (#38): PvE giornaliero/settimanale, PvP mensile ---
+const TIPI = ['giornaliero', 'settimanale', 'mensile'];
 const SPAN = { giornaliero: 24 * 3600 * 1000, settimanale: 7 * 24 * 3600 * 1000 };
 function settimanaDi(t = Date.now()) { return Math.floor(t / SPAN.settimanale); }
 function giornoDi(t = Date.now()) { return Math.floor(t / SPAN.giornaliero); }
-function periodoDi(tipo, t = Date.now()) { return Math.floor(t / (SPAN[tipo] || SPAN.settimanale)); }
+function meseDi(t = Date.now()) {
+  const d = new Date(t);
+  return d.getUTCFullYear() * 12 + d.getUTCMonth();
+}
+function periodoDi(tipo, t = Date.now()) {
+  if (tipo === 'mensile') return meseDi(t);
+  return Math.floor(t / (SPAN[tipo] || SPAN.settimanale));
+}
 // fine del periodo, in ms epoch: quando le difese temporanee si azzerano
-function scadenzaDi(tipo, periodo) { return (periodo + 1) * (SPAN[tipo] || SPAN.settimanale); }
+function scadenzaDi(tipo, periodo) {
+  if (tipo === 'mensile') {
+    const anno = Math.floor(periodo / 12);
+    const mese = periodo % 12;
+    return Date.UTC(anno, mese + 1, 1);
+  }
+  return (periodo + 1) * (SPAN[tipo] || SPAN.settimanale);
+}
 
 // Il dungeon del periodo. Il SETTIMANALE è la campagna in crescendo (3 tappe,
 // chiusura sull'isola difesa); il GIORNALIERO è a obiettivo singolo (l'assalto
@@ -122,6 +175,8 @@ function genera(tipo, periodo, isole = []) {
   let grezze;
   if (tipo === 'giornaliero') {
     grezze = [tappaFinale(bersaglio)];
+  } else if (tipo === 'mensile') {
+    grezze = [tappaPvP(bersaglio)];
   } else {
     const t1 = TAPPE_APERTURA[(rng() * TAPPE_APERTURA.length) | 0];
     const t2 = TAPPE_CENTRALI[(rng() * TAPPE_CENTRALI.length) | 0];
@@ -144,6 +199,8 @@ function genera(tipo, periodo, isole = []) {
     difese: difeseValide(null, difficolta),
   };
   if (tipo === 'settimanale') d.settimana = periodo; // compat #36: ship.campagna.settimana
+  if (tipo === 'mensile') d.modalita = 'pvp';
+  d.bottino = bottinoValido({ tipo, periodo }, null);
   return d;
 }
 
@@ -174,6 +231,11 @@ function applicaVestito(base, vestito, candidati = []) {
     fin.desc = d.bersaglio ? `Espugna le difese di ${d.bersaglio}` : 'Espugna una Fortezza Proibita';
     fin.tk = d.bersaglio ? 'tappa.espugnazione' : 'tappa.espugnazioneFortezza';
     fin.tp = d.bersaglio ? { b: d.bersaglio } : undefined;
+  } else if (fin && fin.tipo === 'assedio') {
+    fin.bersaglio = d.bersaglio || null;
+    fin.desc = d.bersaglio ? `Vinci l'Assedio di ${d.bersaglio}` : 'Vinci un Assedio del Mastro';
+    fin.tk = d.bersaglio ? 'tappa.assedio' : 'tappa.assedioGenerico';
+    fin.tp = d.bersaglio ? { b: d.bersaglio } : undefined;
   }
   // narrazione per tappa (solo testo)
   if (Array.isArray(v.tappe)) {
@@ -188,6 +250,7 @@ function applicaVestito(base, vestito, candidati = []) {
   }
   // difese: composizione libera dell'AI, ma clampata a range giocabili
   d.difese = difeseValide(v.difese, d.difficolta);
+  d.bottino = bottinoValido({ ...(d.bottino || {}), tipo: d.tipo, periodo: d.periodo }, v.bottino);
   return d;
 }
 
@@ -197,6 +260,14 @@ function applicaVestito(base, vestito, candidati = []) {
 // periodo) e il cron del worker. `daPubblicare` dice se va persistito.
 function assicura(corrente, tipo, periodo, isole = []) {
   const buono = valida(corrente) && corrente.tipo === tipo && corrente.periodo === periodo;
+  // migrazione additiva: un dungeon scritto prima dei trofei della #38 conserva
+  // storia e bersaglio, ricevendo gratis il bottino procedurale del suo periodo.
+  if (buono && !corrente.bottino) {
+    return {
+      dungeon: { ...corrente, bottino: bottinoValido({ tipo, periodo }, null) },
+      daPubblicare: true,
+    };
+  }
   // self-heal: un dungeon del periodo giusto ma SENZA bersaglio reale (seminato
   // quando l'Atlante era muto) si rigenera appena ci sono candidati — così le
   // difese compaiono senza aspettare il prossimo cron.
@@ -210,7 +281,7 @@ function assicura(corrente, tipo, periodo, isole = []) {
 // --- lo stato condiviso (come atlante-core: il DO persiste, qui si vive) ---
 // un dungeon per tipo, concorrenti: il giocatore può avere in mare sia il
 // bersaglio del giorno sia quello della settimana.
-const correnti = { giornaliero: null, settimanale: null };
+const correnti = { giornaliero: null, settimanale: null, mensile: null };
 
 function valida(d) {
   return !!(d && typeof d.tipo === 'string' && typeof d.periodo === 'number' &&
@@ -224,7 +295,9 @@ function setDungeon(tipo, d) {
   else if (d === null) correnti[tipo] = null;
 }
 function getDungeon(tipo) { return correnti[tipo] || null; }
-function getDungeoni() { return { giornaliero: correnti.giornaliero, settimanale: correnti.settimanale }; }
+function getDungeoni() {
+  return { giornaliero: correnti.giornaliero, settimanale: correnti.settimanale, mensile: correnti.mensile };
+}
 
 // compat #3/#36: la "campagna" è il dungeon SETTIMANALE (progresso tracciato).
 function getCampagna() { return correnti.settimanale; }
@@ -232,8 +305,9 @@ function setCampagna(c) { setDungeon('settimanale', c); }
 
 module.exports = {
   genera, assicura, applicaVestito, valida, bersagli, BERSAGLI_NOTI,
-  settimanaDi, giornoDi, periodoDi, scadenzaDi,
+  settimanaDi, giornoDi, meseDi, periodoDi, scadenzaDi, TIPI,
   DIFFICOLTA, LISTINO, PREMIO, difficoltaValida, premioPer, difeseValide,
+  LIVREE_MASTRO, bottinoValido,
   setDungeon, getDungeon, getDungeoni, getCampagna, setCampagna,
   hashStr, mulberry32, // il seme del calendario, riusato dalle giornaliere
 };

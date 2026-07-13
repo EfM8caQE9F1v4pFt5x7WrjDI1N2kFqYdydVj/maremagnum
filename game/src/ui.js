@@ -408,7 +408,11 @@ export class UI {
     const hud = $('assedioHud');
     if (!m || !m.phase) {
       hud.classList.add('hidden');
-      $('assedioInfo').textContent = tr('assedio.nessuno');
+      const evento = m && m.evento;
+      const en = getLang() === 'en';
+      $('assedioInfo').textContent = evento
+        ? tr('assedio.mastro', { nome: (en && evento.nome_en) || evento.nome, b: evento.bersaglio || '?' })
+        : tr('assedio.nessuno');
       $('assedioTeams').innerHTML = '';
       $('joinCorr').disabled = $('joinBlocc').disabled = false;
       return;
@@ -1023,6 +1027,15 @@ export class UI {
     if (d.campagna && d.campagna.completata) {
       sez(tr('reg.mastro'), [tr('reg.mastro.compiuta')]);
     }
+    if ((d.ricordiMastro || []).length) {
+      const en = getLang() === 'en';
+      sez(tr('reg.mastro.trofei'), d.ricordiMastro.slice().reverse().map(r => {
+        const titolo = (en && r.titolo_en) || r.titolo || '—';
+        const trofeo = (en && r.trofeo_en) || r.trofeo || '—';
+        const livrea = (en && r.livrea_en) || r.livrea || '—';
+        return `🏆 <b>${esc(titolo)}</b> · ${esc(trofeo)} · 🎨 ${esc(livrea)}`;
+      }));
+    }
     this.show('registroOverlay');
   }
 
@@ -1374,7 +1387,7 @@ export class UI {
       n > 0 ? `Diario del Capitano: ${n} novità nelle Cronache` : 'Diario del Capitano');
   }
 
-  // Apre il Diario e lo popola. `state` = { campagna, dungeon,
+  // Apre il Diario e lo popola. `state` = { campagna, dungeon, torneo,
   // giornaliere:{giornaliere,tris,strike,settimana,scadenza},
   // gazzetta:[voci del mare], cronache:[eventi miei], lettaFino }
   showDiario(state) {
@@ -1422,6 +1435,7 @@ export class UI {
     let qualcosa = false;
     if (s.campagna) { box.appendChild(this._cardCampagna(s.campagna)); qualcosa = true; }
     if (s.dungeon && !s.dungeon.fatto) { box.appendChild(this._cardDungeon(s.dungeon)); qualcosa = true; }
+    if (s.torneo) { box.appendChild(this._cardTorneo(s.torneo)); qualcosa = true; }
     if (!qualcosa) box.appendChild(this._vuoto(tr('diario.vuoto.mastro')));
     box.appendChild(this._sez(tr('diario.tredelgiorno')));
     const g = s.giornaliere;
@@ -1503,6 +1517,7 @@ export class UI {
     const premio = document.createElement('p'); premio.className = 'reward';
     premio.textContent = campagna.completata ? tr('diario.compiuta', { p: campagna.premio }) : tr('diario.premio', { p: campagna.premio });
     cb.appendChild(premio);
+    this._appendBottino(cb, campagna.bottino);
     return cb;
   }
 
@@ -1516,6 +1531,36 @@ export class UI {
     c.appendChild(sub);
     const premio = document.createElement('p'); premio.className = 'reward'; premio.textContent = `+${d.premio} 🪙`;
     c.appendChild(premio);
+    this._appendBottino(c, d.bottino);
+    return c;
+  }
+
+  _appendBottino(card, bottino) {
+    if (!bottino) return;
+    const en = getLang() === 'en';
+    const titolo = (en && bottino.titolo_en) || bottino.titolo;
+    const trofeo = (en && bottino.trofeo_en) || bottino.trofeo;
+    const livrea = (en && bottino.livrea_en) || bottino.livrea;
+    const p = document.createElement('p');
+    p.className = 'sub';
+    p.textContent = tr('diario.bottino', { titolo, trofeo, livrea });
+    card.appendChild(p);
+  }
+
+  _cardTorneo(d) {
+    const en = getLang() === 'en';
+    const c = document.createElement('div');
+    c.className = 'impresaCard mastro' + (d.fatto ? ' fatta' : '');
+    const h = document.createElement('h4');
+    h.textContent = (d.fatto ? '✓ ' : '') + tr('diario.torneo', { nome: (en && d.nome_en) || d.nome });
+    const lore = document.createElement('p'); lore.className = 'campagnaLore';
+    lore.textContent = (en && d.lore_en) || d.lore || '';
+    const obiettivo = document.createElement('p'); obiettivo.className = 'sub';
+    obiettivo.textContent = tr('diario.torneo.obiettivo', { b: d.bersaglio || '?' });
+    const premio = document.createElement('p'); premio.className = 'reward';
+    premio.textContent = d.fatto ? tr('diario.compiuta', { p: d.premio }) : `+${d.premio} 🪙`;
+    c.append(h, lore, obiettivo, premio);
+    this._appendBottino(c, d.bottino);
     return c;
   }
 

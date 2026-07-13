@@ -420,6 +420,7 @@ class Game {
       // il prescelto per platform/picchiaduro, i tipi VARATI in carriera
       ciurma: new Set(), pirata: null, varati: new Set(),
       livree: new Set(), livrea: null, vele: null, scia: null, bandiera: null,
+      ricordiMastro: [], dungeonMese: 0,
       mission: null, wp: null, fleeUntil: 0,
       alleanzaId: null, // l'alleanza temporanea (#37): effimera, mai nel profilo
     };
@@ -544,6 +545,25 @@ class Game {
     }
     // il guardaroba (issue #25): livree possedute/indossate e bandiera personale
     Object.assign(ship, livree.sanificaGuardaroba(p));
+    // Titoli e trofei del Mastro: solo testo corto e id di periodi già giocati.
+    // Il profilo anonimo ha la stessa fiducia dell'oro locale; l'Ancoraggio sarà
+    // comunque sovrascritto dal profilo autorevole dei Conti nel Worker.
+    if (Array.isArray(p.ricordiMastro)) {
+      ship.ricordiMastro = p.ricordiMastro.slice(-60).flatMap((r) => {
+        if (!r || typeof r !== 'object' || !/^(giornaliero|settimanale|mensile):\d+$/.test(String(r.id || ''))) return [];
+        const corto = (v, n = 60) => typeof v === 'string' ? v.trim().slice(0, n) : '';
+        return [{
+          id: String(r.id), tipo: String(r.tipo || '').slice(0, 16), periodo: r.periodo | 0,
+          titolo: corto(r.titolo), titolo_en: corto(r.titolo_en),
+          trofeo: corto(r.trofeo), trofeo_en: corto(r.trofeo_en),
+          livrea: corto(r.livrea), livrea_en: corto(r.livrea_en),
+          livreaId: /^mastro[0-7]$/.test(String(r.livreaId || '')) ? r.livreaId : null,
+        }];
+      });
+      for (const r of ship.ricordiMastro) {
+        if (r.livreaId && livree.CATALOGO[r.livreaId]) ship.livree.add(r.livreaId);
+      }
+    }
     // la Ciurma (#16): arruolati e tipi varati dal profilo, sanificati;
     // il tipo ATTUALE conta come varato (grandfathering: nessuno perde
     // il pirata della nave che sta già governando)
@@ -623,10 +643,13 @@ class Game {
     // il dungeon del giorno (#38): l'ultimo periodo già incassato, per non
     // ripagare il premio a chi lo rivince nello stesso giorno
     ship.dungeonGiorno = p.dungeonGiorno | 0;
+    ship.dungeonMese = p.dungeonMese | 0;
     const statoCampagna = this.campagnaPer(ship);
     if (statoCampagna) this.sendTo(ship, { t: 'campagna', stato: statoCampagna });
     const statoDungeon = this.dungeonGiornoPer(ship);
     if (statoDungeon) this.sendTo(ship, { t: 'dungeon', stato: statoDungeon });
+    const statoTorneo = this.torneoPer(ship);
+    if (statoTorneo) this.sendTo(ship, { t: 'torneo', stato: statoTorneo });
     // le tre del giorno: le missioni sono quelle del seme del giorno, dal
     // profilo tornano solo progressi, strike e conto della settimana
     this.missions.ripristina(ship, p);
@@ -649,6 +672,8 @@ class Game {
       gazzettaLetta: ship.gazzettaLetta || 0,
       campagna: ship.campagna || null,
       dungeonGiorno: ship.dungeonGiorno || 0,
+      dungeonMese: ship.dungeonMese || 0,
+      ricordiMastro: ship.ricordiMastro || [],
       giornaliere: {
         giorno: ship.missioniGiorno | 0,
         progressi: (ship.giornaliere || []).map(m => m.progress | 0),
@@ -771,6 +796,7 @@ class Game {
     return {
       settimana: c.settimana, nome: c.nome, lore: c.lore, premio: c.premio,
       nome_en: c.nome_en, lore_en: c.lore_en,
+      bottino: c.bottino || null,
       tappe: c.tappe.map(t => ({ desc: t.desc, lore: t.lore, lore_en: t.lore_en, tk: t.tk, tp: t.tp, n: t.n })),
       tappa: st.tappa, fatto: st.fatto, completata: !!st.completata,
     };
@@ -784,8 +810,42 @@ class Game {
     return {
       periodo: dg.periodo, nome: dg.nome, lore: dg.lore, nome_en: dg.nome_en, lore_en: dg.lore_en, bersaglio: dg.bersaglio || null,
       premio: dg.premio, difficolta: dg.difficolta, scadenza: dg.scadenza,
+      bottino: dg.bottino || null,
       fatto: ship.dungeonGiorno === dg.periodo,
     };
+  }
+
+  // Il torneo mensile è il ramo PvP del Mastro: usa l'Assedio esistente, ma
+  // bersaglio, storia, difficoltà e bottino arrivano dal dungeon condiviso.
+  torneoPer(ship) {
+    const dg = campagna.getDungeon('mensile');
+    if (!dg) return null;
+    return {
+      periodo: dg.periodo, nome: dg.nome, lore: dg.lore,
+      nome_en: dg.nome_en, lore_en: dg.lore_en,
+      bersaglio: dg.bersaglio || null, premio: dg.premio,
+      difficolta: dg.difficolta, scadenza: dg.scadenza,
+      bottino: dg.bottino || null,
+      fatto: ship.dungeonMese === dg.periodo,
+    };
+  }
+
+  // Titolo, trofeo di lore e livrea: una memoria per dungeon/periodo. Il testo
+  // è già clampato nel core; qui si rende monotona la collezione e si sblocca
+  // soltanto una delle tavolozze cosmetiche presenti nel catalogo del codice.
+  premiaBottinoMastro(ship, dg) {
+    if (!ship || ship.npc || !dg || !dg.bottino) return false;
+    const id = `${dg.tipo}:${dg.periodo}`;
+    if ((ship.ricordiMastro || []).some(r => r.id === id)) return false;
+    const b = campagna.bottinoValido({ ...dg.bottino, tipo: dg.tipo, periodo: dg.periodo }, dg.bottino);
+    const ricordo = { id, tipo: dg.tipo, periodo: dg.periodo, ...b };
+    ship.ricordiMastro = [...(ship.ricordiMastro || []).slice(-59), ricordo];
+    if (b.livreaId && livree.CATALOGO[b.livreaId]) ship.livree.add(b.livreaId);
+    this.sendTo(ship, {
+      t: 'bottinoMastro', ricordo,
+      ricordi: ship.ricordiMastro, livree: [...ship.livree],
+    });
+    return true;
   }
 
   // Stende i dungeon del Mastro (#38) sulle isole bersaglio: le difese temporanee
@@ -945,6 +1005,7 @@ class Game {
         ship.gold += c.premio;
         this.sendGold(ship, c.premio, 'oro.campagna', { cnome: c.nome });
         this.annuncia('campagna', 'campagna.compiuta', { nome: ship.name, cnome: c.nome, oro: c.premio });
+        this.premiaBottinoMastro(ship, c);
         // l'edizione-impresa (issue #25): la livrea che non si compra
         if (!ship.livree.has('ombre')) {
           ship.livree.add('ombre');
@@ -2278,6 +2339,7 @@ class Game {
       s.gold += quota;
       s.kills++;
       this.sendGold(s, quota, 'oro.dungeon', { dnome: dg.nome });
+      this.premiaBottinoMastro(s, dg);
       this.sendTo(s, { t: 'dungeon', stato: this.dungeonGiornoPer(s) }); // HUD → incassato
       pagati++;
     }

@@ -108,8 +108,8 @@ corsari combinano:
 
 - 📖 **Il Diario del Capitano** raccoglie imprese, obiettivi giornalieri e
   cronache personali; la **Gazzetta** conserva gli eventi pubblici del mare.
-- ⚔ **Il Mastro di Rotte** prepara una campagna settimanale a tre tappe e un
-  **dungeon giornaliero** su un'isola reale, con difese temporanee. Workers AI
+- ⚔ **Il Mastro di Rotte** prepara PvE giornaliero, campagna PvE settimanale e
+  **torneo PvP mensile** su isole reali, con difese temporanee e bottino cosmetico. Workers AI
   scrive bersaglio, struttura e narrazione una volta per periodo; validazione,
   difficoltà e ricompense spendibili restano blindate nel codice. Se l'AI non
   risponde, un fallback deterministico mantiene il gioco disponibile.
@@ -158,7 +158,8 @@ dopo 350 secondi, così una scheda dimenticata non tiene acceso il mare:
 - `GildeDO` — le Fratellanze.
 
 Un **R2** (`DEPOSITO`) fa da cache per blocklist NSFW e immagini dei Cartelloni.
-Due cron rigenerano dungeon giornaliero e campagna settimanale. L'infrastruttura
+Tre cron generano dungeon giornaliero, campagna settimanale e torneo mensile. Una
+guardia applicativa limita Workers AI a 500 neuroni/giorno (5% della quota gratuita). L'infrastruttura
 è configurata esclusivamente per il piano gratuito Cloudflare.
 
 **Il server autoritativo** (Node + `ws`, in `server/`) simula a **30 Hz** e manda
