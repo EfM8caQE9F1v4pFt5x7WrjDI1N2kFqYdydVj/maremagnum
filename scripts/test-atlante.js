@@ -7,6 +7,7 @@
 const assert = require('assert');
 const atlante = require('../server/atlante-core');
 const { Game } = require('../server/game');
+const { WORLD, Archipelago, worldForCount, portForWorld } = require('../server/world');
 
 const ok = (m) => console.log(`  ✅ ${m}`);
 
@@ -89,18 +90,55 @@ assert(welcome2 && welcome2.islands.some(i => i.id === 'meta-condivisa.it'),
   'il secondo giocatore non vede l\'isola nel welcome');
 ok('approdo ×3 → riavvio del Game → l\'isola resta e il secondo giocatore la vede');
 
-// 7) il cap della semina: mai più di 150 isole riseminate d'un colpo (le
-//    isole di partenza T0 rientrano nel conto)
+// 7) espansione #14: fino a 500 isole riseminate, su anelli successivi e
+//    senza il vecchio fallback che accettava sovrapposizioni dopo 60 tentativi
 const tanti = {};
-for (let i = 0; i < 160; i++) tanti[`dominio-${String(i).padStart(3, '0')}.it`] = 20 + (i % 7);
+for (let i = 0; i < 520; i++) tanti[`dominio-${String(i).padStart(3, '0')}.it`] = 20 + (i % 7);
 atlante.setConteggi(tanti);
 const affollato = new Game(() => {});
 affollato.pausa();
-const seminate = affollato.archipelago.list().filter(i => i.kind === 'site').length;
-assert(seminate === 150, `attese 150 isole seminate, trovate ${seminate}`);
-ok('la semina rispetta il cap (150, T0 + sopra soglia)');
+const isoleAffollate = affollato.archipelago.list().filter(i => i.kind === 'site');
+assert.strictEqual(isoleAffollate.length, 500, `attese 500 isole seminate, trovate ${isoleAffollate.length}`);
+assert(affollato.world.W > WORLD.W && affollato.world.level === 3,
+  `il mare affollato deve espandersi al livello 3 (world=${JSON.stringify(affollato.world)})`);
+for (let i = 0; i < isoleAffollate.length; i++) {
+  for (let j = i + 1; j < isoleAffollate.length; j++) {
+    const a = isoleAffollate[i], b = isoleAffollate[j];
+    assert(Math.hypot(a.x - b.x, a.y - b.y) > a.r + b.r + 260,
+      `sovrapposizione silenziosa fra ${a.domain} e ${b.domain}`);
+  }
+}
+ok('500 isole su quattro anelli, senza sovrapposizioni silenziose');
 
-// 8) fusione al rialzo: il merge non perde gli approdi locali più freschi
+// anche il caso patologico (tutte già cresciute al tetto 3×) non torna al
+// vecchio overlap: il costruttore apre automaticamente l'anello di riserva
+const enormi = {};
+for (let i = 0; i < 500; i++) enormi[`gigante-${String(i).padStart(3, '0')}.it`] = 100000;
+atlante.setConteggi(enormi);
+const mareGigante = new Game(() => {});
+mareGigante.pausa();
+assert.strictEqual(mareGigante.archipelago.list().filter(i => i.kind === 'site').length, 500);
+assert(mareGigante.world.level >= 3, 'le isole giganti devono avere spazio aggiuntivo');
+ok('caso limite: 500 isole a crescita 3× trovano spazio senza overlap');
+
+// 8) quando il mondo si allarga, la geografia già nota non si sposta rispetto
+//    al Porto: cambia solo l'origine del quadrato trasmesso nel welcome
+const baseWorld = worldForCount(20), wideWorld = worldForCount(200);
+const basePort = portForWorld(baseWorld), widePort = portForWorld(wideWorld);
+const baseArcipelago = new Archipelago(baseWorld, basePort);
+const wideArcipelago = new Archipelago(wideWorld, widePort);
+for (let i = 0; i < 20; i++) {
+  const dominio = `stabile-${i}.it`;
+  const a = baseArcipelago.ensure(dominio).island;
+  const b = wideArcipelago.ensure(dominio).island;
+  assert(Math.abs((a.x - basePort.x) - (b.x - widePort.x)) < 1e-9,
+    `${dominio}: longitudine relativa cambiata`);
+  assert(Math.abs((a.y - basePort.y) - (b.y - widePort.y)) < 1e-9,
+    `${dominio}: latitudine relativa cambiata`);
+}
+ok('l\'espansione conserva la geografia relativa al Porto');
+
+// 9) fusione al rialzo: il merge non perde gli approdi locali più freschi
 atlante.setConteggi({ 'viva.it': 5 });
 atlante.registraApprodo('viva.it'); // 6 locale
 atlante.mergeConteggi({ 'viva.it': 5, 'nuova.it': 4 });
