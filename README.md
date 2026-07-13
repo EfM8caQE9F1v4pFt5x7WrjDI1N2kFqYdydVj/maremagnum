@@ -1,5 +1,7 @@
 # ⚓ Maremagnum
 
+[**Italiano**](README.md) · [English](README.en.md)
+
 *L'internet è un mare magnum. Salpa.* (già "Navigare il Web")
 
 **Un browser game piratesco e multiplayer.** L'internet è un mare, ogni sito
@@ -46,6 +48,7 @@ condiviso vero, punta i client su un server raggiungibile
 | `Q` / `E` | Bordata di fiancata **sinistra** / **destra** (indipendenti) |
 | `SPAZIO` | Cannoni di **prua e poppa** (se installati) |
 | `R` | Abilità del tipo di nave (Bordata Doppia, Fumogeno…) |
+| `X` | Cambia munizione: palle, catene o mitraglia |
 | `F` | Attracca / salpa (vicino a un'isola, a vele ammainate) |
 | `TAB` (tieni premuto) | Registro dei Corsari (classifica) |
 | `INVIO` | Vai alla barra della rotta |
@@ -60,12 +63,15 @@ sempre riservate al timone (WCAG 2.1.4).
   mappa del tesoro con la rotta; la X rossa segna l'isola.
 - **Attracca** all'isola per aprire il sito (in una nuova scheda). Un dominio
   diverso è un'isola diversa: ogni navigazione è un nuovo viaggio in mare.
-- **Combatti**: cannoni a bordata, barra della vita; chi affonda torna al porto
-  per le riparazioni e perde parte dell'oro a favore del vincitore (+ taglia).
-- **Al Porto Franco** c'è il **Cantiere**. Si parte con 1 colubrina per lato e si
-  arriva a 5 slot per fiancata + 2 a prua + 2 a poppa; ogni arma ha 3 livelli e,
-  al massimo, si sostituisce col tier superiore (colubrina → cannone → carronata →
-  mortaio ad area → **l'esclusiva del tuo tipo di nave**).
+- **Combatti**: cannoni a bordata, munizioni situazionali e barra della vita.
+  Fra capitani, chi arriva a zero resta prima **bloccato**: il vincitore incassa
+  il 25% dell'oro in gioco e può completare l'arrembaggio col contatto. Chi
+  affonda torna al porto per le riparazioni.
+- **Al Porto Franco** c'è il **Cantiere**. Si parte con 1 colubrina per lato;
+  quantità e posizione degli slot dipendono dal tipo di nave. Ogni arma ha 3
+  livelli e, al massimo, si sostituisce col tier superiore. Brigantino e Galeone
+  seguono colubrina → cannone → carronata → mortaio; Goletta e Sciabecco saltano
+  la carronata. In cima arriva **l'esclusiva del tuo tipo di nave**.
 - **Il varo** sceglie il **tipo di nave** — quattro, ognuno con una matrice di
   bocche diversa, un'arma esclusiva in cima alla scala e un'**abilità** (tasto R):
   - **Goletta** — veloce e fragile, punge di prua; esclusiva la Colubrina Lunga.
@@ -77,13 +83,18 @@ sempre riservate al timone (WCAG 2.1.4).
   accorcia la ricarica; la Stiva protegge una fetta d'oro dal saccheggio.
 - **L'economia del bottino** premia il rischio con misura: chi ti **blocca la
   rotta** e ti affonda si prende il **25%** del tuo oro in gioco; un **arrembaggio**
-  vero (contatto) svuota il forziere (**100%**); il **timeout** di un assedio ne
+  vero (contatto) svuota il forziere (**100%**); il **timeout del blocco** ne
   cede il **75%**. Il doppiofondo della Stiva resta.
-- **Missioni & Assedi**: una missione personale sempre attiva (esplorazione/caccia);
-  alla Bacheca del porto si bandiscono gli **Assedi** — Corridori che devono
-  attraccare a un'isola bersaglio contro Bloccatori che lo impediscono.
-- **PvE**: i **mercantili PNG** vagano offrendo oro facile (a costo della fedina);
-  i **Corsari Fantasma** pattugliano il mare e cacciano i giocatori.
+- **Missioni & Assedi**: ogni giorno arrivano tre imprese condivise, con tris,
+  serie giornaliera e premio settimanale. Alla Bacheca del porto si bandiscono
+  gli **Assedi** — Corridori che devono attraccare a un'isola bersaglio contro
+  Bloccatori che lo impediscono.
+- **PvE**: mercantili, Corsari Fantasma, Convogli, Galeoni del Tesoro e Cacciatori
+  di Taglie si contendono il mare. Negli abissi vivono Kraken, Drago di Mare e
+  Serpente Abissale, ciascuno con attacchi e comportamento propri.
+- **Vento, burrasche e notte** cambiano velocità, gittata, visibilità e bottino.
+  Le catene tagliano le vele, la mitraglia falcidia la ciurma e una rastrellata
+  ben allineata colpisce più forte a poppa.
 - **Le Fortezze Proibite** nascono dalla blocklist **OISD NSFW** (~370k domini,
   scaricata e cacheata dal server): il blocco è reale, non si attracca finché le
   difese sono in piedi. Arsenale: 8 Torri Colossali, 2 Bombarde ad area e lo
@@ -95,13 +106,16 @@ sempre riservate al timone (WCAG 2.1.4).
 Oltre al mare, il Maremagnum tiene una memoria condivisa e viva di ciò che i
 corsari combinano:
 
-- 📰 **La Gazzetta del Corsaro** — l'albo delle imprese: affondamenti eccellenti,
-  fortezze espugnate, fratellanze fondate. Un badge conta le notizie non lette.
-- ⚔ **Il Mastro di Rotte** — una **campagna settimanale** a tre tappe (es. «La
-  Vendetta del Mastro»: mercantili → Corsari Fantasma → espugnazione). Ogni lunedì
-  il Mastro volta pagina. La **lore** è scritta da un modello Workers AI; i
-  **numeri** (tappe, premi) sono **deterministici e blindati nel codice** — mai
-  affidati a un LLM.
+- 📖 **Il Diario del Capitano** raccoglie imprese, obiettivi giornalieri e
+  cronache personali; la **Gazzetta** conserva gli eventi pubblici del mare.
+- ⚔ **Il Mastro di Rotte** prepara una campagna settimanale a tre tappe e un
+  **dungeon giornaliero** su un'isola reale, con difese temporanee. Workers AI
+  scrive bersaglio, struttura e narrazione una volta per periodo; validazione,
+  difficoltà e ricompense spendibili restano blindate nel codice. Se l'AI non
+  risponde, un fallback deterministico mantiene il gioco disponibile.
+- 🤝 **Le Alleanze temporanee** uniscono fino a quattro vele per i dungeon:
+  invito diretto o bandiera aperta, bottino diviso fra chi ha combattuto. Durano
+  la sessione e il fuoco amico resta attivo.
 - 🏴 **Le Fratellanze** — gilde con nome e tag unici, bandiera disegnata
   nell'editor, gerarchia di galloni, riti d'ammissione a porte aperte o chiuse,
   tetto di 24 membri.
@@ -122,8 +136,7 @@ schermate reali (`npm run test:a11y`):
 - tasti **rimappabili** dalla Timoneria (frecce sempre riservate);
 - interfaccia **navigabile da tastiera**, stato annunciato agli screen reader
   (il canvas è `aria-hidden`, tutto lo stato è duplicato nel DOM accessibile);
-- **focus visibile** ovunque (anello blu su alone chiaro), contrasti verificati
-  sui token di palette;
+- **focus visibile** ovunque, contrasti verificati sui token di palette;
 - **Mare calmo** per il movimento ridotto (default da `prefers-reduced-motion`);
 - **ancoraggio accessibile** (TOTP con incolla libero, `autocomplete=one-time-code`).
 
@@ -133,18 +146,20 @@ Dettagli e conquiste in [`docs/ACCESSIBILITA.md`](docs/ACCESSIBILITA.md).
 
 Il gioco è **web puro** (PixiJS v8 + DOM accessibile), servito online da
 **Cloudflare**. Un Worker serve gli asset statici e instrada il WebSocket; lo
-stato vive nei **Durable Objects** (SQLite-backed, in ibernazione quando vuoti =
-costo zero):
+stato vive nei **Durable Objects** SQLite-backed. Il `MareDO` ferma simulazione
+e timer quando non resta nessun collegamento; un utente inattivo viene congedato
+dopo 350 secondi, così una scheda dimenticata non tiene acceso il mare:
 
 - `MareDO` — lo stato del mare in tempo reale (tetto 24 per DO), **ospita lo
   stesso `Game` del server Node**;
 - `ContiDO` — i profili Ancoraggio (handle + TOTP, no password, TTL 30 giorni);
 - `AtlanteDO` — i contatori d'approdo per dominio (l'Atlante comunitario);
-- `GazzettaDO` — l'albo delle notizie; `CampagneDO` — la campagna del Mastro;
+- `GazzettaDO` — l'albo delle notizie; `CampagneDO` — dungeon e campagne del Mastro;
 - `GildeDO` — le Fratellanze.
 
-Un **R2** (`DEPOSITO`) fa da cache per due sole cose: la blocklist NSFW e le
-immagini dei Cartelloni. Una **cron settimanale** (lunedì) rigenera la campagna.
+Un **R2** (`DEPOSITO`) fa da cache per blocklist NSFW e immagini dei Cartelloni.
+Due cron rigenerano dungeon giornaliero e campagna settimanale. L'infrastruttura
+è configurata esclusivamente per il piano gratuito Cloudflare.
 
 **Il server autoritativo** (Node + `ws`, in `server/`) simula a **30 Hz** e manda
 snapshot ai client a **15 Hz**, protocollo JSON su WebSocket. Il trucco che tiene
@@ -158,13 +173,20 @@ Durable Object: un solo cervello, due gusci.
 offscreen e cotti in **atlanti WebP** (`game/assets/`), che PixiJS serve come
 sprite. Il 3D si paga una volta, in fase di build, non a ogni frame.
 
+**La Ciurma di Guardia** applica nel vecchio guscio desktop adblock, GPC e
+HTTPS-first. Quel guscio Electron (`shell/`) è oggi **deprecato come prodotto**:
+resta uno strumento di sviluppo/headless per screenshot e test. Il prodotto
+pubblico è il browser game web; la nota storica completa è in
+[`docs/ARCHITETTURA.md`](docs/ARCHITETTURA.md).
+
 ## Struttura
 
 ```
-game/     client: src/ (PixiJS v8, 22 moduli), index.html, style.css, tokens.{css,json}, assets/
+game/     client: src/ (PixiJS v8), DOM accessibile, stile, token e asset
 server/   autoritativo: game.js (30Hz) + moduli *-core.js puri
 cf/        Cloudflare: worker.js + 6 Durable Object + R2, wrangler.jsonc
 scripts/  build (gen-tokens, esbuild), bake-* (three.js→WebP), test-*.js, shot.js
+shell/    guscio Electron deprecato; resta per strumenti e test headless
 docs/     ARCHITETTURA · GAME-DESIGN · ACCESSIBILITA · AUDIT-UX · AUDIT-VISIVO · ROADMAP
 ```
 
@@ -181,9 +203,10 @@ battaglia, bottino, respawn, cantiere, scala dei tier, missioni, assedio ed
 espugnazione, più Atlante, Gazzetta, campagna del Mastro, Fratellanze e Livree.
 `npm run test:a11y` tiene la barra WCAG 2.2 AA.
 
-Rotta futura in [`docs/ROADMAP.md`](docs/ROADMAP.md): più zone di mare (i Durable
-Objects già abilitano il modello a *rooms*), alleanze e co-op temporanee, e il
-restyle a fonte-token unica esteso alle modalità di gioco future.
+Rotta futura in [`docs/ROADMAP.md`](docs/ROADMAP.md): più zone di mare, isole
+vive, modalità storia e le modalità d'arrembaggio/platform. I Durable Objects
+abilitano già il modello a *rooms*; il design system unico verrà riusato dalle
+nuove scene quando esisteranno.
 
 ## Musiche
 
