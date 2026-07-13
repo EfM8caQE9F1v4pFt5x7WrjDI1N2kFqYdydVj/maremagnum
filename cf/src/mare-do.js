@@ -203,6 +203,7 @@ export class MareDO {
     // adattatore: Game si aspetta .send e .readyState come il pacchetto ws
     const conn = {
       send: (s) => { try { ws.send(s); } catch { /* morente */ } },
+      close: (code, reason) => { try { ws.close(code, reason); } catch { /* già chiuso */ } },
       get readyState() { try { return ws.readyState ?? 1 } catch { return 3; } },
     };
 

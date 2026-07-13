@@ -263,6 +263,10 @@ const TIPI_PUB = Object.fromEntries(Object.entries(TIPI).map(([k, t]) => {
 }));
 
 const NPCS = { merc: 3, ghost: 2 };
+// Un capitano che non dà più segni libera il posto e, se era l'ultimo,
+// permette al MareDO di tornare a dormire. I client mandano un segnale
+// throttled solo su attività umana; i normali comandi valgono allo stesso modo.
+const INACTIVE_SECONDS = 350;
 
 // L'oro a bordo si perde, i punti nave no: il Cantiere è la banca del corsaro.
 function shipStats(ship) {
@@ -391,6 +395,7 @@ class Game {
       id, name, npc: npc || false, conn: null,
       x: p.x, y: p.y, rot: Math.random() * Math.PI * 2, vel: 0,
       input: { up: false, down: false, left: false, right: false },
+      lastActiveAt: this.now, inactiveClosed: false,
       gold: START_GOLD, hullLvl: 0, sailsLvl: 0, helmLvl: 0, crewLvl: 0, holdLvl: 0,
       tipo: null, vari: 0,
       mounts: W.defaultMounts(), ready: { left: [0], right: [0], bow: [], stern: [] },
@@ -946,6 +951,11 @@ class Game {
   // --- messaggi dai client ---
 
   handle(ship, msg) {
+    if (!ship || ship.inactiveClosed) return;
+    // `cartellone` può essere ritentato automaticamente dal client: non deve
+    // tenere sveglio un utente che non sta davvero interagendo.
+    if (msg.t !== 'cartellone') ship.lastActiveAt = Date.now() / 1000;
+    if (msg.t === 'activity') return;
     switch (msg.t) {
       case 'input':
         for (const k of ['up', 'down', 'left', 'right']) ship.input[k] = !!msg[k];
@@ -1525,6 +1535,15 @@ class Game {
     const dt = TICK;
     if (this.smokes.length) this.smokes = this.smokes.filter(s => s.until > this.now);
     for (const ship of this.ships.values()) {
+      if (!ship.npc && !ship.inactiveClosed &&
+          this.now - (ship.lastActiveAt || this.now) >= INACTIVE_SECONDS) {
+        ship.inactiveClosed = true; // una sola close mentre l'evento risale al DO
+        this.sendTo(ship, { t: 'inattivo', secondi: INACTIVE_SECONDS });
+        if (ship.conn && typeof ship.conn.close === 'function') {
+          try { ship.conn.close(4001, 'Inattivita'); } catch { /* la close farà pulizia */ }
+        }
+        continue;
+      }
       if (ship.sunkUntil && this.now >= ship.sunkUntil) this.respawn(ship);
       if (this.isSunk(ship) || ship.docked) continue;
       // il blocco (issue #15): la nave è inerme; si risolve col tocco o col tempo
@@ -2663,4 +2682,4 @@ function encW(mounts) {
   return out;
 }
 
-module.exports = { Game, shipStats, shipLvlCost };
+module.exports = { Game, shipStats, shipLvlCost, INACTIVE_SECONDS };

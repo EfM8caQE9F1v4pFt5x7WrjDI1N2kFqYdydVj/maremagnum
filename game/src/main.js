@@ -242,6 +242,7 @@ async function boot() {
 
   wireNet();
   net.connect();
+  wireActivity();
   wireInput();
   wireShell();
   if (devParams.get('pannello')) ui.show(devParams.get('pannello') + 'Overlay');
@@ -280,6 +281,16 @@ function avviaFrame() {
 
 function setCourse(q) { net.send({ t: 'course', q }); }
 function undock() { net.send({ t: 'undock' }); }
+
+// Presenza umana, non heartbeat cieco: se il capitano non tocca davvero
+// mouse/tastiera/touch per 350s il server lo congeda. Net.activity() limita e
+// accoda i segnali, quindi pointermove non diventa traffico continuo.
+function wireActivity() {
+  for (const tipo of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart']) {
+    addEventListener(tipo, () => net.activity(), { passive: true, capture: true });
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) net.activity(); });
+}
 
 // Da dove salpiamo? (issue #13) Porto Franco o un approdo preferito.
 function scegliSpawn() {
@@ -769,7 +780,7 @@ function wireNet() {
     // lì l'uid esce SOLO dal token verificato dai Conti
     uid: devParams.get('uid') || undefined,
   }));
-  net.on('_close', () => ui.toast(t('toast.connessione'), 60000));
+  net.on('_close', (e) => ui.toast(t(e && e.code === 4001 ? 'toast.inattivo' : 'toast.connessione'), 60000));
 
   net.on('welcome', (m) => {
     state.meId = m.id;
