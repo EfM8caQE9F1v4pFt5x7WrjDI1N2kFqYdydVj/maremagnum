@@ -1,72 +1,72 @@
-# La Ciurma — cartella dell'arte (issue #16, #7, #10)
+# La Ciurma — pipeline grafica
 
-Qui vive la pipeline dell'arte dei 15 pirati, **prima** che diventino sprite di gioco.
-Decisione di stile (11/7): **2D**, con la resa «figa» che arriva da **Midjourney** (strumento
-del capitano). Io produco i grezzi, tu li porti in MJ, io li rimonto in sprite PixiJS.
+Questa cartella contiene gli artwork originali dei pirati e i sorgenti da cui
+ricavare gli sprite animati del gioco.
 
-## Il flusso
+## Struttura
 
-```
-1. io      → riferimenti/<id>.png     (grezzo «hero», tratto pulito, scala di grigi)
-2. capitano → Midjourney               (colore, materia, «versione figa»)
-3. capitano → midjourney/<id>-*.png    (ci lasci qui gli artwork che tornano)
-4. io      → taglio in fotogrammi + impacchetto in atlante PixiJS (game/assets/pirati.webp)
-```
+- `midjourney/<id>-splash.png`: artwork eroico usato come riferimento canonico
+  per identità, costume, palette e materiali.
+- `generati/lineup-*.png`: tavola di confronto visivo, non destinata al runtime.
+- `generati/<id>-sprite-vN-source.png`: posa neutra su chroma key, conservata per
+  poter rifare il ritaglio.
+- `generati/<id>-sprite-vN.png`: posa neutra con trasparenza, pronta per essere
+  separata in testa, busto, braccia, gambe e arma.
 
-I grezzi in `riferimenti/` sono **volutamente essenziali**: servono a fissare
-**proporzioni, silhouette, tratti e accessori** — NON il colore. In MJ hai mano
-libera sulla palette e sui materiali; l'importante è che resti riconoscibile il
-pirata (stessa identità del roster in `server/pirati.js`).
+La directory `riferimenti/` non fa più parte della pipeline e non va usata come
+fonte visiva.
 
-## Due tracce diverse: SPLASH e SPRITE (importante)
+## Asset prodotti
 
-Provando i primi tre è emerso il nodo vero. Un'illustrazione MJ magnifica (posa
-drammatica, luce d'atmosfera, sfondo di tempesta) è perfetta per **guardarla**,
-ma **non** si anima come sprite di gioco: è una posa sola, la luce è «cotta»
-dentro, e il personaggio corre/salta/combatte in decine di fotogrammi. Quindi
-servono DUE tipi di render, per due usi diversi:
+| Pirata | Sorgente sprite selezionato | Ritaglio RGBA | Asset runtime |
+|---|---|---|---|
+| Mozzo | `generati/mozzo-sprite-v2-source.png` | `generati/mozzo-sprite-v2.png` | `game/assets/pirati/mozzo.webp` |
+| Cuoca | `generati/cuoca-sprite-v2-source.png` | `generati/cuoca-sprite-v2.png` | `game/assets/pirati/cuoca.webp` |
+| Nostromo | `generati/nostromo-sprite-v2-source.png` | `generati/nostromo-sprite-v2.png` | `game/assets/pirati/nostromo.webp` |
+| Vedetta | `generati/vedetta-sprite-v2-source.png` | `generati/vedetta-sprite-v2.png` | `game/assets/pirati/vedetta.webp` |
+| Mastro d'Ascia | `generati/mastrodascia-sprite-v2-source.png` | `generati/mastrodascia-sprite-v2.png` | `game/assets/pirati/mastrodascia.webp` |
+| Bucaniera | `generati/bucaniera-sprite-v3-source.png` | `generati/bucaniera-sprite-v3.png` | `game/assets/pirati/bucaniera.webp` |
+| Gabbiere | `generati/gabbiere-sprite-v2-source.png` | `generati/gabbiere-sprite-v2.png` | `game/assets/pirati/gabbiere.webp` |
+| Polena | `generati/polena-sprite-v2-source.png` | `generati/polena-sprite-v2.png` | `game/assets/pirati/polena.webp` |
+| Mezzamiccia | `generati/mezzamiccia-sprite-v2-source.png` | `generati/mezzamiccia-sprite-v2.png` | `game/assets/pirati/mezzamiccia.webp` |
+| Timoniere | `generati/timoniere-sprite-v2-source.png` | `generati/timoniere-sprite-v2.png` | `game/assets/pirati/timoniere.webp` |
+| Filo di Fumo | `generati/filodifumo-sprite-v2-source.png` | `generati/filodifumo-sprite-v2.png` | `game/assets/pirati/filodifumo.webp` |
+| Sergente | `generati/sergente-sprite-v2-source.png` | `generati/sergente-sprite-v2.png` | `game/assets/pirati/sergente.webp` |
+| Ammiraglia | `generati/ammiraglia-sprite-v2-source.png` | `generati/ammiraglia-sprite-v2.png` | `game/assets/pirati/ammiraglia.webp` |
+| Corsaro | `generati/corsaro-sprite-v2-source.png` | `generati/corsaro-sprite-v2.png` | `game/assets/pirati/corsaro.webp` |
+| Senzanome | `generati/senzanome-sprite-v2-source.png` | `generati/senzanome-sprite-v2.png` | `game/assets/pirati/senzanome.webp` |
 
-### 1) SPLASH — `<id>-splash.png` (già i tre che hai fatto)
-Illustrazione «figa», posa eroica, sfondo e luce liberi. **Uso**: il **ritratto
-nel riquadro** del roster (alla Tekken) e la **figura intera** nella scheda Ciurma
-del Cantiere. Questi li uso quasi come sono (ritaglio il volto per il ritratto).
+Le versioni precedenti restano come storico della prima serie, troppo uniforme.
+Il recast corrente segue `../DIREZIONE-ARTISTICA.md`: umani di età, corporature e
+provenienze diverse convivono con maledetti, esseri mitologici e creature nate
+da legno navale, salsedine, fumo, nebbia e superstizione.
 
-### 2) SPRITE — `<id>-sprite.png` (la prossima infornata, serve per animare)
-Per l'animazione in gioco (idle/corsa/salto/colpo) MJ va guidato diverso. Prompt/impostazioni:
-- **figura intera** testa-piedi, **posa neutra** in piedi (braccia un po' staccate dal corpo);
-- **luce piatta e uniforme**, niente ombre drammatiche;
-- **sfondo pieno e liscio** (bianco o verde), niente scenari;
-- **vista laterale o 3/4 leggero**, scala coerente fra i pirati;
-- parole utili: «character reference sheet, full body, A-pose, flat lighting, plain background, game asset».
+## Ricetta del recast
 
-Da uno sprite così io **ritaglio il personaggio a strati** (testa, busto, braccia,
-gambe, cappello, arma) e lo **rigo come una marionetta** (animazione scheletrica 2D
-in PixiJS): idle/corsa/colpo senza ridisegnare a mano, tenendo il tratto di MJ.
+Prompt comune: concept 2D dipinto in realismo stilizzato, dark fantasy
+marittimo fra Sei e Settecento, figura intera in posa neutra a tre quarti,
+silhouette leggibile a 112 px, materiali consumati dal mare, nessun fantasy
+medievale generico. Una sola figura su chroma key magenta uniforme, senza
+fondale, ombra, testo, cornice o oggetti staccati.
 
-## Come nominare i file (`midjourney/`)
+I brief individuali sono i quindici ganci visivi elencati nella sezione
+"Recast della Ciurma" di `../DIREZIONE-ARTISTICA.md`. Le sorgenti sono state
+generate con lo strumento integrato `imagegen`; il chroma è stato rimosso
+localmente con matte morbido e despill. I WebP runtime sono 320×320 con alpha,
+qualità 82 e lato utile massimo di 292 px.
 
-- `<id>-splash.png` — l'illustrazione eroica (ritratto + figura del roster)
-- `<id>-sprite.png` — la posa neutra a luce piatta su sfondo liscio (per animare)
-- `<id>-volto.png` — opzionale, un primo piano dedicato del volto
-- varianti: `<id>-splash-2.png`, `-3.png`… (tengo la migliore che mi indichi)
+## Passaggio successivo
 
-Gli `<id>` sono quelli del roster: `mozzo, cuoca, nostromo, vedetta, mastrodascia,
+I quindici ritagli RGBA sono sorgenti di produzione, non sprite già animati. Il
+passaggio successivo è segmentare ogni figura in parti indipendenti, ricostruire
+le zone nascoste nelle articolazioni e creare il rig 2D per idle, corsa, salto e
+attacco in PixiJS.
+
+Gli id completi del roster sono: `mozzo, cuoca, nostromo, vedetta, mastrodascia,
 bucaniera, gabbiere, polena, mezzamiccia, timoniere, filodifumo, sergente,
 ammiraglia, corsaro, senzanome`.
 
-## Il brief dei primi tre (quelli in `riferimenti/`)
+## Licenza
 
-Silhouette diverse apposta, per tastare lo stile su corpi diversi:
-
-- **mozzo** — Ugo «il Mozzo»: magro, giovane, sveglio. Bandana, camicia rimboccata,
-  scalzo, coltellaccio corto. L'aria di chi sgattaiola tra le cime.
-- **bucaniera** — Morgana «la Bucaniera»: portamento fiero, tricorno, capelli lunghi,
-  panciotto e sciabola. La spadaccina del gruppo.
-- **senzanome** — Il Capitano Senzanome: alto, spettrale, imponente. Tricorno grande,
-  barba folta, cappotto lacero, occhi che ardono. Il leggendario che non si compra.
-
-## Licenza / paletto
-
-Arte **originale nostra** (i grezzi sono disegnati da zero dalle ricette del roster;
-l'LPC è servito solo come riferimento di *costruzione*, mai copiato). Restiamo nella
-corsia pulita: niente asset copyleft di terzi dentro il gioco.
+Arte originale del progetto. Non introdurre asset copyleft o materiale di terzi
+nel gioco.

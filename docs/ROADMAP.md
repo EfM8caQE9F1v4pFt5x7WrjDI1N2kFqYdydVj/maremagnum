@@ -44,13 +44,13 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 ### Fase 4 — La società dei corsari
 | #5 | Gilde: fondazione, categoria, bandiera (decidere PRIMA: editor a componenti vs upload+moderazione), rito d'ingresso, log | Dopo la Gazzetta; abilita il Mastro di Rotte v2 (PvP) |
 
-### Fase 5 — La carne dei pirati (l'epica più costosa) — ⏸ IN ATTESA dei file del game designer
-| #16 | Pipeline personaggi (⏸ i personaggi useranno gli asset del designer; prototipi bake-3D/2D agli atti) | Fondazione unica per #7 e #10 |
+### Fase 5 — La carne dei pirati (l'epica più costosa) — 🛠 IN CORSO
+| #16 | Pipeline personaggi (🛠 direzione artistica e 3 roster da 15 fissati; ritratti runtime della Ciurma integrati; restano segmentazione, rig 2D e animazioni) | Fondazione unica per #7 e #10 |
 | #7 | Roster sbloccabile + picchiaduro d'arrembaggio | Dopo #16 |
 | #6 | Arrembaggio completo: il tocco di #15 apre il duello | Dopo #7 |
 | #10 | Il tesoro nell'entroterra (platform da URL profondi + premio) | Riusa #16; il bivio d'attracco disegnato secondo l'audit #8 |
 
-**Mentre si aspettano i file**: #23 ✓ → #24 ✓ → #11 ✓ → #25 ✓ → #27 ✓ (Cartellone OG). La coda d'attesa è ESAURITA: si riparte coi file del designer (F5), oppure #28 (economics, analisi), #14 (a dati) o #1 (anticipabile per business). Gli economics (#28) bloccano ogni pagamento vero (#25 v2, #1).
+**Il lavoro d'attesa è chiuso**: #23 ✓ → #24 ✓ → #11 ✓ → #25 ✓ → #27 ✓ (Cartellone OG). La Fase 5 è ripartita dalla #16 con asset originali e pipeline 2D; in alternativa restano #28 (economics, analisi), #14 (a dati) o #1 (anticipabile per business). Gli economics (#28) bloccano ogni pagamento vero (#25 v2, #1).
 
 ### Fase 6 — L'orizzonte largo
 | #14 | Espansione del mondo | **A dati, non a calendario**: quando l'Atlante sopra soglia supera ~60-80 isole |

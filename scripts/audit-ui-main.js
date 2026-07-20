@@ -181,6 +181,9 @@ app.whenReady().then(async () => {
     await J(`document.getElementById('tabArmi').click()`);
     await sleep(500);
     await snap(game, 'a7b-cantiere-armi');
+    await J(`document.getElementById('tabCiurma').click()`);
+    await sleep(500);
+    await snap(game, 'a7c-cantiere-ciurma');
     await J(`document.getElementById('tabNave').click()`);
     await sleep(300);
     await J(`document.getElementById('assedioOpen').click()`);

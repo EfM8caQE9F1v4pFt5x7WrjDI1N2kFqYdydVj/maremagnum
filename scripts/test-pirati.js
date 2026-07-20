@@ -7,6 +7,8 @@
 // cambiando nave. La dottrina è di server/pirati.js, fonte unica.
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const { Game } = require('../server/game');
 const pirati = require('../server/pirati');
 
@@ -32,6 +34,18 @@ assert(pirati.ROSTER.every(p => VIE.has(p.sblocco.via)), 'ogni sblocco ha una vi
 assert.strictEqual(pirati.ATLANTE.cols, pirati.ATLANTE.animazioni.idle.n + pirati.ATLANTE.animazioni.corsa.n,
   'la convenzione atlante torna coi conteggi');
 ok('catalogo: 15 pirati, vie d\'arruolo note, convenzione atlante coerente');
+
+// — 0b) i ritratti dipinti coprono l'intero roster e restano file statici
+// leggeri. Nessun lavoro di generazione o trasformazione finisce sul Worker.
+const illustrati = pirati.ROSTER.filter(p => p.ritratto);
+assert.deepStrictEqual(illustrati.map(p => p.id), pirati.ROSTER.map(p => p.id),
+  'ogni pirata ha il suo artwork dichiarato nel catalogo');
+for (const p of illustrati) {
+  const file = path.join(__dirname, '..', 'game', p.ritratto);
+  assert(fs.existsSync(file), `${p.id}: ritratto mancante (${p.ritratto})`);
+  assert(fs.statSync(file).size < 80 * 1024, `${p.id}: ritratto oltre 80 KB`);
+}
+ok('artwork: quindici WebP statici presenti e sotto 80 KB ciascuno');
 
 // — 1) la ciurma di partenza: due facce e un prescelto —
 const A = game.join(conn('A'), { t: 'join', name: 'Novellino', profile: { gold: 100000 } });
@@ -98,4 +112,4 @@ assert(Array.isArray(you.ciurma) && Array.isArray(you.varati) && you.pirata === 
   'youFor dichiara ciurma, varati e prescelto');
 ok('profilo: monotono, sanificato, round-trip completo');
 
-console.log('\n🏴‍☠️ La Ciurma s\'arruola come deve: %d casi verdi.', 8);
+console.log('\n🏴‍☠️ La Ciurma s\'arruola come deve: %d casi verdi.', 9);

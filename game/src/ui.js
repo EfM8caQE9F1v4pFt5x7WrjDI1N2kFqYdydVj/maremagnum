@@ -532,6 +532,10 @@ export class UI {
       sprite.style.setProperty('--pi-cols', A.cols);
       sprite.style.setProperty('--pi-rows', PIRATI.ROSTER.length);
       sprite.style.setProperty('--pi-riga', riga);
+      if (p.ritratto) {
+        sprite.classList.add('illustrata');
+        sprite.style.backgroundImage = `url("${p.ritratto}")`;
+      }
       sprite.setAttribute('role', 'img');
       sprite.setAttribute('aria-label', ha ? nome : tr('ciurma.silhouette.aria', { via: this._viaPirata(p.sblocco) }));
       card.appendChild(sprite);

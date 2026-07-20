@@ -547,9 +547,19 @@ body.conPannello #hint { opacity: 0; }
   background-position: 0 calc(var(--pi-s) * -1 * var(--pi-riga));
   animation: ciurmaIdle 1.9s steps(4) infinite;
 }
+.ciurmaSprite.illustrata {
+  background-size: contain;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  animation: ciurmaRespiro 2.4s ease-in-out infinite;
+}
 @keyframes ciurmaIdle {
   from { background-position: 0 calc(var(--pi-s) * -1 * var(--pi-riga)); }
   to { background-position: calc(var(--pi-s) * -4) calc(var(--pi-s) * -1 * var(--pi-riga)); }
+}
+@keyframes ciurmaRespiro {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.015); }
 }
 /* i non arruolati sono silhouette: si vede la sagoma, non il pirata */
 .ciurmaCard.bloccata .ciurmaSprite { filter: brightness(0.16) saturate(0.3); }

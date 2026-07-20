@@ -23,21 +23,21 @@ const ATLANTE = {
 // bordo) | 'varo' (esclusivo del tipo: si arruola VARANDO quel tipo) |
 // 'campagna' (si guadagna col Mastro di Rotte, mai si compra).
 const ROSTER = [
-  { id: 'mozzo', sblocco: { via: 'base' } },
-  { id: 'cuoca', sblocco: { via: 'base' } },
-  { id: 'nostromo', sblocco: { via: 'scafo', lvl: 2 } },
-  { id: 'vedetta', sblocco: { via: 'scafo', lvl: 2 } },
-  { id: 'mastrodascia', sblocco: { via: 'scafo', lvl: 4 } },
-  { id: 'bucaniera', sblocco: { via: 'scafo', lvl: 4 } },
-  { id: 'gabbiere', sblocco: { via: 'ciurma', lvl: 1 } },
-  { id: 'polena', sblocco: { via: 'ciurma', lvl: 2 } },
-  { id: 'mezzamiccia', sblocco: { via: 'ciurma', lvl: 3 } },
-  { id: 'timoniere', sblocco: { via: 'ciurma', lvl: 4 } },
-  { id: 'filodifumo', sblocco: { via: 'varo', tipo: 'goletta' } },
-  { id: 'sergente', sblocco: { via: 'varo', tipo: 'guerra' } },
-  { id: 'ammiraglia', sblocco: { via: 'varo', tipo: 'galeone' } },
-  { id: 'corsaro', sblocco: { via: 'varo', tipo: 'sciabecco' } },
-  { id: 'senzanome', sblocco: { via: 'campagna' } },
+  { id: 'mozzo', ritratto: 'assets/pirati/mozzo.webp', sblocco: { via: 'base' } },
+  { id: 'cuoca', ritratto: 'assets/pirati/cuoca.webp', sblocco: { via: 'base' } },
+  { id: 'nostromo', ritratto: 'assets/pirati/nostromo.webp', sblocco: { via: 'scafo', lvl: 2 } },
+  { id: 'vedetta', ritratto: 'assets/pirati/vedetta.webp', sblocco: { via: 'scafo', lvl: 2 } },
+  { id: 'mastrodascia', ritratto: 'assets/pirati/mastrodascia.webp', sblocco: { via: 'scafo', lvl: 4 } },
+  { id: 'bucaniera', ritratto: 'assets/pirati/bucaniera.webp', sblocco: { via: 'scafo', lvl: 4 } },
+  { id: 'gabbiere', ritratto: 'assets/pirati/gabbiere.webp', sblocco: { via: 'ciurma', lvl: 1 } },
+  { id: 'polena', ritratto: 'assets/pirati/polena.webp', sblocco: { via: 'ciurma', lvl: 2 } },
+  { id: 'mezzamiccia', ritratto: 'assets/pirati/mezzamiccia.webp', sblocco: { via: 'ciurma', lvl: 3 } },
+  { id: 'timoniere', ritratto: 'assets/pirati/timoniere.webp', sblocco: { via: 'ciurma', lvl: 4 } },
+  { id: 'filodifumo', ritratto: 'assets/pirati/filodifumo.webp', sblocco: { via: 'varo', tipo: 'goletta' } },
+  { id: 'sergente', ritratto: 'assets/pirati/sergente.webp', sblocco: { via: 'varo', tipo: 'guerra' } },
+  { id: 'ammiraglia', ritratto: 'assets/pirati/ammiraglia.webp', sblocco: { via: 'varo', tipo: 'galeone' } },
+  { id: 'corsaro', ritratto: 'assets/pirati/corsaro.webp', sblocco: { via: 'varo', tipo: 'sciabecco' } },
+  { id: 'senzanome', ritratto: 'assets/pirati/senzanome.webp', sblocco: { via: 'campagna' } },
 ];
 
 const IDS = new Set(ROSTER.map(p => p.id));

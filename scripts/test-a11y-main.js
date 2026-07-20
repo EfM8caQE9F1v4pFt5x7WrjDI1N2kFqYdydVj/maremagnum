@@ -288,6 +288,11 @@ app.whenReady().then(async () => {
     await J(`document.getElementById('tabLivree').click()`);
     await sleep(400);
     await axeState('cantiere-livree');
+    // la Ciurma illustrata (issue #16): ritratti, silhouette e scelta del
+    // prescelto devono restare leggibili e navigabili anche a tastiera.
+    await J(`document.getElementById('tabCiurma').click()`);
+    await sleep(400);
+    await axeState('cantiere-ciurma');
   } else { console.log('  ⚠ attracco fallito: cantiere non verificato'); fallimenti++; }
 
   console.log(fallimenti === 0 ? '\nACCESSIBILE COME UNA BANCHINA ⚓' : `\n${fallimenti} PROBLEMI ❌`);
