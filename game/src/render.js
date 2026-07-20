@@ -10,7 +10,7 @@ import { CanvasWater } from './water-canvas.js';
 import { lightNow } from './daycycle.js';
 import { drawGun as drawGunNuovo } from './guns.js';
 import { disegnaBandiera } from './bandiera.js';
-import { COL } from './palette.js';
+import { CANVAS, COL } from './palette.js';
 
 // Miscela lineare fra due colori esadecimali (k: 0=a, 1=b).
 function mixHex(a, b, k) {
@@ -745,77 +745,74 @@ export class Renderer {
     return Texture.from(c);
   }
 
-  // L'isola dipinta: gradiente di luce da nord-ovest, pennellate procedurali,
-  // alone di sabbia sfumato. Niente contorni neri: il volume nasce dal tono.
+  // L'isola-diorama: battigia, scogliera e altopiano sono tre quote nette;
+  // grandi facce triangolari condividono la grammatica dell'acqua. Nessun
+  // rumore diffuso: luce da nord-ovest, ombra compatta a sud-est.
   makeIslandTexture(island, pts) {
     const R = island.r * 1.45 + 12;
     const S = Math.ceil(R * 2);
     const cnv = document.createElement('canvas');
     cnv.width = cnv.height = S;
     const g = cnv.getContext('2d');
-    const path = (scale) => {
+    const path = (scale, ox = 0, oy = 0) => {
       g.beginPath();
       for (let i = 0; i < pts.length; i += 2) {
-        const x = pts[i] * scale + R, y = pts[i + 1] * scale + R;
+        const x = pts[i] * scale + R + ox, y = pts[i + 1] * scale + R + oy;
         if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
       }
       g.closePath();
     };
 
-    // battigia: sabbia che sfuma nell'acqua
-    g.filter = 'blur(7px)';
-    path(1.24);
-    g.fillStyle = 'rgba(186,164,118,0.55)';
-    g.fill();
-    g.filter = 'none';
-
-    const sandGrad = g.createRadialGradient(R, R, island.r * 0.3, R, R, island.r * 1.25);
-    sandGrad.addColorStop(0, '#cfb98c');
-    sandGrad.addColorStop(1, '#b39c6c');
-    path(1.17);
-    g.fillStyle = sandGrad;
-    g.fill();
-
-    // terra: luce da nord-ovest (in alto a sinistra), ombra a sud-est
     const fort = !!island.fortress;
-    const lg = g.createLinearGradient(R - island.r * 0.7, R - island.r * 0.7, R + island.r * 0.8, R + island.r * 0.8);
-    lg.addColorStop(0, fort ? '#8b8b7d' : '#7d9a66');
-    lg.addColorStop(1, fort ? '#565649' : '#4e6540');
-    path(1);
-    g.fillStyle = lg;
-    g.fill();
+    const land = fort ? CANVAS.landFort : CANVAS.land;
+    const landDark = fort ? CANVAS.landFortDark : CANVAS.landDark;
+    const landLight = fort ? CANVAS.stone : CANVAS.landLight;
 
-    // colline: il volume sale verso il cuore dell'isola
-    g.filter = 'blur(4px)';
-    const hg = g.createLinearGradient(R - island.r * 0.4, R - island.r * 0.4, R + island.r * 0.45, R + island.r * 0.45);
-    hg.addColorStop(0, fort ? '#98988a' : '#8aa871');
-    hg.addColorStop(1, fort ? '#505044' : '#48603b');
-    path(0.52);
-    g.fillStyle = hg;
-    g.fill();
-    path(0.26);
-    g.fillStyle = fort ? 'rgba(178,178,164,0.55)' : 'rgba(160,190,124,0.55)';
-    g.fill();
-    g.filter = 'none';
+    // ombra portata, battigia e fronte della scogliera
+    path(1.22, 9, 11); g.fillStyle = CANVAS.cliffDark; g.globalAlpha = 0.46; g.fill();
+    g.globalAlpha = 1;
+    path(1.20); g.fillStyle = CANVAS.sand; g.fill();
+    path(1.08, 4, 6); g.fillStyle = CANVAS.cliffDark; g.fill();
+    path(1.02); g.fillStyle = CANVAS.cliff; g.fill();
+    path(0.94, -3, -5); g.fillStyle = land; g.fill();
 
-    // pennellate: tratti corti chiari e scuri, solo dentro la terra
+    // facce triangolari grandi, ritagliate dentro il piano di terra
     g.save();
-    path(1);
+    path(0.94, -3, -5);
     g.clip();
     const rng = mulberry32(island.seed ^ 0x9e3779b9);
-    for (let i = 0; i < 170; i++) {
-      const a = rng() * Math.PI * 2, d = Math.sqrt(rng()) * island.r * 1.05;
-      const x = R + Math.cos(a) * d, y = R + Math.sin(a) * d;
-      const dark = rng() > 0.45;
-      g.fillStyle = fort
-        ? (dark ? 'rgba(58,58,50,0.10)' : 'rgba(178,178,160,0.09)')
-        : (dark ? 'rgba(42,60,34,0.11)' : 'rgba(196,214,156,0.10)');
-      g.beginPath();
-      const rr = 2.5 + rng() * 6, rot = rng() * Math.PI;
-      g.ellipse(x, y, rr * (1.6 + rng()), rr * 0.55, rot, 0, Math.PI * 2);
-      g.fill();
+    const cell = Math.max(26, Math.round(island.r * 0.24));
+    const tones = [landDark, land, land, landLight];
+    for (let y = 0; y < S; y += cell) {
+      for (let x = 0; x < S; x += cell) {
+        const diag = ((x / cell + y / cell) & 1) === 0;
+        const ia = Math.min(3, (rng() * 4) | 0);
+        const ib = Math.max(0, Math.min(3, ia + (rng() > 0.5 ? 1 : -1)));
+        const tri = (v, tone) => {
+          g.beginPath(); g.moveTo(v[0], v[1]); g.lineTo(v[2], v[3]); g.lineTo(v[4], v[5]);
+          g.closePath(); g.fillStyle = tones[tone]; g.globalAlpha = 0.46; g.fill();
+        };
+        if (diag) {
+          tri([x, y, x + cell, y, x + cell, y + cell], ia);
+          tri([x, y, x + cell, y + cell, x, y + cell], ib);
+        } else {
+          tri([x, y, x + cell, y, x, y + cell], ia);
+          tri([x + cell, y, x + cell, y + cell, x, y + cell], ib);
+        }
+      }
     }
+    g.globalAlpha = 1;
     g.restore();
+
+    // altopiano: la stessa costa, ristretta e spostata verso la luce. Il
+    // bordo sud-est resta visibile come una scarpata compatta.
+    path(0.61, 5, 7); g.fillStyle = landDark; g.fill();
+    path(0.58, -3, -6); g.fillStyle = landLight; g.fill();
+    path(0.58, -3, -6); g.strokeStyle = land; g.lineWidth = 2; g.stroke();
+
+    // costa intagliata: un filo scuro lega sabbia e roccia senza contorno nero.
+    path(1.08, 4, 6); g.strokeStyle = CANVAS.cliffDark; g.globalAlpha = 0.55; g.lineWidth = 3; g.stroke();
+    g.globalAlpha = 1;
 
     return Texture.from(cnv);
   }
@@ -1030,20 +1027,22 @@ export class Renderer {
     const shallow = new Sprite(this.shallowTex);
     shallow.anchor.set(0.5);
     shallow.position.set(island.x, island.y);
-    shallow.width = shallow.height = island.r * 3.6;
-    shallow.alpha = 0.34;
+    shallow.width = shallow.height = island.r * 3.35;
+    shallow.alpha = 0.20;
     this.shallowLayer.addChild(shallow);
 
     const pts = [];
-    const N = 16;
+    const N = island.kind === 'porto' ? 12 : 14;
     for (let i = 0; i < N; i++) {
       const a = (i / N) * Math.PI * 2;
-      const r = island.r * (0.74 + rng() * 0.42);
+      const r = island.r * (0.84 + rng() * 0.24);
       pts.push(Math.cos(a) * r, Math.sin(a) * r);
     }
-    // schiuma animata sulla battigia
+    // schiuma intagliata sulla battigia: un bordo largo sott'acqua e una
+    // cresta chiara sottile, non un alone luminoso sfocato.
     const foam = new Graphics();
-    foam.poly(pts.map(v => v * 1.26)).stroke({ width: 4, color: 0xd8ecf4, alpha: 1 });
+    foam.poly(pts.map(v => v * 1.25)).stroke({ width: 8, color: COL.shallow, alpha: 0.22 });
+    foam.poly(pts.map(v => v * 1.23)).stroke({ width: 2.4, color: COL.foam, alpha: 0.82 });
     foam.position.set(island.x, island.y);
     foam.phase = rng() * Math.PI * 2;
     this.shallowLayer.addChild(foam);
@@ -1102,21 +1101,75 @@ export class Renderer {
   }
 
   drawPorto(c, island, rng) {
+    const r = island.r;
+
+    // Tre moli leggibili, costruiti (non raggi di debug): tavole, pali e una
+    // testa larga. Vivono dietro gli edifici, dentro la costa.
+    for (const a of [0.08, 1.58, 3.02]) {
+      const dock = new Graphics();
+      const da = r * 0.72, len = r * 0.62;
+      dock.rect(da, -7, len, 14).fill(COL.dock).stroke({ width: 2, color: COL.hullDark });
+      dock.rect(da + len - 12, -14, 18, 28).fill(COL.dock).stroke({ width: 2, color: COL.hullDark });
+      for (let x = da + 8; x < da + len; x += 13) {
+        dock.moveTo(x, -7).lineTo(x, 7).stroke({ width: 1, color: COL.hullDark, alpha: 0.45 });
+      }
+      dock.circle(da + 8, -10, 2.5).fill(COL.hullDark);
+      dock.circle(da + len - 3, 11, 2.5).fill(COL.hullDark);
+      dock.circle(da + len - 3, -9, 2.8).fill(COL.gold);
+      dock.rotation = a;
+      c.addChild(dock);
+    }
+
+    // Una lanterna comune lega porto e nave alla notte: il paese non diventa
+    // una macchia spenta quando il ciclo abbassa la luce del mondo.
+    const halo = new Sprite(this.glowTex);
+    halo.anchor.set(0.5); halo.blendMode = 'add'; halo.tint = COL.gold;
+    halo.position.set(0, -8); halo.scale.set(0.62); halo.alpha = 0.18;
+    c.addChild(halo);
+    this.lightBeams.push(Object.assign(halo, { isHalo: true }));
+
     const g = new Graphics();
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2 + 0.4;
-      const x1 = Math.cos(a) * island.r * 0.9, y1 = Math.sin(a) * island.r * 0.9;
-      const x2 = Math.cos(a) * (island.r * 1.45), y2 = Math.sin(a) * (island.r * 1.45);
-      g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 7, color: 0x8a6a45 });
+    // piazza e sentieri: grandi piani chiari che convergono sulla torre
+    g.circle(0, -8, r * 0.31).fill({ color: COL.sand, alpha: 0.32 });
+    for (const a of [0.08, 1.58, 3.02]) {
+      g.moveTo(Math.cos(a) * r * 0.2, Math.sin(a) * r * 0.2 - 4)
+        .lineTo(Math.cos(a) * r * 0.76, Math.sin(a) * r * 0.76)
+        .stroke({ width: 7, color: COL.sand, alpha: 0.42 });
     }
-    for (let i = 0; i < 7; i++) {
-      const a = rng() * Math.PI * 2, d = rng() * island.r * 0.5;
-      const x = Math.cos(a) * d, y = Math.sin(a) * d;
-      g.rect(x - 7, y - 6, 14, 12).fill(0xbd9c6d).stroke({ width: 1.5, color: 0x6d4c22, alpha: 0.6 });
-      g.poly([x - 9, y - 6, x, y - 15, x + 9, y - 6]).fill(0x8a4a34);
+
+    // Landmark: Casa dell'Ammiragliato, tre volte una casa comune. Parete,
+    // torre, tetto e ombra usano facce compatte da miniatura intagliata.
+    g.poly([-31, 20, 35, 20, 43, 29, -23, 29]).fill({ color: COL.hullDark, alpha: 0.34 });
+    g.rect(-30, -14, 60, 38).fill(COL.sand).stroke({ width: 2, color: COL.cliffDark });
+    g.poly([-35, -14, 0, -40, 35, -14]).fill(COL.roof).stroke({ width: 2, color: COL.hullDark });
+    g.rect(-13, -52, 26, 39).fill(COL.sand).stroke({ width: 2, color: COL.cliffDark });
+    g.poly([-17, -52, 0, -68, 17, -52]).fill(COL.roof).stroke({ width: 2, color: COL.hullDark });
+    g.rect(-5, 6, 10, 18).fill(COL.hullDark);
+    g.rect(-22, -4, 8, 10).fill(COL.gold);
+    g.rect(14, -4, 8, 10).fill(COL.gold);
+    g.moveTo(0, -68).lineTo(0, -86).stroke({ width: 3, color: COL.hullDark });
+    g.poly([0, -86, 25, -80, 0, -73]).fill(COL.gold);
+
+    // Due edifici secondari formano un grappolo, non una dispersione casuale.
+    const casa = (x, y, w, h) => {
+      g.rect(x - w / 2 + 5, y - h / 2 + 7, w, h).fill({ color: COL.hullDark, alpha: 0.28 });
+      g.rect(x - w / 2, y - h / 2, w, h).fill(COL.sand).stroke({ width: 1.5, color: COL.cliffDark });
+      g.poly([x - w / 2 - 4, y - h / 2, x, y - h / 2 - h * 0.55, x + w / 2 + 4, y - h / 2])
+        .fill(COL.roof).stroke({ width: 1.5, color: COL.hullDark });
+      g.rect(x - 3, y + h / 2 - 9, 6, 9).fill(COL.hullDark);
+    };
+    casa(-58, 33, 34, 25);
+    casa(57, 35, 30, 23);
+
+    // Vegetazione a due grappoli e casse vicino al molo di carico.
+    for (const [x, y, sc] of [[-75, -32, 1], [-61, -47, .78], [68, -35, .9], [79, -18, .7]]) {
+      g.poly([x, y - 18 * sc, x - 12 * sc, y + 8 * sc, x + 12 * sc, y + 8 * sc]).fill(COL.palm);
+      g.rect(x - 2, y + 5 * sc, 4, 9 * sc).fill(COL.trunk);
     }
-    g.moveTo(0, 6).lineTo(0, -34).stroke({ width: 3, color: 0x4a3520 });
-    g.poly([0, -34, 22, -28, 0, -22]).fill(COL.gold);
+    for (const [x, y] of [[61, 67], [73, 62], [66, 53]]) {
+      g.rect(x - 6, y - 5, 12, 10).fill(COL.deck).stroke({ width: 1, color: COL.hullDark });
+      g.moveTo(x - 6, y).lineTo(x + 6, y).stroke({ width: 1, color: COL.hullDark, alpha: .5 });
+    }
     c.addChild(g);
   }
 
@@ -1174,6 +1227,15 @@ export class Renderer {
     if (s.tp === 4) return 'sciabecco';
     if (s.maxHp >= 520) return vet ? 'oro' : 'galeone';
     return s.maxHp >= 360 ? 'brigantino' : 'sloop';
+  }
+
+  // La scala di gioco del diorama: a 1× la NAVE, non la targhetta, deve
+  // guidare l'occhio. Le masse raccontano anche il mestiere della fazione.
+  shipVisualScale(s) {
+    if (s.k === 'm' || s.fz === 'i') return 1.30; // stiva panciuta
+    if (s.fz === 'r') return 1.26;                // nave di linea alta
+    if (s.k === 'g') return 1.18;                 // corsaro più magro
+    return 1.22;
   }
 
   // Un cannone vero, non un pallino: il disegno vive in guns.js (issue #17)
@@ -1319,6 +1381,10 @@ export class Renderer {
         vs.anchor.set(0.5, 0.53);
         vs.scale.set((this.tela.meta.scala || 98.4) / this.tela.meta.frame);
         body.veleTinta = this.tintaTela(s.ve, liv ? s.lv : null, variant);
+        // Le livree comprate vincono; sul legno di servizio la fazione si
+        // legge già dalla grande massa della tela, non soltanto dal nome.
+        if (!s.ve && !liv && s.fz === 'i') body.veleTinta = COL.sailCompany;
+        if (!s.ve && !liv && s.fz === 'r') body.veleTinta = COL.sailNavy;
         vs.tint = body.veleTinta;
         if (ghost) vs.alpha = 0.88;
         body.addChild(vs);
@@ -1369,7 +1435,9 @@ export class Renderer {
     }
 
     // vele (animate nel frame)
-    const sailCol = ghost ? COL.sailGhost : merc ? COL.sailMerc : COL.sail;
+    const sailCol = ghost ? COL.sailGhost
+      : s.fz === 'r' ? COL.sailNavy
+        : merc || s.fz === 'i' ? COL.sailCompany : COL.sail;
     body.sails = [];
     const mkSail = (px, sc) => {
       const sail = new Graphics();
@@ -1406,7 +1474,7 @@ export class Renderer {
       c.glow = glow;
       if (s.id === selfId) {
         const ring = new Graphics();
-        ring.circle(0, 0, 30).stroke({ width: 2, color: COL.gold, alpha: 0.5 });
+        ring.circle(0, 0, 36).stroke({ width: 2, color: COL.gold, alpha: 0.5 });
         c.addChild(ring);
         c.ring = ring;
       }
@@ -1430,8 +1498,8 @@ export class Renderer {
         .fill({ color: 0x0c141c });
       fondino.alpha = 0.42;
       tag.addChild(fondino, label);
-      tag.position.set(0, -44);
-      tag.baseY = -44;
+      tag.position.set(0, -54);
+      tag.baseY = -54;
       const hpBar = new Graphics();
       c.addChild(tag, hpBar);
       c.tag = tag;
@@ -1499,6 +1567,10 @@ export class Renderer {
         c.body.y = 0;
       }
       c.visible = !s.docked;
+      if (c.tag && !s.mo) {
+        c.tag.baseY = -50 - (this.shipVisualScale(s) - 1) * 20;
+        c.tag.y = c.tag.baseY;
+      }
       // il nome resta leggibile, non ingigantisce col cannocchiale
       if (c.tag) c.tag.scale.set(1 / this.zoom);
       // la bandierina di gilda (issue #5): [TAG] davanti al nome; il vessillo
@@ -1623,7 +1695,8 @@ export class Renderer {
         c.debuffText.text = glifi;
       }
       if (!s.mo) { // le bestie governano la loro scala nel blocco qui sopra
-        const scale = s.sunk ? Math.max(0.5, c.body.scale.x - dt * 0.5) : 1;
+        const base = this.shipVisualScale(s);
+        const scale = s.sunk ? Math.max(base * 0.5, c.body.scale.x - dt * 0.5) : base;
         c.body.scale.set(scale);
       }
       // vele che respirano col vento e con l'andatura
@@ -1634,7 +1707,7 @@ export class Renderer {
       if (!s.sunk && s.hp < s.maxHp && !(s.mo && s.so)) {
         // le bestie portano una barra da bestia (audit 3): 44px su 400 di
         // tentacoli sarebbero ridicoli — e da sommerse niente barra
-        const w = s.mo ? 130 : 44, y0 = s.mo ? -95 : -28, frac = clamp(s.hp / s.maxHp, 0, 1);
+        const w = s.mo ? 130 : 52, y0 = s.mo ? -95 : -35, frac = clamp(s.hp / s.maxHp, 0, 1);
         c.hpBar.rect(-w / 2, y0, w, 5).fill({ color: COL.hpBg, alpha: 0.7 });
         // tre soglie come nell'HUD: il giallo avvisa PRIMA che sia tardi (#19)
         c.hpBar.rect(-w / 2, y0, w * frac, 5)
@@ -1650,17 +1723,17 @@ export class Renderer {
         c.body.veleSprite.tint = bloccata ? mulTint(c.body.veleTinta ?? 0xffffff, 0x7c848d) : (c.body.veleTinta ?? 0xffffff);
       }
       if (bloccata) {
-        c.hpBar.circle(0, 4, 40).stroke({ width: 2, color: 0x1a1208, alpha: 0.5 });
-        c.hpBar.arc(0, 4, 40, -Math.PI / 2, -Math.PI / 2 + Math.min(1, s.bk / 18) * Math.PI * 2)
+        c.hpBar.circle(0, 4, 46).stroke({ width: 2, color: 0x1a1208, alpha: 0.5 });
+        c.hpBar.arc(0, 4, 46, -Math.PI / 2, -Math.PI / 2 + Math.min(1, s.bk / 18) * Math.PI * 2)
           .stroke({ width: 3, color: 0xd8552e, alpha: 0.9 });
       } else if (s.im) {
-        c.hpBar.circle(0, 4, 38).stroke({ width: 2, color: COL.gold, alpha: 0.45 });
+        c.hpBar.circle(0, 4, 44).stroke({ width: 2, color: COL.gold, alpha: 0.45 });
       }
       // niente scia per i mostri (audit 3): nuotano SOTTO il pelo dell'acqua,
       // la spuma di superficie è roba da chiglie
       if (!s.mo && !s.sunk && !s.docked && s.vel > 30 && Math.random() < 0.6) {
         this.wakes.push({
-          x: s.x - Math.cos(s.rot) * 22, y: s.y - Math.sin(s.rot) * 22,
+          x: s.x - Math.cos(s.rot) * 28, y: s.y - Math.sin(s.rot) * 28,
           life: 1.2, max: 1.2, size: 2 + Math.random() * 3,
           color: s.sc || null, // la scia comprata (issue #25) colora la spuma
         });

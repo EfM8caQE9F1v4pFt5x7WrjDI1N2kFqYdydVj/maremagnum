@@ -4,6 +4,9 @@
 // Le uniform di sole/ambiente sono pilotate dal ciclo giorno/notte.
 
 import { Geometry, Mesh, Shader, UniformGroup } from 'pixi.js';
+import { COL } from './palette.js';
+
+const rgb01 = (n) => new Float32Array([(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]);
 
 const VERT = /* glsl */`
   in vec2 aPosition;
@@ -67,61 +70,42 @@ const FRAG = /* glsl */`
 
   void main() {
     vec2 world = uCam + vUV * uScreen / uZoom;
-    vec2 wp = world * 0.008;
     float t = uTime;
 
-    // Percorso magro per renderer software: ~4 letture di rumore per pixel
-    // invece di ~19, stessa palette e stesso ciclo giorno/notte.
-    if (uCheap > 0.5) {
-      float sea2 = fbm3(wp * 1.35 + vec2(t * 0.05, t * 0.02));
-      float band2 = sea2 * 5.0;
-      float q2 = (floor(band2) + smoothstep(0.3, 0.7, fract(band2))) / 5.0;
-      vec3 c2 = mix(uDeep, uMid, q2);
-      c2 = mix(c2, uLite, smoothstep(0.70, 0.95, q2));
-      float g2 = smoothstep(0.80, 0.93, vnoise(wp * 9.0 + vec2(t * 0.3, -t * 0.2))) * smoothstep(0.5, 0.78, sea2);
-      c2 += uSunCol * g2 * uGlint * 0.8;
-      c2 = mix(c2, uSunCol * (0.25 + q2 * 0.55), uWarmth * smoothstep(0.45, 0.95, q2) * 0.65);
-      c2 *= uAmbient;
-      finalColor = vec4(c2, 1.0);
-      return;
-    }
+    // Diorama: triangoli larghi e PIATTI. La varietà vive nelle facce, non in
+    // rumore per-pixel; il mare sembra intagliato nello stesso materiale delle
+    // isole e resta stabile mentre la camera si muove.
+    const float facetSize = 42.0;
+    // Reticolo obliquo: il taglio triangolare non ricompone mai una griglia
+    // di quadrati allineata allo schermo.
+    vec2 lattice = vec2(world.x / facetSize - world.y / (facetSize * 1.72),
+      world.y / (facetSize * 0.86));
+    lattice += vec2(vnoise(world * 0.006 + 4.0), vnoise(world * 0.006 - 9.0) - 0.5) * 0.16;
+    vec2 cell = floor(lattice);
+    vec2 local = fract(lattice);
+    float halfFace = step(1.0, local.x + local.y);
+    float facet = hash(cell + vec2(halfFace * 19.7, halfFace * 7.3));
+    float q = floor(facet * 4.0) / 3.0;
+    vec3 col = mix(uDeep, uMid, 0.22 + q * 0.42);
+    col = mix(col, uLite, max(0.0, q - 0.78) * 0.32);
 
-    // due treni d'onda che scorrono in direzioni diverse
-    float n1 = fbm(wp + vec2(t * 0.060, t * 0.022));
-    float n2 = fbm(wp * 2.3 - vec2(t * 0.045, -t * 0.031) + 5.0);
-    float sea = n1 * 0.65 + n2 * 0.35;
+    // Una seconda scala larga suggerisce profondità, ma resta tanto lieve da
+    // non disegnare quadrati sopra la tassellazione triangolare.
+    float depth = vnoise(world * 0.0014 + 31.0);
+    col *= 0.94 + depth * 0.08;
 
-    // posterizzazione morbida: pennellate, non gradienti
-    float band = sea * 5.0;
-    float q = (floor(band) + smoothstep(0.3, 0.7, fract(band))) / 5.0;
+    // Bande direzionali corte: una cresta disegnata, poi vuoto. Il cheap path
+    // ne usa meno, ma non cambia linguaggio.
+    float phase = dot(world, vec2(0.030, 0.012)) - t * 0.65;
+    float ridge = 1.0 - smoothstep(0.0, 0.13, abs(sin(phase)));
+    float broken = smoothstep(uCheap > 0.5 ? 0.84 : 0.72, 0.96,
+      vnoise(floor(world / 24.0) * vec2(0.7, 1.3) + 9.0));
+    float crest = ridge * broken;
+    col = mix(col, uLite + uSunCol * 0.16, crest * (0.12 + uGlint * 0.22));
 
-    vec3 col = mix(uDeep, uMid, q);
-    col = mix(col, uLite, smoothstep(0.70, 0.95, q));
-
-    // correnti larghe: variazione tonale a bassa frequenza (profondità percepita)
-    float depth = vnoise(world * 0.0011 + 31.0);
-    col *= 0.90 + depth * 0.20;
-
-    // riflessi del sole: scintille puntiformi sulle creste, non contorni
-    vec2 wp2 = wp * 2.3 - vec2(t * 0.045, -t * 0.031) + 5.0;
-    float e = 0.06;
-    float ridge = abs(fbm(wp2 + vec2(e, 0.0)) - n2) + abs(fbm(wp2 + vec2(0.0, e)) - n2);
-    float sparkleMask = smoothstep(0.74, 0.90, vnoise(wp * 15.0 + vec2(t * 0.35, -t * 0.22)));
-    float glint = smoothstep(0.03, 0.085, ridge) * smoothstep(0.58, 0.82, n2) * sparkleMask;
-    col += uSunCol * glint * uGlint;
-
-    // spuma sparsa, appena accennata, sulle creste più alte
-    float cap = smoothstep(0.90, 0.97, vnoise(wp * 6.0 + vec2(t * 0.12, -t * 0.07)));
-    col = mix(col, vec3(0.78, 0.86, 0.90), cap * smoothstep(0.62, 0.85, sea) * 0.22);
-
-    // riverbero del sole basso: i cavi d'onda restano freddi e scuri,
-    // solo le creste prendono fuoco (il classico sentiero dorato)
-    col = mix(col, uSunCol * (0.25 + q * 0.55), uWarmth * smoothstep(0.45, 0.95, q) * 0.65);
-
+    // Il sole basso tocca soprattutto le facce chiare; nessuna grana casuale.
+    col = mix(col, uSunCol * (0.26 + q * 0.52), uWarmth * q * 0.42);
     col *= uAmbient;
-
-    // grana sottile da pellicola: spezza le bande piatte
-    col += (hash(world + vec2(fract(t) * 7.0)) - 0.5) * 0.022;
 
     finalColor = vec4(col, 1.0);
   }
@@ -135,9 +119,9 @@ export class Water {
       uZoom: { value: 1, type: 'f32' },
       uCam: { value: new Float32Array([0, 0]), type: 'vec2<f32>' },
       uScreen: { value: new Float32Array([1440, 900]), type: 'vec2<f32>' },
-      uDeep: { value: new Float32Array([0.055, 0.145, 0.208]), type: 'vec3<f32>' },
-      uMid: { value: new Float32Array([0.098, 0.235, 0.322]), type: 'vec3<f32>' },
-      uLite: { value: new Float32Array([0.235, 0.427, 0.518]), type: 'vec3<f32>' },
+      uDeep: { value: rgb01(COL.sea), type: 'vec3<f32>' },
+      uMid: { value: rgb01(COL.seaMid), type: 'vec3<f32>' },
+      uLite: { value: rgb01(COL.seaLight), type: 'vec3<f32>' },
       uSunCol: { value: new Float32Array([1.0, 0.87, 0.62]), type: 'vec3<f32>' },
       uAmbient: { value: new Float32Array([1, 1, 1]), type: 'vec3<f32>' },
       uGlint: { value: 0.5, type: 'f32' },

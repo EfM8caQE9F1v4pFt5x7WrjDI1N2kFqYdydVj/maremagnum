@@ -60,13 +60,13 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 | #1 | Editor dell'Isola (riscatto a pagamento) | Richiede #12 (persistenza ✓); può essere ANTICIPATA per decisione di business |
 | #35 | Isole vive: il tipo di sito genera aspetto + vita (SimCity delle isole) | Evoluzione del filo #27→#35→#1; vita client-side procedurale; bloccata sugli asset #16; ispirazione dat.city |
 
-## Il restyle (issue #32, IN CORSO — strati di base fatti e deployati 2026-07-06)
+## Il restyle (issue #32, IN CORSO — Diorama nautico approvato 2026-07-20)
 
 Palette battezzata **"Rovere & Cera"**. Metodo pentadimensionale, e SEMPRE giudicare l'insieme (non solo il dettaglio) prima di committare.
 
-**FATTO** (6 approdi, live): **1. Design token unico** — `:root` generato + ponte CSS↔canvas (`game/tokens.json` fonte unica, `palette.js`, a parità di pixel) ✓; **4. Font Atkinson Hyperlegible Next** al posto di Georgia ovunque (CSS + canvas), Pirata One resta il display ✓; **cornice** — borchie d'ottone + vignetta su pannelli/classifica/mappa ✓; **bottoni** — placche d'ottone tattili + gerarchia primario oro / secondario legno / link ✓; **grana di carta** — rumore SVG sottile in multiply ✓.
+**FATTO** (7 approdi): **1. Design token unico** — `:root` generato + ponte CSS↔canvas (`game/tokens.json` fonte unica, `palette.js`, a parità di pixel) ✓; **4. Font Atkinson Hyperlegible Next** al posto di Georgia ovunque (CSS + canvas), Pirata One resta il display ✓; **cornice** — borchie d'ottone + vignetta su pannelli/classifica/mappa ✓; **bottoni** — placche d'ottone tattili + gerarchia primario oro / secondario legno / link ✓; **grana di carta** — rumore SVG sottile in multiply ✓; **direzione artistica** — `ART-BIBLE-DIORAMA.md` + vertical slice del Porto Franco: acqua sfaccettata GPU/Canvas, isola a tre quote, landmark, navi più grandi e HUD alleggerito ✓.
 
-**RESTA**: **2. Audit estetico** per-componente sul base ormai fermo (toast, pillole HUD, card, righe di lista, header pannello); disciplina dei **3 accenti** (mossa #4: il viola dei tier-up e il salvia dell'add-slot sono accenti "alieni" da valutare); **3. UX/UI** densità/gerarchia/ritmo; **5. README** completo it/en.
+**RESTA**: estendere il Diorama alle isole comuni e alle fortezze; famiglie di silhouette dei personaggi; vita ambientale a grappoli; **2. Audit estetico** per-componente (toast, pillole HUD, card, righe di lista, header pannello); **3. UX/UI** densità/gerarchia/ritmo; **5. README** completo it/en.
 
 ## Multilingua IT/EN (issue #33, AVVIATO 2026-07-06)
 

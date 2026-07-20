@@ -64,20 +64,21 @@ body { font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: 
 
 /* ---- barra superiore: la plancia di comando ---- */
 #topbar {
-  position: fixed; top: 0; left: 0; right: 0; height: 54px;
-  display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-3);
-  background: linear-gradient(var(--wood-1), var(--wood-2) 60%, var(--ink));
-  border-bottom: 3px solid var(--line-strong);
-  box-shadow: var(--elev-3);
+  position: fixed; top: 0; left: 0; right: 0; height: 48px;
+  display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-3);
+  background: linear-gradient(var(--wood-1), var(--wood-2));
+  border-bottom: 2px solid var(--line-strong);
+  box-shadow: var(--elev-1);
   z-index: var(--z-top);
 }
-#brand { font-family: 'Pirata One', Georgia, serif; font-size: var(--t-2xl); color: var(--gold); white-space: nowrap; letter-spacing: 1px; }
+#brand { font-family: 'Pirata One', Georgia, serif; font-size: var(--t-xl); color: var(--gold); white-space: nowrap; letter-spacing: 1px; }
 #brand span { color: var(--cream); font-style: italic; font-weight: normal; }
 #courseForm { flex: 1; display: flex; gap: var(--s-2); max-width: 900px; margin: 0 auto; }
 #courseInput {
-  flex: 1; padding: var(--s-2) var(--s-3); font: inherit; font-size: var(--t-md);
-  background: var(--paper); color: var(--ink); border: 2px solid var(--line-strong); border-radius: var(--r-pill);
+  flex: 1; padding: var(--s-1) var(--s-3); font: inherit; font-size: var(--t-base);
+  background: var(--paper); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-pill);
 }
+#topbar button { padding: var(--s-1) var(--s-3); border-width: 1px; box-shadow: var(--elev-plate); }
 button {
   font: inherit; font-size: var(--t-base); cursor: pointer;
   background: linear-gradient(var(--gold), var(--gold-deep)); color: var(--ink);
@@ -99,7 +100,7 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 
 /* ---- barra d'attracco (navigazione del sito nel guscio) ---- */
 #dockbar {
-  position: fixed; top: 54px; left: 0; right: 0; height: 40px;
+  position: fixed; top: 48px; left: 0; right: 0; height: 40px;
   display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-3);
   background: linear-gradient(var(--paper), var(--paper-2)); color: var(--ink);
   border-bottom: 3px solid var(--line-strong); z-index: var(--z-dock); font-size: var(--t-base);
@@ -114,9 +115,9 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
    --hud-85, bordo legno ed elevazione --elev-2 dai token — uguali a
    hint/feed/missione; toast e assedio si distinguono col bordo d'accento. */
 #hud {
-  position: fixed; left: 16px; bottom: 16px; z-index: var(--z-hud); width: 260px;
-  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: var(--r-md);
-  padding: var(--s-2) var(--s-3); box-shadow: var(--elev-2);
+  position: fixed; left: 16px; bottom: 16px; z-index: var(--z-hud); width: 244px;
+  background: var(--hud-72); border: 1px solid var(--hair-40); border-radius: var(--r-md);
+  padding: var(--s-2) var(--s-3); box-shadow: var(--elev-1);
 }
 #shipName { font-size: var(--t-lg); font-weight: bold; text-shadow: 0 2px 4px #000; margin-bottom: var(--s-2); color: var(--cream); }
 #hpWrap {
@@ -149,8 +150,8 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 #hint {
   position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
   font-size: var(--t-sm); color: var(--cream-dim); z-index: var(--z-hud);
-  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: var(--r-md);
-  padding: var(--s-1) var(--s-3); box-shadow: var(--elev-2);
+  background: var(--hud-72); border: 1px solid var(--hair-40); border-radius: var(--r-md);
+  padding: var(--s-1) var(--s-3); box-shadow: var(--elev-1); opacity: .82;
 }
 #hint b { color: var(--gold); }
 
@@ -165,8 +166,8 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 #ventoHud {
   position: fixed; right: 16px; bottom: 254px; z-index: var(--z-hud);
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: var(--r-md);
-  padding: var(--s-2) var(--s-3); font-size: var(--t-sm); box-shadow: var(--elev-2);
+  background: var(--hud-72); border: 1px solid var(--hair-40); border-radius: var(--r-md);
+  padding: var(--s-2) var(--s-3); font-size: var(--t-sm); box-shadow: var(--elev-1);
 }
 #ventoHud.hidden { display: none; }
 #ventoRosa {
@@ -184,9 +185,9 @@ button.secondary { background: linear-gradient(var(--wood-1), var(--wood-2)); co
 }
 
 /* ---- killfeed & toast ---- */
-#killfeed { position: fixed; top: 66px; right: 16px; z-index: var(--z-feed); transition: top .25s; display: flex; flex-direction: column; gap: var(--s-2); align-items: flex-end; }
+#killfeed { position: fixed; top: 60px; right: 16px; z-index: var(--z-feed); transition: top .25s; display: flex; flex-direction: column; gap: var(--s-2); align-items: flex-end; }
 .feedItem {
-  background: var(--hud-85); border: 1px solid var(--wood-1); border-radius: var(--r-md);
+  background: var(--hud-72); border: 1px solid var(--hair-40); border-radius: var(--r-md);
   padding: var(--s-2) var(--s-3); font-size: var(--t-sm); transition: opacity 1.2s; max-width: 380px;
   box-shadow: var(--elev-2);
 }
@@ -408,7 +409,7 @@ body.conPannello #hint { opacity: 0; }
 }
 .diarioFiltro button[aria-pressed="true"] { background: var(--gold); color: var(--ink); opacity: 1; border-color: var(--gold); }
 #assedioHud {
-  position: fixed; top: 66px; left: 50%; transform: translateX(-50%); z-index: var(--z-pill); transition: top .25s;
+  position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: var(--z-pill); transition: top .25s;
   background: var(--assedio-bg); border: 2px solid var(--danger); border-radius: var(--r-md);
   padding: var(--s-2) var(--s-4); font-size: var(--t-base); font-weight: bold; color: var(--on-danger);
   box-shadow: var(--elev-2);
@@ -634,7 +635,7 @@ body.conPannello #hint { opacity: 0; }
 #guardInfo.spento { opacity: .4; text-decoration: line-through; }
 
 /* con la barra d'attracco aperta, le pillole scendono sotto di lei */
-body.attraccato #assedioHud, body.attraccato #killfeed { top: 108px; }
+body.attraccato #assedioHud, body.attraccato #killfeed { top: 102px; }
 
 /* ruoli dell'assedio, spiegati in una riga */
 .ruoli { font-size: var(--t-xs); font-style: italic; color: var(--ink-cocoa); margin-bottom: var(--s-3); }

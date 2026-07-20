@@ -5,43 +5,20 @@
 
 import { Texture, TilingSprite } from 'pixi.js';
 import { mulberry32 } from './util.js';
+import { CANVAS } from './palette.js';
 
-const N = 256;      // lato della tile in px
-const PERIODO = 8;  // periodo del rumore (unità griglia) — la tile combacia
+const N = 288;      // lato della tile in px
+const PASSO_X = 32;
+const PASSO_Y = 24; // reticolo triangolare sfalsato: nessun quadrato leggibile
 
-// griglie di rumore periodiche, una per ottava, generate una volta
-function makeGrids() {
-  const rng = mulberry32(1097);
-  const grids = [];
-  for (let o = 0; o < 3; o++) {
-    const size = PERIODO << o;
-    const g = new Float32Array(size * size);
-    for (let i = 0; i < g.length; i++) g[i] = rng();
-    grids.push({ size, g });
-  }
-  return grids;
-}
-const GRIDS = makeGrids();
-
-function pnoise(grid, x, y) {
-  const { size, g } = grid;
-  const xi = Math.floor(x), yi = Math.floor(y);
-  const xf = x - xi, yf = y - yi;
-  const sx = xf * xf * (3 - 2 * xf), sy = yf * yf * (3 - 2 * yf);
-  const x0 = ((xi % size) + size) % size, x1 = (x0 + 1) % size;
-  const y0 = ((yi % size) + size) % size, y1 = (y0 + 1) % size;
-  const a = g[y0 * size + x0], b = g[y0 * size + x1];
-  const c = g[y1 * size + x0], d = g[y1 * size + x1];
-  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
-}
-
-const smooth = (e0, e1, v) => {
-  const k = Math.min(1, Math.max(0, (v - e0) / (e1 - e0)));
-  return k * k * (3 - 2 * k);
+const rgb = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  return [n >> 16 & 255, n >> 8 & 255, n & 255];
 };
-
-// stessi colori dello shader (uDeep/uMid/uLite)
-const DEEP = [14, 37, 53], MID = [25, 60, 82], LITE = [60, 109, 132];
+const DEEP = rgb(CANVAS.sea), MID = rgb(CANVAS.seaMid), LITE = rgb(CANVAS.seaLight);
+const FOAM = CANVAS.foam;
+const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+const css = (c) => `rgb(${c.map(v => Math.max(0, Math.min(255, Math.round(v)))).join(',')})`;
 
 export class CanvasWater {
   constructor() {
@@ -52,7 +29,6 @@ export class CanvasWater {
     this.sprite.tileScale.set(2); // tile "morbida": 512 px effettivi
     this.bakedKey = '';
     this.lastBake = 0;
-    this.phase = 0;
   }
 
   get mesh() { return this.sprite; } // stessa interfaccia di Water
@@ -62,49 +38,63 @@ export class CanvasWater {
     const warm = light ? light.warm : 0;
     const glint = light ? light.glint : 0.5;
     const ctx = this.canvas.getContext('2d');
-    const img = ctx.createImageData(N, N);
-    const d = img.data;
-    const rng = mulberry32(7 + this.phase);
-    const S0 = PERIODO / N, S1 = (PERIODO * 2) / N, S2 = (PERIODO * 4) / N;
-    for (let y = 0; y < N; y++) {
-      for (let x = 0; x < N; x++) {
-        const n = 0.5 * pnoise(GRIDS[0], x * S0, y * S0)
-          + 0.3 * pnoise(GRIDS[1], x * S1, y * S1)
-          + 0.2 * pnoise(GRIDS[2], x * S2, y * S2);
-        // posterizzazione a pennellate (come lo shader)
-        const band = n * 5;
-        const q = (Math.floor(band) + smooth(0.3, 0.7, band - Math.floor(band))) / 5;
-        let r, g, b;
-        if (q < 0.72) {
-          const k = q / 0.72;
-          r = DEEP[0] + (MID[0] - DEEP[0]) * k;
-          g = DEEP[1] + (MID[1] - DEEP[1]) * k;
-          b = DEEP[2] + (MID[2] - DEEP[2]) * k;
+    const sole = sun.map(v => v * 255);
+    const scalda = (base, luce) => mix(base, sole, warm * luce * 0.28);
+    const toni = [scalda(mix(DEEP, MID, 0.22), 0.15), scalda(mix(DEEP, MID, 0.40), 0.28),
+      scalda(mix(DEEP, MID, 0.58), 0.42), scalda(mix(MID, LITE, 0.24), 0.68)];
+
+    ctx.clearRect(0, 0, N, N);
+    ctx.fillStyle = css(toni[0]);
+    ctx.fillRect(0, 0, N, N);
+
+    // Il mare è un piano sfaccettato su file SFALSATE. Nessuna coppia di
+    // triangoli ricompone un quadrato: si legge una superficie intagliata,
+    // non una texture a scacchiera.
+    const rng = mulberry32(1097);
+    const tri = (pts) => {
+      ctx.beginPath(); ctx.moveTo(pts[0], pts[1]);
+      for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);
+      ctx.closePath(); ctx.fillStyle = css(toni[Math.min(3, (rng() * 4) | 0)]); ctx.fill();
+    };
+    const righe = N / PASSO_Y, colonne = N / PASSO_X;
+    const punto = (row, col) => {
+      const rr = ((row % righe) + righe) % righe;
+      const cc = ((col % colonne) + colonne) % colonne;
+      const jr = mulberry32(7001 + rr * 131 + cc * 977);
+      const jx = (jr() - 0.5) * 9;
+      const jy = (row === 0 || row === righe) ? 0 : (jr() - 0.5) * 7;
+      return [col * PASSO_X + (row & 1) * PASSO_X / 2 + jx, row * PASSO_Y + jy];
+    };
+    for (let row = 0; row < righe; row++) {
+      for (let col = -1; col <= colonne; col++) {
+        const a0 = punto(row, col), a1 = punto(row, col + 1);
+        const b0 = punto(row + 1, col), b1 = punto(row + 1, col + 1);
+        if (((row + 1) & 1) > (row & 1)) {
+          tri([...a0, ...a1, ...b0]);
+          tri([...a1, ...b0, ...b1]);
         } else {
-          const k = smooth(0.72, 0.95, q);
-          r = MID[0] + (LITE[0] - MID[0]) * k;
-          g = MID[1] + (LITE[1] - MID[1]) * k;
-          b = MID[2] + (LITE[2] - MID[2]) * k;
+          tri([...a0, ...a1, ...b1]);
+          tri([...a0, ...b1, ...b0]);
         }
-        // scintille rade sulle creste
-        if (n > 0.62 && rng() > 0.9985) {
-          r += sun[0] * 200 * glint; g += sun[1] * 200 * glint; b += sun[2] * 200 * glint;
-        }
-        // riverbero caldo sulle creste (alba/tramonto)
-        const w = warm * smooth(0.45, 0.95, q) * 0.65;
-        r = r * (1 - w) + sun[0] * 255 * (0.25 + q * 0.55) * w;
-        g = g * (1 - w) + sun[1] * 255 * (0.25 + q * 0.55) * w;
-        b = b * (1 - w) + sun[2] * 255 * (0.25 + q * 0.55) * w;
-        // ambiente giorno/notte + grana
-        const gr = (rng() - 0.5) * 5;
-        const i = (y * N + x) * 4;
-        d[i] = Math.max(0, Math.min(255, r + gr));
-        d[i + 1] = Math.max(0, Math.min(255, g + gr));
-        d[i + 2] = Math.max(0, Math.min(255, b + gr));
-        d[i + 3] = 255;
       }
     }
-    ctx.putImageData(img, 0, 0);
+
+    // Poche creste disegnate, tutte nella stessa famiglia di direzioni. La
+    // luce le scalda ma non le trasforma in scintillio fotografico.
+    const waves = mulberry32(73);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 26; i++) {
+      const x = waves() * N, y = waves() * N;
+      const len = 8 + waves() * 16;
+      ctx.beginPath();
+      ctx.moveTo(x - len * 0.5, y + 3);
+      ctx.quadraticCurveTo(x, y - 3 - waves() * 3, x + len * 0.5, y);
+      ctx.strokeStyle = FOAM;
+      ctx.globalAlpha = 0.08 + glint * 0.09;
+      ctx.lineWidth = waves() > 0.78 ? 1.6 : 1;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
     this.texture.source.update();
   }
 
@@ -130,7 +120,6 @@ export class CanvasWater {
     if (key !== this.bakedKey && now - this.lastBake > 1000) {
       this.bakedKey = key;
       this.lastBake = now;
-      this.phase++;
       this.bake(light);
     }
   }

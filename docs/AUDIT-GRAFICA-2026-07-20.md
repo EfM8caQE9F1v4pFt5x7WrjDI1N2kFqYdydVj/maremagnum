@@ -199,3 +199,18 @@ Fermare l'espansione orizzontale degli asset dopo le funzionalità già previste
 e dedicare il prossimo ciclo a una sola vertical slice. La pipeline attuale è
 abbastanza solida; aggiungere altri contenuti nello stile presente renderebbe
 solo più costoso correggere l'identità del gioco in seguito.
+
+## Stato della vertical slice
+
+Direzione scelta: **Diorama nautico dipinto**. La prima fetta è stata applicata
+al renderer reale e documentata in `ART-BIBLE-DIORAMA.md`:
+
+- acqua a facce triangolari larghe su shader GPU e fallback Canvas;
+- Porto Franco a tre quote, con landmark, moli costruiti e props a grappoli;
+- navi ingrandite del 18–30%, con massa e tela differenziate per fazione;
+- HUD di navigazione più trasparente, sottile e meno ombreggiato;
+- verifica visiva giorno/notte, qualità alta/bassa e screenshot conservati.
+
+Questa chiude la P0 e la fetta dimostrativa della P1, non il restyle del mondo
+intero. Restano la varietà dei landmark sulle isole comuni, le famiglie di
+corpo dei personaggi, la recitazione delle animazioni e la vita ambientale.

@@ -11,6 +11,7 @@ const int = (hex) => parseInt(hex.slice(1), 16); // '#rrggbb' → 0xrrggbb
 
 // stringhe hex per nome semantico, per chi disegna su Canvas2D (mapgen, texture)
 export const PAL = { ...tokens.color };
+export const CANVAS = { ...tokens.canvas };
 
 // interi 0x per PixiJS: la palette semantica del mondo (era COL in render.js)
 export const COL = { gold: int(tokens.color.gold) };
