@@ -11,11 +11,16 @@
 // profilo è monotono, si allarga e mai si restringe.
 
 // La convenzione dell'atlante (game/assets/pirati.webp): una RIGA per
-// pirata nell'ordine del ROSTER, prima l'idle poi la corsa. Il bake la
-// rispetta e la asserisce; il client ci compone le carte.
+// pirata nell'ordine del ROSTER: idle, corsa, salto e attacco. Il bake la
+// rispetta e la asserisce; platform e arrembaggio consumano gli stessi frame.
 const ATLANTE = {
-  frame: 160, cols: 10,
-  animazioni: { idle: { da: 0, n: 4 }, corsa: { da: 4, n: 6 } },
+  frame: 160, cols: 20,
+  animazioni: {
+    idle: { da: 0, n: 4 },
+    corsa: { da: 4, n: 6 },
+    salto: { da: 10, n: 4 },
+    attacco: { da: 14, n: 6 },
+  },
 };
 
 // sblocco.via: 'base' (ciurma di partenza) | 'scafo' (livello scafo) |

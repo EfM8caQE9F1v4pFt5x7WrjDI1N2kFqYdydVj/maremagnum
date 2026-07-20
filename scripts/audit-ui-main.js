@@ -48,7 +48,7 @@ async function dockAtPort() {
     while (err < -Math.PI) err += 2 * Math.PI;
     const h = await hint();
     if (attempt % 5 === 0) console.log(`AUDIT rotta ${attempt}: dist=${dist | 0} err=${err.toFixed(2)} "${h}"`);
-    if (/Premi F per attraccare a Porto Franco/.test(h)) {
+    if (/(?:Premi F per attraccare a Porto Franco|Press F to dock at Free Port)/.test(h)) {
       await key('KeyF'); await key('KeyF', 'keyup'); await sleep(900);
       return true;
     }

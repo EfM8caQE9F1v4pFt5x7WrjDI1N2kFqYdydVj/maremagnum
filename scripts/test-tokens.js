@@ -62,11 +62,16 @@ const uiSrc = fs.readFileSync(path.join(root, 'game/src/ui.js'), 'utf8');
 const uiHex = [...new Set([...uiSrc.matchAll(/#[0-9a-fA-F]{6}\b/g)].map(m => m[0]))];
 ok(uiHex.length === 0, 'ui.js non ha hex CSS scritti a mano' + (uiHex.length ? ' — trovati: ' + uiHex.join(' ') : ''));
 
-// 6) ponte canvas: ogni COL.x usato in render.js è servito da palette.js
-//    (tokens.canvas ∪ 'gold', che è condiviso con la UI)
+// 6) ponte canvas: ogni COL.x usato in render.js è servito da palette.js.
+//    Oltre a tokens.canvas, alcuni colori UI condivisi sono collegati in modo
+//    esplicito da palette.js (oro e accenti di fazione).
 const render = fs.readFileSync(path.join(root, 'game/src/render.js'), 'utf8');
+const palette = fs.readFileSync(path.join(root, 'game/src/palette.js'), 'utf8');
 const colUsate = [...new Set([...render.matchAll(/COL\.([a-zA-Z]+)/g)].map(m => m[1]))];
 const colDef = new Set([...Object.keys(tokens.canvas), 'gold']);
+for (const m of palette.matchAll(/COL\.([a-zA-Z]+)\s*=\s*int\(tokens\.color\[['"]([^'"]+)['"]\]\)/g)) {
+  if (tokens.color[m[2]]) colDef.add(m[1]);
+}
 const colMancanti = colUsate.filter(k => !colDef.has(k));
 ok(colMancanti.length === 0, `le ${colUsate.length} COL.x usate in render.js sono servite da tokens.canvas` + (colMancanti.length ? ' — mancanti: ' + colMancanti.join(', ') : ''));
 

@@ -1,6 +1,7 @@
 // Minimappa in stile pergamena: il mondo intero in un palmo di mano.
 
 import { mulberry32 } from './util.js';
+import { PAL } from './palette.js';
 
 export class Minimap {
   constructor(canvas) {
@@ -91,7 +92,10 @@ export class Minimap {
         g.beginPath(); g.arc(x, y, 3, 0, Math.PI * 2); g.fill();
         g.strokeStyle = '#2a1040'; g.lineWidth = 1; g.stroke();
       } else {
-        g.fillStyle = ship.npc ? 'rgba(70,80,90,0.8)' : '#9e1f12';
+        g.fillStyle = ship.fz === 'i' ? PAL['faction-company']
+          : ship.fz === 'r' ? PAL['faction-navy']
+            : ship.fz === 'c' && ship.npc ? PAL['faction-ciurma']
+              : ship.npc ? 'rgba(70,80,90,0.8)' : '#9e1f12';
         g.beginPath(); g.arc(x, y, 2.4, 0, Math.PI * 2); g.fill();
       }
     }

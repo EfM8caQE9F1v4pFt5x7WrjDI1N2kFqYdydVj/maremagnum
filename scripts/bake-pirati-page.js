@@ -314,7 +314,7 @@ function mescola(k1, k2, t) {
   return out;
 }
 
-// Le animazioni comuni a tutta la ciurma: idle (respiro) e corsa. I
+// Le animazioni comuni a tutta la ciurma: idle, corsa, salto e attacco. I
 // keyframe sono pochi e parlanti; il bake interpola in ciclo. I conteggi
 // DEVONO combaciare con la convenzione ATLANTE (asserito in main).
 const ANIMAZIONI = {
@@ -334,11 +334,41 @@ const ANIMAZIONI = {
       { su: 0.09, bacino: 0.12, torso: 0.1, testa: -0.1, spallaD: -0.1, gomitoD: 0.5, spallaS: 0.1, gomitoS: 0.6, ancaD: 0.15, ginD: -0.2, ancaS: -0.1, ginS: -1.1 },
     ],
   },
+  salto: {
+    frames: ATLANTE.animazioni.salto.n,
+    chiavi: [
+      // caricamento, stacco, culmine e atterraggio: quattro silhouette nette
+      { su: -0.08, bacino: 0.2, torso: 0.14, testa: -0.08, spallaD: 0.55, gomitoD: 0.35, spallaS: 0.4, gomitoS: 0.3, ancaD: -0.15, ginD: -1.05, ancaS: 0.18, ginS: -1.0 },
+      { su: 0.2, bacino: -0.08, torso: -0.06, testa: 0.05, spallaD: -1.0, gomitoD: 0.45, spallaS: -0.85, gomitoS: 0.35, ancaD: 0.35, ginD: -0.85, ancaS: -0.25, ginS: -0.7 },
+      { su: 0.3, bacino: -0.04, torso: -0.03, testa: 0.02, spallaD: -0.75, gomitoD: 0.7, spallaS: -0.6, gomitoS: 0.65, ancaD: -0.2, ginD: -0.95, ancaS: 0.3, ginS: -0.9 },
+      { su: 0.01, bacino: 0.18, torso: 0.12, testa: -0.08, spallaD: 0.4, gomitoD: 0.35, spallaS: 0.3, gomitoS: 0.3, ancaD: 0.2, ginD: -0.85, ancaS: -0.15, ginS: -0.8 },
+    ],
+  },
+  attacco: {
+    frames: ATLANTE.animazioni.attacco.n,
+    chiavi: [
+      // guardia → caricamento → fendente → seguito → recupero
+      { su: 0, bacino: -0.08, torso: -0.08, testa: 0.06, spallaD: -0.35, gomitoD: 0.85, spallaS: 0.35, gomitoS: 0.7, ancaD: 0.12, ginD: -0.18, ancaS: -0.16, ginS: -0.1 },
+      { su: -0.02, bacino: -0.22, torso: -0.28, testa: 0.12, spallaD: -1.75, gomitoD: 0.45, spallaS: -0.75, gomitoS: 0.8, ancaD: 0.25, ginD: -0.25, ancaS: -0.3, ginS: -0.15 },
+      { su: 0.02, bacino: 0.3, torso: 0.38, testa: -0.18, spallaD: 0.55, gomitoD: 0.12, spallaS: 1.05, gomitoS: 0.18, ancaD: -0.35, ginD: -0.2, ancaS: 0.45, ginS: -0.22 },
+      { su: 0.01, bacino: 0.42, torso: 0.5, testa: -0.24, spallaD: 1.25, gomitoD: 0.08, spallaS: 1.45, gomitoS: 0.08, ancaD: -0.45, ginD: -0.28, ancaS: 0.55, ginS: -0.2 },
+      { su: 0, bacino: 0.16, torso: 0.18, testa: -0.08, spallaD: 0.55, gomitoD: 0.35, spallaS: 0.65, gomitoS: 0.4, ancaD: -0.15, ginD: -0.15, ancaS: 0.22, ginS: -0.12 },
+      { su: 0, bacino: -0.04, torso: -0.03, testa: 0.02, spallaD: -0.2, gomitoD: 0.7, spallaS: 0.25, gomitoS: 0.65, ancaD: 0.08, ginD: -0.1, ancaS: -0.1, ginS: -0.08 },
+    ],
+  },
 };
 
 async function main() {
-  const { idle, corsa } = ATLANTE.animazioni;
-  if (COLS !== idle.n + corsa.n || corsa.da !== idle.n) {
+  const sequenza = ['idle', 'corsa', 'salto', 'attacco'];
+  let colonna = 0;
+  for (const nome of sequenza) {
+    const a = ATLANTE.animazioni[nome];
+    if (!a || a.da !== colonna || a.n !== ANIMAZIONI[nome].frames) {
+      throw new Error('la convenzione ATLANTE non torna per ' + nome);
+    }
+    colonna += a.n;
+  }
+  if (COLS !== colonna) {
     throw new Error('la convenzione ATLANTE non torna coi conteggi delle animazioni');
   }
   for (const id of Object.keys(RICETTE)) {
@@ -381,7 +411,7 @@ async function main() {
     const pirata = buildPirata(ricetta);
     pirata.root.rotation.y = Math.PI; // di profilo alla camera, corre verso destra
     scene.add(pirata.root);
-    for (const nome of ['idle', 'corsa']) {
+    for (const nome of sequenza) {
       const anim = ANIMAZIONI[nome];
       for (let f = 0; f < anim.frames; f++) {
         const t = f / anim.frames;

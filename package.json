@@ -7,6 +7,7 @@
     "build": "node scripts/gen-tokens.js && esbuild game/src/main.js --bundle --outfile=game/dist/bundle.js --sourcemap",
     "watch": "esbuild game/src/main.js --bundle --outfile=game/dist/bundle.js --sourcemap --watch",
     "tokens": "node scripts/gen-tokens.js",
+    "bake:pirati": "node scripts/bake-pirati.js",
     "server": "node server/index.js",
     "dev": "npm run build && npm run server",
     "start": "npm run build && npm run server",

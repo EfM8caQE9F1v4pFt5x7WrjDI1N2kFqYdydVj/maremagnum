@@ -3,7 +3,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { FAZIONI } = require('../server/fazioni');
+const { FAZIONI, PER_CODICE, presenzaDellaNave } = require('../server/fazioni');
 
 const voci = Object.values(FAZIONI);
 assert.deepStrictEqual(voci.map(f => f.id), [
@@ -30,4 +30,18 @@ assert(FAZIONI.marina_britannica.roster.every(p =>
   !/(fantasma|scheletro|revenant|maledett)/.test(p.id)),
   'la Marina non arruola non-morti');
 
-console.log('  ✅ fazioni: 3 roster da 15, 45 WebP presenti, unici e leggeri');
+assert.deepStrictEqual(Object.keys(PER_CODICE), ['c', 'i', 'r'], 'codici di protocollo unici');
+assert.deepStrictEqual(presenzaDellaNave({ id: 'p1', npc: false, pirata: 'mozzo' }),
+  { id: 'ciurma_libera', codice: 'c', personaggio: 'mozzo' }, 'capitano = Ciurma, col prescelto');
+assert.strictEqual(presenzaDellaNave({ id: 'n2', npc: 'merc' }).codice, 'i',
+  'mercantili e convogli appartengono alla Compagnia');
+assert.strictEqual(presenzaDellaNave({ id: 'n3', npc: 'ghost', convoglio: { ruolo: 'scorta' } }).codice, 'r',
+  'le scorte appartengono alla Marina');
+assert.strictEqual(presenzaDellaNave({ id: 'n4', npc: 'ghost', caccia: {} }).codice, 'r',
+  'i Cacciatori appartengono alla Marina');
+assert.strictEqual(presenzaDellaNave({ id: 'n5', npc: 'ghost' }).codice, 'c',
+  'i Corsari Fantasma restano liberi');
+assert.strictEqual(presenzaDellaNave({ id: 'n6', npc: 'mostro' }), null,
+  'gli abissi non portano bandiera');
+
+console.log('  ✅ fazioni: 3 roster da 15, 45 WebP e ruoli di mare coerenti');

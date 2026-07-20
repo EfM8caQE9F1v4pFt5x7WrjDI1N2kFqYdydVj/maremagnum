@@ -31,8 +31,14 @@ assert.strictEqual(pirati.ROSTER.length, 15, 'quindici pirati a catalogo');
 assert.strictEqual(new Set(pirati.ROSTER.map(p => p.id)).size, 15, 'id tutti diversi');
 const VIE = new Set(['base', 'scafo', 'ciurma', 'varo', 'campagna']);
 assert(pirati.ROSTER.every(p => VIE.has(p.sblocco.via)), 'ogni sblocco ha una via nota');
-assert.strictEqual(pirati.ATLANTE.cols, pirati.ATLANTE.animazioni.idle.n + pirati.ATLANTE.animazioni.corsa.n,
-  'la convenzione atlante torna coi conteggi');
+let da = 0;
+for (const nome of ['idle', 'corsa', 'salto', 'attacco']) {
+  const a = pirati.ATLANTE.animazioni[nome];
+  assert(a, `atlante: animazione ${nome} presente`);
+  assert.strictEqual(a.da, da, `atlante: ${nome} parte dopo la precedente`);
+  da += a.n;
+}
+assert.strictEqual(pirati.ATLANTE.cols, da, 'la convenzione atlante torna coi conteggi');
 ok('catalogo: 15 pirati, vie d\'arruolo note, convenzione atlante coerente');
 
 // — 0b) i ritratti dipinti coprono l'intero roster e restano file statici

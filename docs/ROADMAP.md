@@ -45,7 +45,7 @@ Le correzioni prioritarie dell'audit si eseguono subito dopo, prima di Fase 2.
 | #5 | Gilde: fondazione, categoria, bandiera (decidere PRIMA: editor a componenti vs upload+moderazione), rito d'ingresso, log | Dopo la Gazzetta; abilita il Mastro di Rotte v2 (PvP) |
 
 ### Fase 5 — La carne dei pirati (l'epica più costosa) — 🛠 IN CORSO
-| #16 | Pipeline personaggi (🛠 direzione artistica e 3 roster da 15 fissati; ritratti runtime della Ciurma integrati; restano segmentazione, rig 2D e animazioni) | Fondazione unica per #7 e #10 |
+| #16 | ✓ Pipeline personaggi: 3 roster da 15, ritratti runtime, scheletro low-poly parametrico e bake condiviso di idle/corsa/salto/attacco | Fondazione unica per #7 e #10 |
 | #7 | Roster sbloccabile + picchiaduro d'arrembaggio | Dopo #16 |
 | #6 | Arrembaggio completo: il tocco di #15 apre il duello | Dopo #7 |
 | #10 | Il tesoro nell'entroterra (platform da URL profondi + premio) | Riusa #16; il bivio d'attracco disegnato secondo l'audit #8 |

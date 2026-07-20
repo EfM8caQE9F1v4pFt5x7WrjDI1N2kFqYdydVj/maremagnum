@@ -1427,7 +1427,10 @@ if (devParams.get('forcepanel')) {
     const now = Date.now();
     try {
       if (which === 'settings') ui.show('settingsOverlay');
-      else if (which === 'help') ui.show('helpOverlay');
+      else if (which === 'help' || which === 'fazioni') {
+        ui.show('helpOverlay');
+        if (which === 'fazioni') setTimeout(() => document.getElementById('manualeFazioni')?.scrollIntoView({ block: 'start' }), 50);
+      }
       // il Diario ha un hook dedicato: ?forcediario=imprese|cronache
       else if (which === 'fratellanze') ui.showFratellanze({ fondazione: 25000, elenco: [
         { id: 'nord', nome: 'I Corsari del Nord', tag: 'CDN', categoria: 'Guerra', membri: new Array(12), aperta: true, sfidabile: true, bandiera: { fondo: 0, taglio: 0, tinta2: 1, emblema: 0, tintaEmblema: 4 } },
@@ -1480,6 +1483,25 @@ function interpolatedShips() {
         { id: 'mock-kraken', name: 'Kraken', x: me.x - 430, y: me.y + 150, rot: 0.4, vel: 0, hp: 2100, maxHp: 2800, k: 'x', mo: 'kraken', docked: null, sunk: false, gp: [], gw: [] },
         { id: 'mock-serpente', name: 'Serpente Abissale', x: me.x + 180, y: me.y + 330, rot: -0.7, vel: 0, hp: 1200, maxHp: 1200, k: 'x', mo: 'serpente', so: 1, docked: null, sunk: false, gp: [], gw: [] },
         { id: 'mock-serpente2', name: 'Serpente Abissale', x: me.x - 280, y: me.y - 310, rot: 0.9, vel: 0, hp: 1200, maxHp: 1200, k: 'x', mo: 'serpente', so: 0.45, docked: null, sunk: false, gp: [], gw: [] },
+      );
+    }
+  }
+  // ?forcefazioni=1 (sviluppo): le tre bandiere posano attorno al capitano
+  // per verificare sagome, colori, targhette e minimappa senza aspettare una
+  // carovana o accumulare l'infamia necessaria alla Marina.
+  if (devParams.get('forcefazioni')) {
+    const me = out.find(s => s.id === state.meId);
+    if (me) {
+      out.push(
+        { id: 'mock-compagnia', name: 'Mercantile di Convoglio', nk: 'npc.convoglio.capo',
+          x: me.x + 260, y: me.y - 170, rot: 2.5, vel: 42, hp: 140, maxHp: 140,
+          k: 'm', fz: 'i', fp: 'capitana_mercantile', gp: [0, 0, 0, 0], gw: [], sl: 0, tp: 0 },
+        { id: 'mock-marina', name: 'Cacciatore di Taglie', nk: 'npc.cacciatore',
+          x: me.x - 270, y: me.y - 150, rot: 0.45, vel: 82, hp: 320, maxHp: 320,
+          k: 'g', fz: 'r', fp: 'capitana', gp: [2, 2, 0, 0], gw: ['n3n3', 'n3n3', '', ''], sl: 0, tp: 0 },
+        { id: 'mock-libera', name: 'Corsaro Fantasma', nk: 'npc.ghost',
+          x: me.x + 40, y: me.y + 250, rot: -1.4, vel: 66, hp: 320, maxHp: 320,
+          k: 'g', fz: 'c', fp: 'senzanome', gp: [2, 2, 0, 0], gw: ['n2n2', 'n2n2', '', ''], sl: 0, tp: 0 },
       );
     }
   }

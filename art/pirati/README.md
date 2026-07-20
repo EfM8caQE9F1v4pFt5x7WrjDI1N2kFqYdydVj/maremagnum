@@ -55,12 +55,19 @@ generate con lo strumento integrato `imagegen`; il chroma è stato rimosso
 localmente con matte morbido e despill. I WebP runtime sono 320×320 con alpha,
 qualità 82 e lato utile massimo di 292 px.
 
-## Passaggio successivo
+## Pipeline animata
 
-I quindici ritagli RGBA sono sorgenti di produzione, non sprite già animati. Il
-passaggio successivo è segmentare ogni figura in parti indipendenti, ricostruire
-le zone nascoste nelle articolazioni e creare il rig 2D per idle, corsa, salto e
-attacco in PixiJS.
+I ritagli dipinti restano i ritratti canonici e le reference di identità. Gli
+sprite giocabili usano invece uno scheletro low-poly parametrico condiviso, con
+quindici ricette di corporatura, costume e accessori in
+`scripts/bake-pirati-page.js`. Questa scelta conserva silhouette nette alle
+scale da platform e picchiaduro senza tentare di deformare illustrazioni già
+dipinte.
+
+`npm run bake:pirati` produce `game/assets/pirati.webp` e i metadati associati:
+una riga per personaggio e quattro sequenze comuni — idle, corsa, salto e
+attacco. Il ritratto e il burattino hanno funzioni diverse ma condividono id,
+roster e direzione artistica.
 
 Gli id completi del roster sono: `mozzo, cuoca, nostromo, vedetta, mastrodascia,
 bucaniera, gabbiere, polena, mezzamiccia, timoniere, filodifumo, sergente,

@@ -40,6 +40,12 @@
   --green-done: #3e6b2f;
   --green-ink: #25330f;
   --danger: #a1261a;
+  --faction-ciurma: #a64d3d;
+  --faction-company: #9a7047;
+  --faction-navy: #416b9a;
+  --faction-ciurma-light: #f0937b;
+  --faction-company-light: #e0c58f;
+  --faction-navy-light: #a9c4e8;
   --death-bg: #241708;
   --death-sub: #d8c49a;
   --focus: #2a1a0c;
@@ -69,6 +75,7 @@
   --r-round: 50%;
 
   /* scala tipografica (corpi-font) */
+  --font-display: 'Pirata One', Georgia, serif;
   --t-2xs: 11px;
   --t-xs: 12px;
   --t-sm: 13px;

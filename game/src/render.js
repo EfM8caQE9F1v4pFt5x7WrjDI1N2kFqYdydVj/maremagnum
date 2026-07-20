@@ -30,6 +30,13 @@ function mulTint(a, b) {
   return (r << 16) | (g << 8) | bl;
 }
 
+const MARCHIO_FAZIONE = { c: '☠', i: '◆', r: '⚓' };
+const COLORE_FAZIONE = {
+  c: COL.factionCiurmaLight,
+  i: COL.factionCompanyLight,
+  r: COL.factionNavyLight,
+};
+
 // COL (la palette semantica del mondo) vive ora in palette.js, sorgente da
 // game/tokens.json: la STESSA fonte di verità della UI (issue #32).
 
@@ -1151,7 +1158,8 @@ export class Renderer {
   // sloop, lvl2-3 un brigantino, lvl4 un galeone; con anche le vele al
   // massimo il galeone si veste d'oro.
   shipClass(s) {
-    if (s.k === 'g') return 'fantasma';
+    if (s.k === 'g' && s.fz !== 'r') return 'fantasma';
+    if (s.k === 'g' && s.fz === 'r') return 'guerra';
     if (s.k === 'm') return 'mercantile';
     // la scala visiva DENTRO ogni tipo (issue #11): con scafo e vele al
     // massimo si diventa VETERANI — castello in più e pomi d'oro in testa
@@ -1212,7 +1220,7 @@ export class Renderer {
     // finché scarica (o se manca) si resta sul legno — mai un buco
     if (s.lv && this.livree[s.lv] === undefined) this.loadLivrea(s.lv);
     const liv = s.lv && this.livree[s.lv] && this.livree[s.lv].frames[classe] ? this.livree[s.lv] : null;
-    const key = mode + '|' + s.k + '|' + classe + '|' + (liv ? s.lv : '') + '|' + (s.ve || '') + '|' + (s.gp || []).join(',') + '|' + (s.gw || []).join(',') + (s.id === selfId ? '|S' : '');
+    const key = mode + '|' + s.k + '|' + (s.fz || '') + '|' + classe + '|' + (liv ? s.lv : '') + '|' + (s.ve || '') + '|' + (s.gp || []).join(',') + '|' + (s.gw || []).join(',') + (s.id === selfId ? '|S' : '');
     if (c.buildKey === key) return;
     c.buildKey = key;
     if (c.body) c.body.destroy({ children: true });
@@ -1221,7 +1229,7 @@ export class Renderer {
     c.addChildAt(body, (c.glow ? 1 : 0) + (c.ring ? 1 : 0));
     c.body = body;
 
-    const ghost = s.k === 'g', merc = s.k === 'm';
+    const ghost = s.k === 'g' && s.fz !== 'r', merc = s.k === 'm';
 
     if (cotta) {
       // nave cotta: sprite pre-renderizzato + portelli che ruotano continui
@@ -1408,7 +1416,7 @@ export class Renderer {
         text: nomeNave(s),
         style: {
           fontFamily: 'Atkinson Hyperlegible Next, sans-serif', fontSize: 13,
-          fill: s.id === selfId ? 0xbfe8a8 : (s.k === 'g' ? 0xf0937b : s.k === 'm' ? 0xcfd6d9 : s.k === 'x' ? 0xc9a0e8 : 0xffc9b0),
+          fill: s.id === selfId ? 0xbfe8a8 : (COLORE_FAZIONE[s.fz] || (s.k === 'x' ? 0xc9a0e8 : 0xffc9b0)),
           stroke: { color: 0x1a1208, width: 3 },
         },
       });
@@ -1502,7 +1510,8 @@ export class Renderer {
         // il nome nella lingua corrente (i18n fetta 2): gli NPC per chiave —
         // e siccome si ricompone a ogni frame, il cambio lingua rinfresca
         // le targhette da solo
-        const testo = (alleato ? '🤝 ' : '') + (s.gt ? '[' + s.gt + '] ' : '') + nomeNave(s);
+        const marchio = MARCHIO_FAZIONE[s.fz] ? MARCHIO_FAZIONE[s.fz] + ' ' : '';
+        const testo = (alleato ? '🤝 ' : '') + marchio + (s.gt ? '[' + s.gt + '] ' : '') + nomeNave(s);
         const bfKey = (!s.gt && Array.isArray(s.bf)) ? s.bf.join('.') : '';
         if (c.label.text !== testo || c.tagBf !== bfKey) {
           c.label.text = testo;

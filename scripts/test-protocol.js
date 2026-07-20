@@ -101,6 +101,16 @@ async function main() {
     ok(A.welcome.you.crewLvl === 4, 'punti nave dal profilo (Ciurma 4)');
     ok(B.welcome.you.helmLvl === 4 && B.welcome.you.holdLvl === 2 && B.welcome.you.gold === 1000,
       'Stiva di Olonese dal profilo, timone tosato al tetto (99 → 4)');
+    await sleep(250);
+    const fazioneA = A.me();
+    const mercante = A.snap && A.snap.ships.find(s => s.k === 'm');
+    const fantasma = A.snap && A.snap.ships.find(s => s.k === 'g' && !s.cv);
+    ok(fazioneA && fazioneA.fz === 'c' && fazioneA.fp === 'mozzo',
+      'protocollo fazioni: capitano della Ciurma col pirata prescelto');
+    ok(mercante && mercante.fz === 'i' && mercante.fp,
+      'protocollo fazioni: mercantile della Compagnia con un volto');
+    ok(fantasma && fantasma.fz === 'c' && fantasma.fp,
+      'protocollo fazioni: Corsaro Fantasma senza corona');
     const bDiA = await A.wait(m => m.t === 'bacheca' && Array.isArray(m.giornaliere) && m.giornaliere.length === 3, 4000);
     ok(!!bDiA, 'le tre del giorno arrivano al join, auto-attive (niente offerte da accettare)');
 

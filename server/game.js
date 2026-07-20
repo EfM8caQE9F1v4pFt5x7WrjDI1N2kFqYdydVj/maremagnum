@@ -17,6 +17,7 @@ const og = require('./og-core');
 const { Alleanze, quotaAlleanza } = require('./alleanze');
 const vento = require('./vento');
 const pirati = require('./pirati');
+const fazioni = require('./fazioni');
 
 const TICK = 1 / 30;          // simulazione a 30Hz
 const SNAP_EVERY = 2;         // snapshot ai client a 15Hz
@@ -38,7 +39,7 @@ const RESA = { soglia: 0.3, durata: 25, bottino: 150, cooldown: 180, hpRitorno: 
 const CICLO_GIORNO_S = 480;
 const NOTTE = { da: 0.655, a: 0.895, cacciaFantasmi: 650 };
 // Le carovane scortate (issue #41, fette 3 e 4): un capo panciuto coi
-// fantasmi di scorta, in rotta annunciata tra due isole vere. Attacchi uno,
+// scorte della Marina britannica, in rotta annunciata tra due isole vere. Attacchi uno,
 // rispondono tutti — l'ecologia delle prede di Pirates!. Il convoglio è il
 // pane; il GALEONE DEL TESORO è la festa: raro, corazzato, guardia serrata —
 // e il suo oro si prende col TOCCO: chi lo affonda lo manda negli abissi.
@@ -2649,6 +2650,7 @@ class Game {
     const ships = [];
     for (const s of this.ships.values()) {
       const scia = livree.sciaDi(s);
+      const presenza = fazioni.presenzaDellaNave(s);
       // l'abilità in corso (#41 fetta 2-bis): la minaccia si legge — il tipo
       // (tp) dice QUALE abilità, ab dice per quanti secondi ancora
       const abUntil = Math.max(s.ramUntil || 0, s.doubleUntil || 0, s.ventoUntil || 0);
@@ -2682,6 +2684,9 @@ class Game {
         // il NOME a chiave degli NPC (i18n fetta 2): il client lo compone
         // nella sua lingua; i capitani veri restano col loro nome
         ...(s.npc ? { nk: this.nkNave(s) } : {}),
+        // la società del mare: fazione + volto rappresentativo. Additivi:
+        // client vecchi ignorano, quelli nuovi distinguono ruoli e bandiere.
+        ...(presenza ? { fz: presenza.codice, fp: presenza.personaggio } : {}),
         // i mostri (audit 2/3): specie e stato, additivi — so=1 sommerso
         // pieno, so∈(0,1) mentre EMERGE (frazione di gonfiarsi che manca:
         // il client scala l'ombra man mano che so scende verso 0)

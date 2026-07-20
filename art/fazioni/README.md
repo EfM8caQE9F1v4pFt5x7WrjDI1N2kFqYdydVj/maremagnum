@@ -13,6 +13,12 @@ I roster canonici e i ganci individuali sono in ../DIREZIONE-ARTISTICA.md.
 server/fazioni.js espone i 45 asset senza aggiungere Compagnia e Marina agli
 sblocchi della Ciurma pirata.
 
+Nel mare le tre bandiere hanno un mestiere concreto: la Ciurma Libera comprende
+capitani e Corsari Fantasma; la Compagnia possiede mercantili, convogli e
+Galeone del Tesoro; la Marina arma scorte e Cacciatori di Taglie. Fazione e
+personaggio rappresentativo viaggiano nello snapshot come campi additivi `fz`
+e `fp`.
+
 ## Prompt comuni
 
 Tutti gli asset usano concept art 2D in realismo stilizzato, figura intera a

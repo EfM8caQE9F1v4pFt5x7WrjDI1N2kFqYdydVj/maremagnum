@@ -15,3 +15,9 @@ export const PAL = { ...tokens.color };
 // interi 0x per PixiJS: la palette semantica del mondo (era COL in render.js)
 export const COL = { gold: int(tokens.color.gold) };
 for (const [nome, hex] of Object.entries(tokens.canvas)) COL[nome] = int(hex);
+COL.factionCiurma = int(tokens.color['faction-ciurma']);
+COL.factionCompany = int(tokens.color['faction-company']);
+COL.factionNavy = int(tokens.color['faction-navy']);
+COL.factionCiurmaLight = int(tokens.color['faction-ciurma-light']);
+COL.factionCompanyLight = int(tokens.color['faction-company-light']);
+COL.factionNavyLight = int(tokens.color['faction-navy-light']);
